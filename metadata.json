@@ -1,0 +1,6 @@
+{
+  "name": "FarmaJá",
+  "description": "Aplicação para Angola para encontrar e reservar medicamentos disponíveis em farmácias próximas (Luanda, Benguela, Huambo, etc.) com Material Design 3.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
