@@ -88,7 +88,7 @@ class PharmaciesScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.between,
+                        MainAxisAlignment.spaceBetween
                         children: [
                           Expanded(
                             child: Text(
