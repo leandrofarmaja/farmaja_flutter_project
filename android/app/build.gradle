@@ -14,7 +14,7 @@ if (localPropertiesFile.exists()) {
 
 android {
     namespace "ao.farmaja.app"
-    compileSdk 34
+    compileSdk 36
     ndkVersion flutter.ndkVersion
 
     compileOptions {
