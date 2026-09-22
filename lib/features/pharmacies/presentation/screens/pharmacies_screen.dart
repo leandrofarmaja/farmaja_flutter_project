@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../domain/pharmacy_model.dart';
-import '../../reviews/presentation/widgets/pharmacy_reviews_list_widget.dart';
+import '../../../reviews/presentation/widgets/pharmacy_reviews_list_widget.dart';
 import '../providers/pharmacies_provider.dart';
 
 class PharmaciesScreen extends ConsumerWidget {
