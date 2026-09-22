@@ -431,7 +431,7 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween 
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(pay.pharmacyName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     Chip(
