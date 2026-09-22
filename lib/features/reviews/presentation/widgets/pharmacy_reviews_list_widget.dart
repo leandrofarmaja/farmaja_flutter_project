@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/supabase_database_service.dart';
-import '../../domain/pharmacy_model.dart';
+import '../../../pharmacies/domain/pharmacy_model.dart';
 import '../../../reviews/presentation/widgets/pharmacy_reviews_list_widget.dart';
 
 class PharmaciesScreen extends StatefulWidget {
