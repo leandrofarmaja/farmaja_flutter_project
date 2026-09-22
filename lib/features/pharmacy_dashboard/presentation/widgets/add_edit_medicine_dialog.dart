@@ -36,14 +36,36 @@ class _AddEditMedicineDialogState extends State<AddEditMedicineDialog> {
   @override
   void initState() {
     super.initState();
+
     final med = widget.medicine;
-    _nameController = TextEditingController(text: med?.name ?? '');
-    _activeIngredientController = TextEditingController(text: med?.activeIngredient ?? '');
-    _categoryController = TextEditingController(text: med?.category ?? 'Analgésicos');
-    _dosageController = TextEditingController(text: med?.dosage ?? 'Caixa de 20 Comprimidos');
-    _priceController = TextEditingController(text: med?.priceKz.toInt().toString() ?? '1500');
-    _stockController = TextEditingController(text: med?.stockQuantity.toString() ?? '20');
-    _descriptionController = TextEditingController(text: med?.description ?? '');
+
+    _nameController = TextEditingController(
+      text: med?.name ?? '',
+    );
+
+    _activeIngredientController = TextEditingController(
+      text: med?.activeIngredient ?? '',
+    );
+
+    _categoryController = TextEditingController(
+      text: med?.category ?? 'Analgésicos',
+    );
+
+    _dosageController = TextEditingController(
+      text: med?.dosage ?? 'Caixa de 20 Comprimidos',
+    );
+
+    _priceController = TextEditingController(
+      text: med?.priceKz.toInt().toString() ?? '1500',
+    );
+
+    _stockController = TextEditingController(
+      text: med?.stockQuantity.toString() ?? '20',
+    );
+
+    _descriptionController = TextEditingController(
+      text: med?.description ?? '',
+    );
 
     _requiresPrescription = med?.requiresPrescription ?? false;
     _isGeneric = med?.isGeneric ?? false;
@@ -65,17 +87,29 @@ class _AddEditMedicineDialogState extends State<AddEditMedicineDialog> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      final stock = int.tryParse(_stockController.text.trim()) ?? 0;
-      final price = double.tryParse(_priceController.text.trim()) ?? 0.0;
+      final stock =
+          int.tryParse(_stockController.text.trim()) ?? 0;
+
+      final price =
+          double.tryParse(_priceController.text.trim()) ?? 0.0;
+
+      final dosageInstructions =
+          _dosageController.text.trim().isEmpty
+              ? 'Seguir as indicações da bula ou orientação de um profissional de saúde.'
+              : _dosageController.text.trim();
 
       final model = MedicineModel(
-        id: widget.medicine?.id ?? 'med-${DateTime.now().millisecondsSinceEpoch}',
+        id: widget.medicine?.id ??
+            'med-${DateTime.now().millisecondsSinceEpoch}',
         name: _nameController.text.trim(),
         activeIngredient: _activeIngredientController.text.trim(),
         category: _categoryController.text.trim(),
         dosage: _dosageController.text.trim(),
+        dosageInstructions: dosageInstructions,
         priceKz: price,
-        pharmacyName: widget.medicine?.pharmacyName ?? 'Farmácia Mecofarma Talatona',
+        pharmacyName:
+            widget.medicine?.pharmacyName ??
+                'Farmácia Mecofarma Talatona',
         province: _selectedProvince,
         district: _selectedDistrict,
         inStock: stock > 0,
@@ -97,136 +131,224 @@ class _AddEditMedicineDialogState extends State<AddEditMedicineDialog> {
     final isEditing = widget.medicine != null;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        maxWidth: 500,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
-                  children: [
-                    Text(
-                      isEditing ? 'Editar Medicamento' : 'Novo Medicamento',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const Divider(),
-                const SizedBox(height: 12),
-
-                // Name
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nome do Medicamento *',
-                    prefixIcon: Icon(Icons.medication_rounded),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: 500,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment:
+                        MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        isEditing
+                            ? 'Editar Medicamento'
+                            : 'Novo Medicamento',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.close_rounded,
+                        ),
+                        onPressed: () =>
+                            Navigator.pop(context),
+                      ),
+                    ],
                   ),
-                  validator: (v) => v == null || v.isEmpty ? 'Insira o nome' : null,
-                ),
-                const SizedBox(height: 12),
 
-                // Active Ingredient
-                TextFormField(
-                  controller: _activeIngredientController,
-                  decoration: const InputDecoration(
-                    labelText: 'Princípio Ativo *',
-                    prefixIcon: Icon(Icons.science_rounded),
+                  const Divider(),
+                  const SizedBox(height: 12),
+
+                  // Nome
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nome do Medicamento *',
+                      prefixIcon:
+                          Icon(Icons.medication_rounded),
+                    ),
+                    validator: (v) =>
+                        v == null || v.isEmpty
+                            ? 'Insira o nome'
+                            : null,
                   ),
-                  validator: (v) => v == null || v.isEmpty ? 'Insira o princípio ativo' : null,
-                ),
-                const SizedBox(height: 12),
 
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _priceController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Preço (Kz) *',
-                          prefixIcon: Icon(Icons.payments_rounded),
-                        ),
-                        validator: (v) => v == null || v.isEmpty ? 'Insira o preço' : null,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _stockController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Quantidade em Stock *',
-                          prefixIcon: Icon(Icons.inventory_2_rounded),
-                        ),
-                        validator: (v) => v == null || v.isEmpty ? 'Insira o stock' : null,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _categoryController,
-                        decoration: const InputDecoration(
-                          labelText: 'Categoria',
-                          prefixIcon: Icon(Icons.category_rounded),
-                        ),
-                      ),
+                  // Princípio Ativo
+                  TextFormField(
+                    controller:
+                        _activeIngredientController,
+                    decoration: const InputDecoration(
+                      labelText: 'Princípio Ativo *',
+                      prefixIcon:
+                          Icon(Icons.science_rounded),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _dosageController,
-                        decoration: const InputDecoration(
-                          labelText: 'Dosagem / Apresentação',
-                          prefixIcon: Icon(Icons.inventory_rounded),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Switches for Prescription & Generic
-                SwitchListTile(
-                  title: const Text('Exige Receita Médica', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('O cliente deverá carregar a receita para reservar.', style: TextStyle(fontSize: 11)),
-                  value: _requiresPrescription,
-                  activeColor: AppColors.primary,
-                  onChanged: (v) => setState(() => _requiresPrescription = v),
-                ),
-                SwitchListTile(
-                  title: const Text('Medicamento Genérico', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Marque se for uma alternativa genérica.', style: TextStyle(fontSize: 11)),
-                  value: _isGeneric,
-                  activeColor: AppColors.primary,
-                  onChanged: (v) => setState(() => _isGeneric = v),
-                ),
-                const SizedBox(height: 16),
-
-                // Save button
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    icon: const Icon(Icons.save_rounded),
-                    label: Text(isEditing ? 'Guardar Alterações' : 'Adicionar ao Stock'),
-                    onPressed: _submit,
+                    validator: (v) =>
+                        v == null || v.isEmpty
+                            ? 'Insira o princípio ativo'
+                            : null,
                   ),
-                ),
-              ],
+
+                  const SizedBox(height: 12),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _priceController,
+                          keyboardType:
+                              TextInputType.number,
+                          decoration:
+                              const InputDecoration(
+                            labelText: 'Preço (Kz) *',
+                            prefixIcon:
+                                Icon(Icons.payments_rounded),
+                          ),
+                          validator: (v) =>
+                              v == null || v.isEmpty
+                                  ? 'Insira o preço'
+                                  : null,
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      Expanded(
+                        child: TextFormField(
+                          controller: _stockController,
+                          keyboardType:
+                              TextInputType.number,
+                          decoration:
+                              const InputDecoration(
+                            labelText:
+                                'Quantidade em Stock *',
+                            prefixIcon: Icon(
+                              Icons.inventory_2_rounded,
+                            ),
+                          ),
+                          validator: (v) =>
+                              v == null || v.isEmpty
+                                  ? 'Insira o stock'
+                                  : null,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _categoryController,
+                          decoration:
+                              const InputDecoration(
+                            labelText: 'Categoria',
+                            prefixIcon:
+                                Icon(Icons.category_rounded),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      Expanded(
+                        child: TextFormField(
+                          controller: _dosageController,
+                          decoration:
+                              const InputDecoration(
+                            labelText:
+                                'Dosagem / Apresentação',
+                            prefixIcon: Icon(
+                              Icons.inventory_rounded,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Receita médica
+                  SwitchListTile(
+                    title: const Text(
+                      'Exige Receita Médica',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'O cliente deverá carregar a receita para reservar.',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    value: _requiresPrescription,
+                    activeColor: AppColors.primary,
+                    onChanged: (v) {
+                      setState(() {
+                        _requiresPrescription = v;
+                      });
+                    },
+                  ),
+
+                  // Genérico
+                  SwitchListTile(
+                    title: const Text(
+                      'Medicamento Genérico',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Marque se for uma alternativa genérica.',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    value: _isGeneric,
+                    activeColor: AppColors.primary,
+                    onChanged: (v) {
+                      setState(() {
+                        _isGeneric = v;
+                      });
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Guardar
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: const Icon(
+                        Icons.save_rounded,
+                      ),
+                      label: Text(
+                        isEditing
+                            ? 'Guardar Alterações'
+                            : 'Adicionar ao Stock',
+                      ),
+                      onPressed: _submit,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
