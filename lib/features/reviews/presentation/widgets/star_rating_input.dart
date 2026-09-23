@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/constants/app_colors.dart';
 
 class StarRatingInput extends StatelessWidget {
@@ -39,7 +40,9 @@ class StarRatingInput extends StatelessWidget {
         color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: rating > 0 && rating <= 2 ? Colors.red.shade300 : AppColors.borderLight,
+          color: rating > 0 && rating <= 2
+              ? Colors.red.shade300
+              : AppColors.borderLight,
           width: rating > 0 && rating <= 2 ? 1.5 : 1,
         ),
       ),
@@ -47,7 +50,7 @@ class StarRatingInput extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.between,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Text(
@@ -72,27 +75,41 @@ class StarRatingInput extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             description,
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondaryLight),
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondaryLight,
+            ),
           ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(5, (index) {
-              final starValue = index + 1.0;
-              final isSelected = starValue <= rating;
-              return InkWell(
-                onTap: () => onRatingChanged(starValue),
-                borderRadius: BorderRadius.circular(24),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
-                  child: Icon(
-                    isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
-                    size: 36,
-                    color: isSelected ? _getRatingColor(rating) : Colors.grey.shade400,
+            children: List.generate(
+              5,
+              (index) {
+                final starValue = index + 1.0;
+                final isSelected = starValue <= rating;
+
+                return InkWell(
+                  onTap: () => onRatingChanged(starValue),
+                  borderRadius: BorderRadius.circular(24),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6.0,
+                      vertical: 4.0,
+                    ),
+                    child: Icon(
+                      isSelected
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
+                      size: 36,
+                      color: isSelected
+                          ? _getRatingColor(rating)
+                          : Colors.grey.shade400,
+                    ),
                   ),
-                ),
-              );
-            }),
+                );
+              },
+            ),
           ),
         ],
       ),
