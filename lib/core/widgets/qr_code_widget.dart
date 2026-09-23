@@ -1,371 +1,180 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/widgets/qr_code_widget.dart';
-import '../../domain/reservation_model.dart';
-import '../../../reviews/presentation/widgets/rate_experience_dialog.dart';
-import '../providers/reservations_provider.dart';
+import '../constants/app_colors.dart';
 
-class ReservationsScreen extends ConsumerWidget {
-  const ReservationsScreen({super.key});
+class QrCodeWidget extends StatelessWidget {
+  final String data;
+  final double size;
+  final Color color;
+  final Color backgroundColor;
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final reservations = ref.watch(reservationsProvider);
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Minhas Reservas',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0,
-      ),
-      body: reservations.isEmpty
-          ? const _EmptyReservations()
-          : RefreshIndicator(
-              onRefresh: () async {
-                await ref
-                    .read(reservationsProvider.notifier)
-                    .fetchReservations();
-              },
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: reservations.length,
-                itemBuilder: (context, index) {
-                  final reservation = reservations[index];
-
-                  return _ReservationCard(
-                    reservation: reservation,
-                    onRating: () {
-                      _showRatingDialog(
-                        context,
-                        ref,
-                        reservation,
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-    );
-  }
-
-  void _showRatingDialog(
-    BuildContext context,
-    WidgetRef ref,
-    ReservationModel reservation,
-  ) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return RateExperienceDialog(
-          reservation: reservation,
-          onSubmitted: () {
-            ref
-                .read(reservationsProvider.notifier)
-                .fetchReservations();
-          },
-        );
-      },
-    );
-  }
-}
-
-class _EmptyReservations extends StatelessWidget {
-  const _EmptyReservations();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.receipt_long_outlined,
-              size: 64,
-              color: Colors.grey,
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Ainda não possui reservas.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'As suas reservas de medicamentos aparecerão aqui.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ReservationCard extends StatelessWidget {
-  final ReservationModel reservation;
-  final VoidCallback onRating;
-
-  const _ReservationCard({
-    required this.reservation,
-    required this.onRating,
+  const QrCodeWidget({
+    super.key,
+    required this.data,
+    this.size = 180,
+    this.color = AppColors.primaryDark,
+    this.backgroundColor = Colors.white,
   });
 
-  Color _statusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return Colors.blue;
-
-      case 'completed':
-        return Colors.green;
-
-      case 'expired':
-        return Colors.red;
-
-      case 'pending':
-        return Colors.orange;
-
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _statusText(String status) {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'Ativa';
-
-      case 'completed':
-        return 'Concluída';
-
-      case 'expired':
-        return 'Expirada';
-
-      case 'pending':
-        return 'Pendente';
-
-      default:
-        return status;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final statusColor = _statusColor(reservation.status);
-
-    final canRate =
-        reservation.status.toLowerCase() == 'completed' &&
-            !reservation.isReviewed;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 1,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: Colors.grey.shade200,
+        border: Border.all(
+          color: AppColors.borderLight,
+          width: 2,
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    reservation.pharmacyName,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    _statusText(reservation.status),
-                    style: TextStyle(
-                      color: statusColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _InfoRow(
-              icon: Icons.medication_outlined,
-              label: 'Medicamento',
-              value: reservation.medicineName,
-            ),
-            _InfoRow(
-              icon: Icons.payments_outlined,
-              label: 'Valor',
-              value:
-                  '${reservation.totalPriceKz.toStringAsFixed(2)} Kz',
-            ),
-            _InfoRow(
-              icon: Icons.calendar_today_outlined,
-              label: 'Data da reserva',
-              value: reservation.reservationDate,
-            ),
-            _InfoRow(
-              icon: Icons.access_time_outlined,
-              label: 'Expira em',
-              value: reservation.expiryDate,
-            ),
-            _InfoRow(
-              icon: Icons.qr_code_2_rounded,
-              label: 'Código de levantamento',
-              value: reservation.pickupCode,
-            ),
-            _InfoRow(
-              icon: reservation.prescriptionUploaded
-                  ? Icons.description_rounded
-                  : Icons.description_outlined,
-              label: 'Receita',
-              value: reservation.prescriptionUploaded
-                  ? 'Enviada'
-                  : 'Não enviada',
-            ),
-            if (reservation.reviewRating != null)
-              _InfoRow(
-                icon: Icons.star_rounded,
-                label: 'Sua avaliação',
-                value:
-                    '${reservation.reviewRating!.toStringAsFixed(1)} / 5',
-              ),
-            const SizedBox(height: 12),
-            if (reservation.pickupCode.isNotEmpty)
-              Center(
-                child: QrCodeWidget(
-                  data: reservation.pickupCode,
-                ),
-              ),
-            if (canRate) ...[
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: onRating,
-                  icon: const Icon(
-                    Icons.star_rate_rounded,
-                  ),
-                  label: const Text(
-                    'Avaliar experiência',
-                  ),
-                ),
-              ),
-            ],
-            if (reservation.isReviewed) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.check_circle_outline_rounded,
-                      size: 18,
-                      color: Colors.green,
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Esta reserva já foi avaliada.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _InfoRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            size: 19,
-            color: AppColors.primary,
-          ),
-          const SizedBox(width: 10),
-          Text(
-            '$label: ',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13,
-              ),
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
+      child: CustomPaint(
+        size: Size(
+          size - 24,
+          size - 24,
+        ),
+        painter: _QrPainter(
+          data: data,
+          codeColor: color,
+        ),
+      ),
     );
+  }
+}
+
+class _QrPainter extends CustomPainter {
+  final String data;
+  final Color codeColor;
+
+  _QrPainter({
+    required this.data,
+    required this.codeColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = codeColor
+      ..style = PaintingStyle.fill;
+
+    const gridSize = 15;
+    final cellSize = size.width / gridSize;
+
+    final bytes = utf8.encode(data);
+
+    int seed = 0;
+
+    for (var b in bytes) {
+      seed = (seed * 31 + b) & 0x7FFFFFFF;
+    }
+
+    bool isBitSet(int row, int column) {
+      // Marcador superior esquerdo
+      if (row < 4 && column < 4) {
+        if (row == 0 ||
+            row == 3 ||
+            column == 0 ||
+            column == 3) {
+          return true;
+        }
+
+        if (row >= 1 &&
+            row <= 2 &&
+            column >= 1 &&
+            column <= 2) {
+          return true;
+        }
+
+        return false;
+      }
+
+      // Marcador superior direito
+      if (row < 4 && column >= gridSize - 4) {
+        if (row == 0 ||
+            row == 3 ||
+            column == gridSize - 1 ||
+            column == gridSize - 4) {
+          return true;
+        }
+
+        if (row >= 1 &&
+            row <= 2 &&
+            column >= gridSize - 3 &&
+            column <= gridSize - 2) {
+          return true;
+        }
+
+        return false;
+      }
+
+      // Marcador inferior esquerdo
+      if (row >= gridSize - 4 && column < 4) {
+        if (row == gridSize - 1 ||
+            row == gridSize - 4 ||
+            column == 0 ||
+            column == 3) {
+          return true;
+        }
+
+        if (row >= gridSize - 3 &&
+            row <= gridSize - 2 &&
+            column >= 1 &&
+            column <= 2) {
+          return true;
+        }
+
+        return false;
+      }
+
+      // Linha e coluna de sincronização
+      if (row == 6 || column == 6) {
+        return (row + column) % 2 == 0;
+      }
+
+      final position = row * gridSize + column;
+
+      final hash =
+          (seed ^ (position * 2654435761)) & 0x7FFFFFFF;
+
+      return (hash % 3) == 0 || (hash % 5) == 0;
+    }
+
+    for (int row = 0; row < gridSize; row++) {
+      for (int column = 0; column < gridSize; column++) {
+        if (isBitSet(row, column)) {
+          final rect = Rect.fromLTWH(
+            column * cellSize + 0.5,
+            row * cellSize + 0.5,
+            cellSize - 1,
+            cellSize - 1,
+          );
+
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              rect,
+              const Radius.circular(1.5),
+            ),
+            paint,
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _QrPainter oldDelegate) {
+    return oldDelegate.data != data ||
+        oldDelegate.codeColor != codeColor;
   }
 }
