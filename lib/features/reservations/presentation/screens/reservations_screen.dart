@@ -3,109 +3,139 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/qr_code_widget.dart';
+import '../../domain/reservation_model.dart';
 import '../../../reviews/presentation/widgets/rate_experience_dialog.dart';
 import '../providers/reservations_provider.dart';
 
 class ReservationsScreen extends ConsumerWidget {
   const ReservationsScreen({super.key});
 
-  void _showQrCodeModal(
-    BuildContext context,
-    String medicineName,
-    String pickupCode,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reservationsState = ref.watch(reservationsProvider);
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text(
+          'Minhas Reservas',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
         ),
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.textPrimary,
+        elevation: 0,
       ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Apresente o QR Code na Farmácia',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              medicineName,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondaryLight,
-              ),
-            ),
-            const SizedBox(height: 20),
-            QrCodeWidget(
-              data: pickupCode,
-              size: 200,
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'Código: $pickupCode',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.primaryDark,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+      body: reservationsState.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(),
+        ),
+        error: (error, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.timer_outlined,
-                  size: 16,
-                  color: Colors.orange,
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 48,
+                  color: Colors.red,
                 ),
-                SizedBox(width: 6),
-                Text(
-                  'Reserva válida por 2 horas a contar da criação',
+                const SizedBox(height: 12),
+                const Text(
+                  'Não foi possível carregar as reservas.',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.orange,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  '$error',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () {
+                    ref
+                        .read(reservationsProvider.notifier)
+                        .loadReservations();
+                  },
+                  child: const Text('Tentar novamente'),
+                ),
               ],
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Fechar'),
-              ),
-            ),
-          ],
+          ),
         ),
+        data: (reservations) {
+          if (reservations.isEmpty) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.receipt_long_outlined,
+                      size: 64,
+                      color: Colors.grey,
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Ainda não possui reservas.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'As suas reservas de medicamentos aparecerão aqui.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              await ref
+                  .read(reservationsProvider.notifier)
+                  .loadReservations();
+            },
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: reservations.length,
+              itemBuilder: (context, index) {
+                final reservation = reservations[index];
+
+                return _ReservationCard(
+                  reservation: reservation,
+                  onRating: () {
+                    _showRatingDialog(
+                      context,
+                      ref,
+                      reservation,
+                    );
+                  },
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
@@ -117,407 +147,228 @@ class ReservationsScreen extends ConsumerWidget {
   ) {
     showDialog(
       context: context,
-      builder: (context) => RateExperienceDialog(
-        reservation: res,
-        onSubmitted: () {
-          ref
-              .read(reservationsProvider.notifier)
-              .markReservationReviewed(
-                res.id,
-                5.0,
-              );
-        },
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return RateExperienceDialog(
+          reservation: res,
+          onSubmitted: () {
+            ref
+                .read(reservationsProvider.notifier)
+                .loadReservations();
+          },
+        );
+      },
+    );
+  }
+}
+
+class _ReservationCard extends StatelessWidget {
+  final ReservationModel reservation;
+  final VoidCallback onRating;
+
+  const _ReservationCard({
+    required this.reservation,
+    required this.onRating,
+  });
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'concluida':
+      case 'concluída':
+        return Colors.green;
+
+      case 'cancelled':
+      case 'cancelada':
+        return Colors.red;
+
+      case 'confirmed':
+      case 'confirmada':
+        return Colors.blue;
+
+      case 'pending':
+      case 'pendente':
+        return Colors.orange;
+
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _statusText(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return 'Concluída';
+      case 'cancelled':
+        return 'Cancelada';
+      case 'confirmed':
+        return 'Confirmada';
+      case 'pending':
+        return 'Pendente';
+      default:
+        return status;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = _statusColor(reservation.status);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 1,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: Colors.grey.shade200,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    reservation.pharmacyName,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _statusText(reservation.status),
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 14),
+
+            if (reservation.medicationName != null &&
+                reservation.medicationName!.isNotEmpty)
+              _InfoRow(
+                icon: Icons.medication_outlined,
+                label: 'Medicamento',
+                value: reservation.medicationName!,
+              ),
+
+            if (reservation.quantity != null)
+              _InfoRow(
+                icon: Icons.numbers_rounded,
+                label: 'Quantidade',
+                value: '${reservation.quantity}',
+              ),
+
+            if (reservation.reservationDate != null)
+              _InfoRow(
+                icon: Icons.calendar_today_outlined,
+                label: 'Data',
+                value: _formatDate(
+                  reservation.reservationDate!,
+                ),
+              ),
+
+            const SizedBox(height: 12),
+
+            if (reservation.qrCode != null &&
+                reservation.qrCode!.isNotEmpty)
+              Center(
+                child: QRCodeWidget(
+                  data: reservation.qrCode!,
+                ),
+              ),
+
+            const SizedBox(height: 12),
+
+            if (reservation.status.toLowerCase() == 'completed' ||
+                reservation.status.toLowerCase() == 'concluida' ||
+                reservation.status.toLowerCase() == 'concluída')
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onRating,
+                  icon: const Icon(
+                    Icons.star_rate_rounded,
+                  ),
+                  label: const Text(
+                    'Avaliar experiência',
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year}';
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final reservations = ref.watch(reservationsProvider);
-
-    final unreviewedCompleted = reservations
-        .where(
-          (r) =>
-              r.status == 'completed' &&
-              !r.isReviewed,
-        )
-        .toList();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('As Minhas Reservas'),
-      ),
-      body: reservations.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.bookmark_border_rounded,
-                    size: 64,
-                    color: Colors.grey.shade400,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Nenhuma reserva ativa.',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Pesquise medicamentos e reserve na farmácia mais próxima.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                if (unreviewedCompleted.isNotEmpty) ...[
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.amber.shade300,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.star_rounded,
-                          color: Colors.amber,
-                          size: 36,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Avalie a sua experiência!',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              Text(
-                                'Possui ${unreviewedCompleted.length} reserva(s) concluída(s) para avaliar a farmácia e o app.',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor:
-                                Colors.amber.shade800,
-                          ),
-                          onPressed: () =>
-                              _showRatingDialog(
-                            context,
-                            ref,
-                            unreviewedCompleted.first,
-                          ),
-                          child: const Text('Avaliar Já'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                ...reservations.map((res) {
-                  final isCompleted =
-                      res.status == 'completed';
-
-                  return Card(
-                    margin: const EdgeInsets.only(
-                      bottom: 12,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  res.medicineName,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                padding:
-                                    const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isCompleted
-                                      ? Colors.green.shade50
-                                      : AppColors.primaryLight,
-                                  borderRadius:
-                                      BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: isCompleted
-                                        ? Colors.green.shade300
-                                        : AppColors.primaryDark,
-                                  ),
-                                ),
-                                child: Text(
-                                  isCompleted
-                                      ? '✓ Concluída e Entregue'
-                                      : 'Ativa (Validade 2h)',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: isCompleted
-                                        ? Colors.green.shade800
-                                        : AppColors.primaryDark,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '🏥 ${res.pharmacyName}',
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(
-                                isCompleted
-                                    ? Icons.check_circle_outline
-                                    : Icons.access_time_filled,
-                                size: 14,
-                                color: isCompleted
-                                    ? Colors.green
-                                    : Colors.orange,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  isCompleted
-                                      ? 'Levantamento confirmado na farmácia'
-                                      : res.expiryDate,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isCompleted
-                                        ? Colors.green.shade800
-                                        : Colors.orange,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceLight,
-                              borderRadius:
-                                  BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppColors.borderLight,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Código de Levantamento:',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    Text(
-                                      res.pickupCode,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight:
-                                            FontWeight.w900,
-                                        color:
-                                            AppColors.primary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                OutlinedButton.icon(
-                                  icon: const Icon(
-                                    Icons.qr_code_2_rounded,
-                                    size: 18,
-                                  ),
-                                  label: const Text(
-                                    'QR Code',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  onPressed: () =>
-                                      _showQrCodeModal(
-                                    context,
-                                    res.medicineName,
-                                    res.pickupCode,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          if (isCompleted) ...[
-                            if (res.isReviewed) ...[
-                              Container(
-                                width: double.infinity,
-                                padding:
-                                    const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                  horizontal: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.shade50,
-                                  borderRadius:
-                                      BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(
-                                      Icons.star_rounded,
-                                      color: Colors.amber,
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Avaliação Submetida (${res.reviewRating?.toStringAsFixed(1) ?? '5.0'}★)',
-                                      style: TextStyle(
-                                        color:
-                                            Colors.green.shade900,
-                                        fontWeight:
-                                            FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ] else ...[
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton.icon(
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor:
-                                        Colors.amber.shade800,
-                                    padding:
-                                        const EdgeInsets.symmetric(
-                                      vertical: 10,
-                                    ),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.rate_review_rounded,
-                                    size: 18,
-                                  ),
-                                  label: const Text(
-                                    'Avaliar Experiência (Farmácia & App)',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  onPressed: () =>
-                                      _showRatingDialog(
-                                    context,
-                                    ref,
-                                    res,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ] else ...[
-                            TextButton.icon(
-                              icon: const Icon(
-                                Icons.check_circle_outline,
-                                size: 16,
-                              ),
-                              label: const Text(
-                                'Simular Conclusão de Levantamento',
-                                style: TextStyle(fontSize: 11),
-                              ),
-                              onPressed: () {
-                                ref
-                                    .read(
-                                      reservationsProvider
-                                          .notifier,
-                                    )
-                                    .fetchReservations();
-
-                                final updatedState = ref
-                                    .read(
-                                      reservationsProvider,
-                                    )
-                                    .map((r) {
-                                  if (r.id == res.id) {
-                                    return r.copyWith(
-                                      status: 'completed',
-                                    );
-                                  }
-                                  return r;
-                                }).toList();
-
-                                ref
-                                    .read(
-                                      reservationsProvider
-                                          .notifier,
-                                    )
-                                    .state = updatedState;
-
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Reserva marcada como concluída! Agora pode avaliá-la.',
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  );
-                }),
-              ],
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            size: 19,
+            color: AppColors.primary,
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
             ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
