@@ -24,7 +24,7 @@ class ReservationsScreen extends ConsumerWidget {
           ),
         ),
         backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: Colors.black87,
         elevation: 0,
       ),
       body: reservations.isEmpty
@@ -171,8 +171,9 @@ class _ReservationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = _statusColor(reservation.status);
 
-    final canRate = reservation.status.toLowerCase() == 'completed' &&
-        !reservation.isReviewed;
+    final canRate =
+        reservation.status.toLowerCase() == 'completed' &&
+            !reservation.isReviewed;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -221,40 +222,33 @@ class _ReservationCard extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 16),
-
             _InfoRow(
               icon: Icons.medication_outlined,
               label: 'Medicamento',
               value: reservation.medicineName,
             ),
-
             _InfoRow(
               icon: Icons.payments_outlined,
               label: 'Valor',
               value:
                   '${reservation.totalPriceKz.toStringAsFixed(2)} Kz',
             ),
-
             _InfoRow(
               icon: Icons.calendar_today_outlined,
               label: 'Data da reserva',
               value: reservation.reservationDate,
             ),
-
             _InfoRow(
               icon: Icons.access_time_outlined,
               label: 'Expira em',
               value: reservation.expiryDate,
             ),
-
             _InfoRow(
               icon: Icons.qr_code_2_rounded,
               label: 'Código de levantamento',
               value: reservation.pickupCode,
             ),
-
             _InfoRow(
               icon: reservation.prescriptionUploaded
                   ? Icons.description_rounded
@@ -264,7 +258,6 @@ class _ReservationCard extends StatelessWidget {
                   ? 'Enviada'
                   : 'Não enviada',
             ),
-
             if (reservation.reviewRating != null)
               _InfoRow(
                 icon: Icons.star_rounded,
@@ -272,16 +265,13 @@ class _ReservationCard extends StatelessWidget {
                 value:
                     '${reservation.reviewRating!.toStringAsFixed(1)} / 5',
               ),
-
             const SizedBox(height: 12),
-
             if (reservation.pickupCode.isNotEmpty)
               Center(
-                child: QRCodeWidget(
+                child: QrCodeWidget(
                   data: reservation.pickupCode,
                 ),
               ),
-
             if (canRate) ...[
               const SizedBox(height: 16),
               SizedBox(
@@ -297,7 +287,6 @@ class _ReservationCard extends StatelessWidget {
                 ),
               ),
             ],
-
             if (reservation.isReviewed) ...[
               const SizedBox(height: 12),
               Container(
