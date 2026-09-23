@@ -2,206 +2,232 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/supabase_database_service.dart';
-import '../../../pharmacies/domain/pharmacy_model.dart';
-import '../../../reviews/presentation/widgets/pharmacy_reviews_list_widget.dart';
+import '../../domain/review_model.dart';
 
-class PharmaciesScreen extends StatefulWidget {
-  const PharmaciesScreen({super.key});
+class PharmacyReviewsListWidget extends StatefulWidget {
+  final String pharmacyId;
+  final String pharmacyName;
+
+  const PharmacyReviewsListWidget({
+    super.key,
+    required this.pharmacyId,
+    required this.pharmacyName,
+  });
 
   @override
-  State<PharmaciesScreen> createState() => _PharmaciesScreenState();
+  State<PharmacyReviewsListWidget> createState() =>
+      _PharmacyReviewsListWidgetState();
 }
 
-class _PharmaciesScreenState extends State<PharmaciesScreen> {
-  final SupabaseDatabaseService _db = SupabaseDatabaseService();
+class _PharmacyReviewsListWidgetState
+    extends State<PharmacyReviewsListWidget> {
+  final SupabaseDatabaseService _db =
+      SupabaseDatabaseService();
 
-  List<PharmacyModel> _pharmacies = [];
+  List<ReviewModel> _reviews = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadPharmacies();
+    _loadReviews();
   }
 
-  Future<void> _loadPharmacies() async {
+  Future<void> _loadReviews() async {
     try {
-      final pharmacies = await _db.getAllPharmacies();
+      final reviews =
+          await _db.getReviewsForPharmacy(widget.pharmacyId);
 
       if (mounted) {
         setState(() {
-          _pharmacies = pharmacies;
+          _reviews = reviews;
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
+          _reviews = [];
           _isLoading = false;
         });
       }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Farmácias',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.primaryDark,
-        elevation: 0,
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
-          : _pharmacies.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Nenhuma farmácia encontrada.',
-                    style: TextStyle(
-                      color: Colors.grey,
-                    ),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadPharmacies,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _pharmacies.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final pharm = _pharmacies[index];
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year}';
+  }
 
-                      return Card(
-                        elevation: 1,
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () {
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.white,
-                              builder: (context) {
-                                return SafeArea(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: SingleChildScrollView(
-                                      child: PharmacyReviewsListWidget(
-                                        pharmacyId: pharm.id,
-                                        pharmacyName: pharm.name,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 56,
-                                  height: 56,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primaryLight,
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: const Icon(
-                                    Icons.local_pharmacy_rounded,
-                                    color: AppColors.primary,
-                                    size: 30,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        pharm.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 5),
-                                      Text(
-                                        pharm.address,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.star_rounded,
-                                            size: 18,
-                                            color: Colors.amber,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            pharm.rating.toStringAsFixed(1),
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          if (pharm.isOpen24h)
-                                            const Text(
-                                              '24h',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.green,
-                                              ),
-                                            ),
-                                          if (pharm.hasDelivery) ...[
-                                            const SizedBox(width: 10),
-                                            const Icon(
-                                              Icons.delivery_dining_rounded,
-                                              size: 18,
-                                              color: Colors.blue,
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: Colors.grey,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+  Widget _buildStars(double rating) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(
+        5,
+        (index) {
+          final starNumber = index + 1;
+
+          return Icon(
+            starNumber <= rating
+                ? Icons.star_rounded
+                : Icons.star_border_rounded,
+            size: 18,
+            color: Colors.amber,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildReviewCard(ReviewModel review) {
+    final comment = review.pharmacyComment?.trim() ?? '';
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: AppColors.primaryLight,
+                child: Text(
+                  review.userName.isNotEmpty
+                      ? review.userName[0].toUpperCase()
+                      : '?',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      review.userName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    _buildStars(review.pharmacyRating),
+                  ],
+                ),
+              ),
+              Text(
+                _formatDate(review.createdAt),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey,
+                ),
+              ),
+            ],
+          ),
+          if (comment.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              comment,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.rate_review_rounded,
+              color: AppColors.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Avaliações da ${widget.pharmacyName}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: _loadReviews,
+              icon: const Icon(
+                Icons.refresh_rounded,
+              ),
+              tooltip: 'Atualizar',
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 30),
+            child: Center(
+              child: CircularProgressIndicator(),
+            ),
+          )
+        else if (_reviews.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Column(
+              children: [
+                Icon(
+                  Icons.rate_review_outlined,
+                  size: 42,
+                  color: Colors.grey,
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'Ainda não existem avaliações.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Column(
+            children: _reviews
+                .map(_buildReviewCard)
+                .toList(),
+          ),
+      ],
     );
   }
 }
