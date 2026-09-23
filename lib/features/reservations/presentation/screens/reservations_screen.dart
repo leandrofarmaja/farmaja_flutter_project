@@ -24,43 +24,11 @@ class ReservationsScreen extends ConsumerWidget {
           ),
         ),
         backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: Colors.black87,
         elevation: 0,
       ),
       body: reservations.isEmpty
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.receipt_long_outlined,
-                      size: 64,
-                      color: Colors.grey,
-                    ),
-                    SizedBox(height: 16),
-                    Text(
-                      'Ainda não possui reservas.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'As suas reservas de medicamentos aparecerão aqui.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
+          ? const _EmptyReservations()
           : RefreshIndicator(
               onRefresh: () async {
                 await ref
@@ -111,6 +79,47 @@ class ReservationsScreen extends ConsumerWidget {
   }
 }
 
+class _EmptyReservations extends StatelessWidget {
+  const _EmptyReservations();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.receipt_long_outlined,
+              size: 64,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Ainda não possui reservas.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'As suas reservas de medicamentos aparecerão aqui.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ReservationCard extends StatelessWidget {
   final ReservationModel reservation;
   final VoidCallback onRating;
@@ -122,21 +131,16 @@ class _ReservationCard extends StatelessWidget {
 
   Color _statusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'completed':
-      case 'concluida':
-      case 'concluída':
-        return Colors.green;
-
-      case 'cancelled':
-      case 'cancelada':
-        return Colors.red;
-
-      case 'confirmed':
-      case 'confirmada':
+      case 'active':
         return Colors.blue;
 
+      case 'completed':
+        return Colors.green;
+
+      case 'expired':
+        return Colors.red;
+
       case 'pending':
-      case 'pendente':
         return Colors.orange;
 
       default:
@@ -146,21 +150,16 @@ class _ReservationCard extends StatelessWidget {
 
   String _statusText(String status) {
     switch (status.toLowerCase()) {
+      case 'active':
+        return 'Ativa';
+
       case 'completed':
-      case 'concluida':
-      case 'concluída':
         return 'Concluída';
 
-      case 'cancelled':
-      case 'cancelada':
-        return 'Cancelada';
-
-      case 'confirmed':
-      case 'confirmada':
-        return 'Confirmada';
+      case 'expired':
+        return 'Expirada';
 
       case 'pending':
-      case 'pendente':
         return 'Pendente';
 
       default:
@@ -171,6 +170,10 @@ class _ReservationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusColor = _statusColor(reservation.status);
+
+    final canRate =
+        reservation.status.toLowerCase() == 'completed' &&
+            !reservation.isReviewed;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -219,47 +222,69 @@ class _ReservationCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
 
-            if (reservation.medicationName != null &&
-                reservation.medicationName!.isNotEmpty)
-              _InfoRow(
-                icon: Icons.medication_outlined,
-                label: 'Medicamento',
-                value: reservation.medicationName!,
-              ),
+            const SizedBox(height: 16),
 
-            if (reservation.quantity != null)
-              _InfoRow(
-                icon: Icons.numbers_rounded,
-                label: 'Quantidade',
-                value: '${reservation.quantity}',
-              ),
+            _InfoRow(
+              icon: Icons.medication_outlined,
+              label: 'Medicamento',
+              value: reservation.medicineName,
+            ),
 
-            if (reservation.reservationDate != null)
+            _InfoRow(
+              icon: Icons.payments_outlined,
+              label: 'Valor',
+              value:
+                  '${reservation.totalPriceKz.toStringAsFixed(2)} Kz',
+            ),
+
+            _InfoRow(
+              icon: Icons.calendar_today_outlined,
+              label: 'Data da reserva',
+              value: reservation.reservationDate,
+            ),
+
+            _InfoRow(
+              icon: Icons.access_time_outlined,
+              label: 'Expira em',
+              value: reservation.expiryDate,
+            ),
+
+            _InfoRow(
+              icon: Icons.qr_code_2_rounded,
+              label: 'Código de levantamento',
+              value: reservation.pickupCode,
+            ),
+
+            _InfoRow(
+              icon: reservation.prescriptionUploaded
+                  ? Icons.description_rounded
+                  : Icons.description_outlined,
+              label: 'Receita',
+              value: reservation.prescriptionUploaded
+                  ? 'Enviada'
+                  : 'Não enviada',
+            ),
+
+            if (reservation.reviewRating != null)
               _InfoRow(
-                icon: Icons.calendar_today_outlined,
-                label: 'Data',
-                value: _formatDate(
-                  reservation.reservationDate!,
-                ),
+                icon: Icons.star_rounded,
+                label: 'Sua avaliação',
+                value:
+                    '${reservation.reviewRating!.toStringAsFixed(1)} / 5',
               ),
 
             const SizedBox(height: 12),
 
-            if (reservation.qrCode != null &&
-                reservation.qrCode!.isNotEmpty)
+            if (reservation.pickupCode.isNotEmpty)
               Center(
-                child: QRCodeWidget(
-                  data: reservation.qrCode!,
+                child: QrCodeWidget(
+                  data: reservation.pickupCode,
                 ),
               ),
 
-            const SizedBox(height: 12),
-
-            if (reservation.status.toLowerCase() == 'completed' ||
-                reservation.status.toLowerCase() == 'concluida' ||
-                reservation.status.toLowerCase() == 'concluída')
+            if (canRate) ...[
+              const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -272,16 +297,43 @@ class _ReservationCard extends StatelessWidget {
                   ),
                 ),
               ),
+            ],
+
+            if (reservation.isReviewed) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 18,
+                      color: Colors.green,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Esta reserva já foi avaliada.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/'
-        '${date.month.toString().padLeft(2, '0')}/'
-        '${date.year}';
   }
 }
 
@@ -299,7 +351,7 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 9),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
