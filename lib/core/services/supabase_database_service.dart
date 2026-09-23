@@ -119,6 +119,10 @@ class SupabaseDatabaseService {
     }
   }
 
+  Future<List<PharmacyModel>> getAllPharmacies() async {
+    return getPharmacies();
+  }
+
   Future<PharmacyModel?> getPharmacyById(String id) async {
     try {
       final data = await _client
