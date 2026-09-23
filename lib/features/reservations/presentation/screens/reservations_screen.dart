@@ -12,7 +12,7 @@ class ReservationsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final reservationsState = ref.watch(reservationsProvider);
+    final reservations = ref.watch(reservationsProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -27,55 +27,8 @@ class ReservationsScreen extends ConsumerWidget {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
       ),
-      body: reservationsState.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(),
-        ),
-        error: (error, stack) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.error_outline_rounded,
-                  size: 48,
-                  color: Colors.red,
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Não foi possível carregar as reservas.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '$error',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: () {
-                    ref
-                        .read(reservationsProvider.notifier)
-                        .loadReservations();
-                  },
-                  child: const Text('Tentar novamente'),
-                ),
-              ],
-            ),
-          ),
-        ),
-        data: (reservations) {
-          if (reservations.isEmpty) {
-            return const Center(
+      body: reservations.isEmpty
+          ? const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Column(
@@ -107,54 +60,50 @@ class ReservationsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              await ref
-                  .read(reservationsProvider.notifier)
-                  .loadReservations();
-            },
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: reservations.length,
-              itemBuilder: (context, index) {
-                final reservation = reservations[index];
-
-                return _ReservationCard(
-                  reservation: reservation,
-                  onRating: () {
-                    _showRatingDialog(
-                      context,
-                      ref,
-                      reservation,
-                    );
-                  },
-                );
+            )
+          : RefreshIndicator(
+              onRefresh: () async {
+                await ref
+                    .read(reservationsProvider.notifier)
+                    .fetchReservations();
               },
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: reservations.length,
+                itemBuilder: (context, index) {
+                  final reservation = reservations[index];
+
+                  return _ReservationCard(
+                    reservation: reservation,
+                    onRating: () {
+                      _showRatingDialog(
+                        context,
+                        ref,
+                        reservation,
+                      );
+                    },
+                  );
+                },
+              ),
             ),
-          );
-        },
-      ),
     );
   }
 
   void _showRatingDialog(
     BuildContext context,
     WidgetRef ref,
-    ReservationModel res,
+    ReservationModel reservation,
   ) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
         return RateExperienceDialog(
-          reservation: res,
+          reservation: reservation,
           onSubmitted: () {
             ref
                 .read(reservationsProvider.notifier)
-                .loadReservations();
+                .fetchReservations();
           },
         );
       },
@@ -198,13 +147,22 @@ class _ReservationCard extends StatelessWidget {
   String _statusText(String status) {
     switch (status.toLowerCase()) {
       case 'completed':
+      case 'concluida':
+      case 'concluída':
         return 'Concluída';
+
       case 'cancelled':
+      case 'cancelada':
         return 'Cancelada';
+
       case 'confirmed':
+      case 'confirmada':
         return 'Confirmada';
+
       case 'pending':
+      case 'pendente':
         return 'Pendente';
+
       default:
         return status;
     }
@@ -261,7 +219,6 @@ class _ReservationCard extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 14),
 
             if (reservation.medicationName != null &&
