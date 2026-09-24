@@ -10,7 +10,7 @@ class AppConstants {
 
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: 'sb_publishable_mF-qKVOXYszv1bJ7wgYeGQ_i3lyP2ug
+    defaultValue: 'sb_publishable_mF-qKVOXYszv1bJ7wgYeGQ_i3lyP2ug',
   );
 
   // Angola Provinces
