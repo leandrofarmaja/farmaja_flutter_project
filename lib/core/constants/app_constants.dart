@@ -2,15 +2,15 @@ class AppConstants {
   static const String appName = 'FarmaJá';
   static const String appTagline = 'Farmácias e Medicamentos em Angola';
 
-  // Supabase Configuration from Environment Variables
+  // Supabase Configuration
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'https://ousqldvobwtpapqwesst.supabase.co',
+    defaultValue: '',
   );
 
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: 'sb_publishable_mF-qKVOXYszv1bJ7wgYeGQ_i3lyP2ug',
+    defaultValue: '',
   );
 
   // Angola Provinces
