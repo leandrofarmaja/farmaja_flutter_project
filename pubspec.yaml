@@ -1,5 +1,5 @@
 name: farmaja_app
-description: "FarmaJá Angola - Encontre e reserve medicamentos disponíveis em farmácias próximas (Luanda, Benguela, Huambo, etc.) em Flutter com Material Design 3."
+description: "FARCLIK - Farmácias e Medicamentos em Angola."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -43,3 +43,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/farclik_logo.png
