@@ -39,52 +39,68 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primary,
+      backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // LOGOTIPO FARCLIK
             Container(
-              padding: const EdgeInsets.all(24),
+              width: 190,
+              height: 190,
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(32),
+                borderRadius: BorderRadius.circular(36),
                 boxShadow: const [
                   BoxShadow(
                     color: Colors.black12,
-                    blurRadius: 20,
+                    blurRadius: 25,
                     offset: Offset(0, 10),
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.local_pharmacy_rounded,
-                size: 64,
-                color: AppColors.primary,
+              child: Image.asset(
+                'assets/images/farclik_logo_hd.png',
+                fit: BoxFit.contain,
               ),
             ),
-            const SizedBox(height: 24),
+
+            const SizedBox(height: 28),
+
             const Text(
-              'FarmaJá',
+              'FARCLIK',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.primary,
                 fontSize: 36,
                 fontWeight: FontWeight.w900,
-                letterSpacing: -1,
+                letterSpacing: 1.5,
               ),
             ),
+
             const SizedBox(height: 8),
+
             const Text(
-              'A Saúde de Angola ao Seu Alcance 🇦🇴',
+              'A sua saúde à distância de um clique.',
+              textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white70,
+                color: Colors.black54,
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 48),
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+
+            const SizedBox(height: 45),
+
+            const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppColors.primary,
+                ),
+              ),
             ),
           ],
         ),
