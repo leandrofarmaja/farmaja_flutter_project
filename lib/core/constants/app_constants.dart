@@ -1,5 +1,5 @@
 class AppConstants {
-  static const String appName = 'FarmaJá';
+  static const String appName = 'FARCLIK';
   static const String appTagline = 'Farmácias e Medicamentos em Angola';
 
   // Supabase Configuration
