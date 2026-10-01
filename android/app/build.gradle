@@ -13,7 +13,7 @@ if (localPropertiesFile.exists()) {
 }
 
 android {
-    namespace "ao.farmaja.app"
+    namespace "ao.farclik.app"
     compileSdk 36
     ndkVersion flutter.ndkVersion
 
@@ -27,7 +27,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "ao.farmaja.app"
+        applicationId "ao.farclik.app"
         minSdkVersion 21
         targetSdkVersion 34
         versionCode 1
