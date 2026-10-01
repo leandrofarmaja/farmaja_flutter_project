@@ -29,15 +29,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, insira o e-mail e a palavra-passe.')),
+        const SnackBar(
+          content: Text(
+            'Por favor, insira o e-mail e a palavra-passe.',
+          ),
+        ),
       );
       return;
     }
 
-    final success = await ref.read(authProvider.notifier).login(email, password);
+    final success =
+        await ref.read(authProvider.notifier).login(email, password);
 
     if (success && mounted) {
       final user = ref.read(authProvider).user;
+
       if (user?.role == 'pharmacy' || _isPharmacyAccount) {
         context.go('/pharmacy-dashboard');
       } else {
@@ -63,14 +69,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // LOGOTIPO FARCLIK
+              Center(
+                child: Container(
+                  width: 150,
+                  height: 150,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 20,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Image.asset(
+                    'FARCLIK_logo.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
               Text(
-                _isPharmacyAccount ? 'Acesso Farmacêutico 🏥' : 'Bem-vindo de volta 👋',
+                _isPharmacyAccount
+                    ? 'Acesso Farmacêutico 🏥'
+                    : 'Bem-vindo de volta 👋',
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w900,
                 ),
               ),
+
               const SizedBox(height: 8),
+
               Text(
                 _isPharmacyAccount
                     ? 'Aceda ao Painel de Gestão da sua Farmácia para gerir stock, reservas e receitas.'
@@ -80,6 +116,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   fontSize: 14,
                 ),
               ),
+
               const SizedBox(height: 20),
 
               // Account Type Selector
@@ -103,7 +140,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   });
                 },
               ),
+
               const SizedBox(height: 24),
+
               if (authState.error != null)
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -111,13 +150,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   decoration: BoxDecoration(
                     color: Colors.red.shade50,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red.shade200),
+                    border: Border.all(
+                      color: Colors.red.shade200,
+                    ),
                   ),
                   child: Text(
                     authState.error!,
-                    style: const TextStyle(color: Colors.red, fontSize: 13),
+                    style: const TextStyle(
+                      color: Colors.red,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
+
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -126,7 +171,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   prefixIcon: Icon(Icons.email_outlined),
                 ),
               ),
+
               const SizedBox(height: 16),
+
               TextField(
                 controller: _passwordController,
                 obscureText: true,
@@ -135,6 +182,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   prefixIcon: Icon(Icons.lock_outline),
                 ),
               ),
+
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -149,18 +197,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 16),
+
               FilledButton(
                 onPressed: authState.isLoading ? null : _handleLogin,
                 child: authState.isLoading
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Text('Entrar na Conta'),
               ),
+
               const SizedBox(height: 16),
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -177,9 +232,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ],
               ),
+
               const SizedBox(height: 24),
+
               const Divider(),
+
               const SizedBox(height: 12),
+
               Text(
                 '🔒 Autenticação Real Supabase',
                 textAlign: TextAlign.center,
@@ -189,7 +248,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   color: Colors.grey.shade700,
                 ),
               ),
+
               const SizedBox(height: 8),
+
               Text(
                 'Pode criar uma nova conta no botão "Registar" acima ou utilizar credenciais de teste para preenchimento rápido:',
                 textAlign: TextAlign.center,
@@ -198,7 +259,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   color: Colors.grey.shade600,
                 ),
               ),
+
               const SizedBox(height: 12),
+
               Wrap(
                 alignment: WrapAlignment.center,
                 spacing: 8,
@@ -206,28 +269,48 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                     ),
-                    icon: const Icon(Icons.person_outline, size: 16),
-                    label: const Text('Cliente Teste', style: TextStyle(fontSize: 12)),
+                    icon: const Icon(
+                      Icons.person_outline,
+                      size: 16,
+                    ),
+                    label: const Text(
+                      'Cliente Teste',
+                      style: TextStyle(fontSize: 12),
+                    ),
                     onPressed: () {
                       setState(() {
                         _isPharmacyAccount = false;
-                        _emailController.text = 'cliente.farmaja@gmail.com';
+                        _emailController.text =
+                            'cliente.farmaja@gmail.com';
                         _passwordController.text = '123456';
                       });
                     },
                   ),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                     ),
-                    icon: const Icon(Icons.storefront_outlined, size: 16),
-                    label: const Text('Farmácia Teste', style: TextStyle(fontSize: 12)),
+                    icon: const Icon(
+                      Icons.storefront_outlined,
+                      size: 16,
+                    ),
+                    label: const Text(
+                      'Farmácia Teste',
+                      style: TextStyle(fontSize: 12),
+                    ),
                     onPressed: () {
                       setState(() {
                         _isPharmacyAccount = true;
-                        _emailController.text = 'farmacia.mecofarma@farmaja.ao';
+                        _emailController.text =
+                            'farmacia.mecofarma@farmaja.ao';
                         _passwordController.text = '123456';
                       });
                     },
