@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../constantes/app_colors.dart';
+import '../constants/app_colors.dart';
 
 class AppTheme {
   // ============================================================
@@ -279,6 +279,10 @@ class AppTheme {
         ),
       ),
 
+      // ==========================================================
+      // APP BAR
+      // ==========================================================
+
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         backgroundColor: AppColors.surfaceDark,
@@ -294,6 +298,10 @@ class AppTheme {
         ),
       ),
 
+      // ==========================================================
+      // CARTÕES
+      // ==========================================================
+
       cardTheme: CardThemeData(
         elevation: 0,
         margin: EdgeInsets.zero,
@@ -306,6 +314,10 @@ class AppTheme {
         ),
         color: AppColors.surfaceDark,
       ),
+
+      // ==========================================================
+      // BOTÕES
+      // ==========================================================
 
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -326,28 +338,37 @@ class AppTheme {
         ),
       ),
 
+      // ==========================================================
+      // CAMPOS DE TEXTO
+      // ==========================================================
+
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surfaceDark,
+
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 18,
           vertical: 16,
         ),
+
         hintStyle: const TextStyle(
           color: AppColors.textSecondaryDark,
         ),
+
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(
             color: AppColors.borderDark,
           ),
         ),
+
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(
             color: AppColors.borderDark,
           ),
         ),
+
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(
@@ -356,6 +377,10 @@ class AppTheme {
           ),
         ),
       ),
+
+      // ==========================================================
+      // BARRA DE NAVEGAÇÃO
+      // ==========================================================
 
       navigationBarTheme: const NavigationBarThemeData(
         backgroundColor: AppColors.surfaceDark,
