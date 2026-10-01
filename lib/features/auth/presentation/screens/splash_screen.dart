@@ -61,7 +61,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 ],
               ),
               child: Image.asset(
-                'assets/images/farclik_logo_hd.png',
+                'FARCLIK_logo.png',
                 fit: BoxFit.contain,
               ),
             ),
