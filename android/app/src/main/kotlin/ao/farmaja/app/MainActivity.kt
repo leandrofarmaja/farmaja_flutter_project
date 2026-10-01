@@ -1,6 +1,2 @@
-package ao.farclik.app
-
-import io.flutter.embedding.android.FlutterActivity
-
-class MainActivity: FlutterActivity() {
-}
+// Arquivo antigo mantido apenas para compatibilidade do repositório.
+// A MainActivity atual está em ao/farclik/app/MainActivity.kt
