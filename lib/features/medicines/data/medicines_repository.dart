@@ -1,8 +1,9 @@
-import '../../../core/services/supabase_database_service.dart';
+import '../../../essencial/serviços/serviço_catálogo_de_medicamentos.dart';
 import '../domain/medicine_model.dart';
 
 class MedicinesRepository {
-  final SupabaseDatabaseService _dbService = SupabaseDatabaseService();
+  final MedicinesCatalogService _catalogService =
+      MedicinesCatalogService();
 
   Future<List<MedicineModel>> getMedicines({
     String? query,
@@ -11,7 +12,7 @@ class MedicinesRepository {
     bool? genericsOnly,
     bool? only24h,
   }) async {
-    return _dbService.getMedicines(
+    return _catalogService.getMedicines(
       query: query,
       province: province,
       onlyInStock: onlyInStock,
@@ -20,6 +21,6 @@ class MedicinesRepository {
   }
 
   Future<MedicineModel?> getMedicineById(String id) async {
-    return _dbService.getMedicineById(id);
+    return _catalogService.getMedicineById(id);
   }
 }
