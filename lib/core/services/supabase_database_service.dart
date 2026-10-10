@@ -1,23 +1,14 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/medicines/domain/medicine_model.dart';
-import '../../features/pharmacies/domain/pharmacy_model.dart';
-import '../../features/pharmacies/domain/pharmacy_payment_model.dart';
-import '../../features/reservations/domain/reservation_model.dart';
-import '../../features/prescriptions/domain/prescription_model.dart';
-import '../../features/auth/domain/user_model.dart';
-import '../../features/reviews/domain/review_model.dart';
-import '../../features/admin/domain/admin_notification_model.dart';
 
-class SupabaseDatabaseService {
-  final SupabaseClient _client = Supabase.instance.client;
+/// Serviço responsável por consultar o catálogo real de medicamentos
+/// nas tabelas medicamentos e farmacias do Supabase.
+class MedicinesCatalogService {
+  MedicinesCatalogService({SupabaseClient? client})
+      : _client = client ?? Supabase.instance.client;
 
-  SupabaseClient get client => _client;
-
-  // -------------------------------------------------------------
-  // MEDICINES TABLE API
-  // -------------------------------------------------------------
+  final SupabaseClient _client;
 
   Future<List<MedicineModel>> getMedicines({
     String? query,
@@ -26,1371 +17,171 @@ class SupabaseDatabaseService {
     bool? genericsOnly,
   }) async {
     try {
-      var dbQuery = _client.from('medicines').select();
-
-      if (province != null && province.isNotEmpty) {
-        dbQuery = dbQuery.eq('province', province);
-      }
+      var medicinesQuery = _client
+          .from('medicamentos')
+          .select(
+            'id, farmacia_id, nome_medicamento, preco_kwanza, '
+            'distancia_km, disponivel',
+          );
 
       if (onlyInStock == true) {
-        dbQuery = dbQuery.eq('in_stock', true);
+        medicinesQuery = medicinesQuery.eq('disponivel', true);
       }
 
-      if (genericsOnly == true) {
-        dbQuery = dbQuery.eq('is_generic', true);
+      final medicineRows = await medicinesQuery;
+      final pharmacyRows = await _client
+          .from('farmacias')
+          .select(
+            'id, nome, endereco, telefone, avaliacao, aberta_agora',
+          );
+
+      final pharmaciesById = <String, Map<String, dynamic>>{};
+
+      for (final row in pharmacyRows) {
+        final pharmacy = Map<String, dynamic>.from(row);
+        final id = pharmacy['id']?.toString();
+
+        if (id != null && id.isNotEmpty) {
+          pharmaciesById[id] = pharmacy;
+        }
       }
 
-      final List<dynamic> data = await dbQuery;
+      final results = <MedicineModel>[];
 
-      var result =
-          data.map((json) => MedicineModel.fromJson(json)).toList();
+      for (final row in medicineRows) {
+        final medicine = Map<String, dynamic>.from(row);
+        final pharmacyId = medicine['farmacia_id']?.toString() ?? '';
+        final pharmacy = pharmaciesById[pharmacyId];
 
-      if (query != null && query.trim().isNotEmpty) {
-        final q = query.trim().toLowerCase();
+        final name = medicine['nome_medicamento']?.toString() ?? '';
+        final pharmacyName = pharmacy?['nome']?.toString() ?? '';
+        final available = medicine['disponivel'] == true;
 
-        result = result.where((m) {
-          return m.name.toLowerCase().contains(q) ||
-              m.activeIngredient.toLowerCase().contains(q) ||
-              m.category.toLowerCase().contains(q) ||
-              m.pharmacyName.toLowerCase().contains(q);
-        }).toList();
+        if (query != null && query.trim().isNotEmpty) {
+          final search = query.trim().toLowerCase();
+
+          if (!name.toLowerCase().contains(search) &&
+              !pharmacyName.toLowerCase().contains(search)) {
+            continue;
+          }
+        }
+
+        // A tabela actual ainda não possui campos de província
+        // nem de medicamento genérico. Não inventamos esses dados.
+        final price = medicine['preco_kwanza'];
+        final distance = medicine['distancia_km'];
+
+        results.add(
+          MedicineModel(
+            id: medicine['id']?.toString() ?? '',
+            pharmacyId: pharmacyId,
+            name: name,
+            activeIngredient: '',
+            category: 'Geral',
+            dosage: 'Não especificado',
+            priceKz: _toDouble(price),
+            pharmacyName: pharmacyName,
+            province: '',
+            district: pharmacy?['endereco']?.toString() ?? '',
+            inStock: available,
+            stockQuantity: 0,
+            requiresPrescription: false,
+            isGeneric: false,
+            genericAlternative: null,
+            description: '',
+            dosageInstructions:
+                'Consulta a embalagem e as indicações de um profissional de saúde.',
+            pharmacyLatitude: -8.8383,
+            pharmacyLongitude: 13.2344,
+          ),
+        );
+
+        // A distância é actualmente devolvida pelo Supabase, mas o
+        // modelo existente não permite guardá-la como campo próprio.
+        // Será integrada numa fase posterior.
+        if (distance != null) {
+          // Não fazemos qualquer conversão ou cálculo com este valor.
+        }
       }
 
-      return result;
-    } catch (e) {
-      return _getFallbackMedicines(
-        query: query,
-        province: province,
-        onlyInStock: onlyInStock,
-        genericsOnly: genericsOnly,
+      return results;
+    } on PostgrestException catch (error) {
+      throw Exception(
+        'Erro ao consultar o catálogo no Supabase: ${error.message}',
       );
+    } catch (error) {
+      throw Exception('Não foi possível carregar os medicamentos: $error');
     }
   }
 
   Future<MedicineModel?> getMedicineById(String id) async {
     try {
-      final data = await _client
-          .from('medicines')
-          .select()
+      final row = await _client
+          .from('medicamentos')
+          .select(
+            'id, farmacia_id, nome_medicamento, preco_kwanza, '
+            'distancia_km, disponivel',
+          )
           .eq('id', id)
           .maybeSingle();
 
-      if (data != null) {
-        return MedicineModel.fromJson(data);
-      }
-    } catch (_) {}
-
-    final list = _getFallbackMedicines();
-
-    try {
-      return list.firstWhere((m) => m.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  // -------------------------------------------------------------
-  // PHARMACIES TABLE API
-  // -------------------------------------------------------------
-
-  Future<List<PharmacyModel>> getPharmacies({
-    String? province,
-    bool? only24h,
-  }) async {
-    try {
-      var dbQuery = _client.from('pharmacies').select();
-
-      if (province != null && province.isNotEmpty) {
-        dbQuery = dbQuery.eq('province', province);
+      if (row == null) {
+        return null;
       }
 
-      if (only24h == true) {
-        dbQuery = dbQuery.eq('is_open_24h', true);
-      }
-
-      final List<dynamic> data = await dbQuery;
-
-      return data.map((json) => PharmacyModel.fromJson(json)).toList();
-    } catch (e) {
-      return _getFallbackPharmacies(
-        province: province,
-        only24h: only24h,
-      );
-    }
-  }
-
-  Future<List<PharmacyModel>> getAllPharmacies() async {
-    return getPharmacies();
-  }
-
-  Future<PharmacyModel?> getPharmacyById(String id) async {
-    try {
-      final data = await _client
-          .from('pharmacies')
-          .select()
-          .eq('id', id)
-          .maybeSingle();
-
-      if (data != null) {
-        return PharmacyModel.fromJson(data);
-      }
-    } catch (_) {}
-
-    final list = _getFallbackPharmacies();
-
-    try {
-      return list.firstWhere((p) => p.id == id);
-    } catch (_) {
-      return list.first;
-    }
-  }
-
-  Future<bool> updatePharmacySubscription({
-    required String pharmacyId,
-    required String status,
-    DateTime? nextDueDate,
-  }) async {
-    try {
-      final updates = <String, dynamic>{
-        'subscription_status': status,
-      };
-
-      if (nextDueDate != null) {
-        updates['payment_due_date'] =
-            nextDueDate.toIso8601String();
-      }
-
-      if (status == 'active') {
-        updates['last_payment_at'] =
-            DateTime.now().toIso8601String();
-      }
-
-      await _client
-          .from('pharmacies')
-          .update(updates)
-          .eq('id', pharmacyId);
-
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> submitPharmacyPayment(
-    PharmacyPaymentModel payment,
-  ) async {
-    try {
-      await _client.from('pharmacy_payments').insert({
-        'id': payment.id,
-        'pharmacy_id': payment.pharmacyId,
-        'pharmacy_name': payment.pharmacyName,
-        'amount': payment.amount,
-        'payment_method': payment.paymentMethod,
-        'reference_number': payment.referenceNumber,
-        'proof_url': payment.proofUrl,
-        'status': payment.status,
-        'period_months': payment.periodMonths,
-        'notes': payment.notes,
-        'created_at': payment.createdAt.toIso8601String(),
-      });
-
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<List<PharmacyPaymentModel>>
-      getAllPharmacyPayments() async {
-    try {
-      final List<dynamic> data = await _client
-          .from('pharmacy_payments')
-          .select()
-          .order('created_at', ascending: false);
-
-      return data
-          .map((json) => PharmacyPaymentModel.fromJson(json))
-          .toList();
-    } catch (e) {
-      return _getFallbackPayments();
-    }
-  }
-
-  Future<bool> approvePharmacyPayment({
-    required String paymentId,
-    required String pharmacyId,
-    int periodMonths = 1,
-  }) async {
-    try {
-      final now = DateTime.now();
-
-      final nextDueDate =
-          now.add(Duration(days: 30 * periodMonths));
-
-      await _client
-          .from('pharmacy_payments')
-          .update({
-            'status': 'approved',
-            'approved_at': now.toIso8601String(),
-          })
-          .eq('id', paymentId);
-
-      await updatePharmacySubscription(
-        pharmacyId: pharmacyId,
-        status: 'active',
-        nextDueDate: nextDueDate,
-      );
-
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> rejectPharmacyPayment(
-    String paymentId,
-    String? notes,
-  ) async {
-    try {
-      await _client
-          .from('pharmacy_payments')
-          .update({
-            'status': 'rejected',
-            'notes': notes,
-          })
-          .eq('id', paymentId);
-
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // -------------------------------------------------------------
-  // RESERVATIONS TABLE API
-  // -------------------------------------------------------------
-
-  Future<List<ReservationModel>> getReservations(
-    String userId,
-  ) async {
-    try {
-      final List<dynamic> data = await _client
-          .from('reservations')
-          .select()
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
-
-      return data
-          .map((json) => ReservationModel.fromJson(json))
-          .toList();
-    } catch (e) {
-      return _getFallbackReservations();
-    }
-  }
-
-  Future<ReservationModel> createReservation({
-    required String userId,
-    required String medicineName,
-    required String pharmacyName,
-    required double totalPriceKz,
-    required bool prescriptionUploaded,
-  }) async {
-    final pickupCode =
-        'FJ-${(1000 + DateTime.now().millisecond * 7) % 9000}';
-
-    final now = DateTime.now();
-
-    final expiresAt = now.add(
-      const Duration(hours: 2),
-    );
-
-    final dateStr =
-        '${now.day.toString().padLeft(2, '0')}/'
-        '${now.month.toString().padLeft(2, '0')}/'
-        '${now.year} '
-        '${now.hour.toString().padLeft(2, '0')}:'
-        '${now.minute.toString().padLeft(2, '0')}';
-
-    final expiryStr =
-        '${expiresAt.day.toString().padLeft(2, '0')}/'
-        '${expiresAt.month.toString().padLeft(2, '0')}/'
-        '${expiresAt.year} às '
-        '${expiresAt.hour.toString().padLeft(2, '0')}:'
-        '${expiresAt.minute.toString().padLeft(2, '0')} '
-        '(Expira em 2 horas)';
-
-    final row = {
-      'user_id': userId,
-      'medicine_name': medicineName,
-      'pharmacy_name': pharmacyName,
-      'pickup_code': pickupCode,
-      'total_price_kz': totalPriceKz,
-      'reservation_date': dateStr,
-      'expiry_date': expiryStr,
-      'status': 'active',
-      'prescription_uploaded': prescriptionUploaded,
-      'created_at': now.toIso8601String(),
-      'expires_at': expiresAt.toIso8601String(),
-    };
-
-    try {
-      final inserted = await _client
-          .from('reservations')
-          .insert(row)
-          .select()
-          .single();
-
-      return ReservationModel.fromJson(inserted);
-    } catch (e) {
-      return ReservationModel(
-        id: 'res-${DateTime.now().millisecondsSinceEpoch}',
-        medicineName: medicineName,
-        pharmacyName: pharmacyName,
-        pickupCode: pickupCode,
-        totalPriceKz: totalPriceKz,
-        reservationDate: dateStr,
-        expiryDate: expiryStr,
-        status: 'active',
-        prescriptionUploaded: prescriptionUploaded,
-      );
-    }
-  }
-
-  // -------------------------------------------------------------
-  // MEDICINES MANAGEMENT
-  // -------------------------------------------------------------
-
-  Future<bool> addMedicine(
-    MedicineModel medicine,
-  ) async {
-    try {
-      final row = {
-        'id': medicine.id,
-        'name': medicine.name,
-        'generic_name': medicine.activeIngredient,
-        'category': medicine.category,
-        'dosage': medicine.dosage,
-        'price': medicine.priceKz,
-        'stock': medicine.stockQuantity,
-        'in_stock': medicine.inStock,
-        'prescription_required':
-            medicine.requiresPrescription,
-        'pharmacy_name': medicine.pharmacyName,
-        'province': medicine.province,
-        'district': medicine.district,
-        'is_generic': medicine.isGeneric,
-        'description': medicine.description,
-        'dosage_instructions':
-            medicine.dosageInstructions,
-      };
-
-      await _client.from('medicines').insert(row);
-
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> updateMedicine(
-    MedicineModel medicine,
-  ) async {
-    try {
-      final row = {
-        'name': medicine.name,
-        'generic_name': medicine.activeIngredient,
-        'category': medicine.category,
-        'dosage': medicine.dosage,
-        'price': medicine.priceKz,
-        'stock': medicine.stockQuantity,
-        'in_stock': medicine.inStock,
-        'prescription_required':
-            medicine.requiresPrescription,
-        'is_generic': medicine.isGeneric,
-        'description': medicine.description,
-        'dosage_instructions':
-            medicine.dosageInstructions,
-      };
-
-      await _client
-          .from('medicines')
-          .update(row)
-          .eq('id', medicine.id);
-
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> updateMedicineStock(
-    String medicineId,
-    int newStock,
-    bool inStock,
-  ) async {
-    try {
-      await _client.from('medicines').update({
-        'stock': newStock,
-        'in_stock': inStock,
-      }).eq('id', medicineId);
-
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> updateMedicinePrice(
-    String medicineId,
-    double newPrice,
-  ) async {
-    try {
-      await _client.from('medicines').update({
-        'price': newPrice,
-      }).eq('id', medicineId);
-
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> deleteMedicine(
-    String medicineId,
-  ) async {
-    try {
-      await _client
-          .from('medicines')
-          .delete()
-          .eq('id', medicineId);
-
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // -------------------------------------------------------------
-  // PHARMACY RESERVATIONS
-  // -------------------------------------------------------------
-
-  Future<List<ReservationModel>>
-      getAllReservationsForPharmacy({
-    String? pharmacyName,
-  }) async {
-    try {
-      var query = _client
-          .from('reservations')
-          .select();
-
-      // IMPORTANTE:
-      // Os filtros devem ser aplicados antes do order().
-      if (pharmacyName != null &&
-          pharmacyName.isNotEmpty) {
-        query = query.eq(
-          'pharmacy_name',
-          pharmacyName,
-        );
-      }
-
-      final List<dynamic> data = await query.order(
-        'created_at',
-        ascending: false,
-      );
-
-      return data
-          .map((json) => ReservationModel.fromJson(json))
-          .toList();
-    } catch (e) {
-      return _getFallbackReservations();
-    }
-  }
-
-  Future<ReservationModel?> validateReservationByQrCode(
-    String code,
-  ) async {
-    try {
-      final data = await _client
-          .from('reservations')
-          .select()
-          .eq('pickup_code', code)
-          .maybeSingle();
-
-      if (data != null) {
-        await _client
-            .from('reservations')
-            .update({'status': 'completed'})
-            .eq('pickup_code', code);
-
-        final updated =
-            Map<String, dynamic>.from(data);
-
-        updated['status'] = 'completed';
-
-        return ReservationModel.fromJson(updated);
-      }
-    } catch (_) {}
-
-    return null;
-  }
-
-  Future<bool> updateReservationStatus(
-    String reservationId,
-    String newStatus,
-  ) async {
-    try {
-      await _client
-          .from('reservations')
-          .update({'status': newStatus})
-          .eq('id', reservationId);
-
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // -------------------------------------------------------------
-  // PRESCRIPTIONS
-  // -------------------------------------------------------------
-
-  Future<List<PrescriptionModel>>
-      getPrescriptionsForPharmacy() async {
-    try {
-      final List<dynamic> data = await _client
-          .from('prescriptions')
-          .select()
-          .order('created_at', ascending: false);
-
-      return data
-          .map((json) => PrescriptionModel.fromJson(json))
-          .toList();
-    } catch (e) {
-      return [
-        PrescriptionModel(
-          id: 'presc-1',
-          userId: 'usr-1',
-          userName: 'António Silva',
-          medicineName: 'Coartem 80/480mg',
-          imageUrl:
-              'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=500',
-          status: 'pending',
-          createdAt: '22 Julho 2026',
-        ),
-        PrescriptionModel(
-          id: 'presc-2',
-          userId: 'usr-2',
-          userName: 'Maria Fernandes',
-          medicineName: 'Amoxicilina 500mg',
-          imageUrl:
-              'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=500',
-          status: 'verified',
-          notes:
-              'Receita médica aprovada pela equipa farmacêutica.',
-          createdAt: '21 Julho 2026',
-        ),
-      ];
-    }
-  }
-
-  Future<bool> updatePrescriptionStatus(
-    String prescriptionId,
-    String status,
-    String? notes,
-  ) async {
-    try {
-      await _client
-          .from('prescriptions')
-          .update({
-            'status': status,
-            'notes': notes,
-          })
-          .eq('id', prescriptionId);
-
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // -------------------------------------------------------------
-  // PROFILES
-  // -------------------------------------------------------------
-
-  Future<UserModel?> getUserProfile(
-    String userId,
-  ) async {
-    try {
-      final data = await _client
-          .from('profiles')
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (data != null) {
-        return UserModel.fromJson(data);
-      }
-    } catch (_) {}
-
-    return null;
-  }
-
-  Future<void> upsertUserProfile(
-    UserModel user,
-  ) async {
-    try {
-      await _client
-          .from('profiles')
-          .upsert(user.toJson());
-    } catch (e) {
-      // Perfil mantido no estado de autenticação
-      // caso exista uma falha de rede.
-    }
-  }
-
-  // -------------------------------------------------------------
-  // FALLBACK MEDICINES
-  // -------------------------------------------------------------
-
-  List<MedicineModel> _getFallbackMedicines({
-    String? query,
-    String? province,
-    bool? onlyInStock,
-    bool? genericsOnly,
-  }) {
-    final list = [
-      MedicineModel(
-        id: 'med-1',
-        name: 'Coartem 80/480mg',
-        activeIngredient:
-            'Artemeter + Lumefantrina',
-        category: 'Antimaláricos',
-        dosage: 'Caixa com 6 Comprimidos',
-        priceKz: 4500,
-        pharmacyName:
-            'Farmácia Mecofarma Talatona',
-        province: 'Luanda',
-        district: 'Talatona',
-        inStock: true,
-        stockQuantity: 24,
-        requiresPrescription: true,
-        isGeneric: false,
-        genericAlternative:
-            'Artemether/Lumefantrine Genérico (2100 Kz)',
-        description:
-            'Tratamento de primeira escolha para a malária em Angola.',
-        dosageInstructions:
-            'Tomar com alimentos gordurosos (ex: leite ou refeição).',
-      ),
-      MedicineModel(
-        id: 'med-2',
-        name: 'Paracetamol 500mg (Bial)',
-        activeIngredient: 'Paracetamol',
-        category: 'Analgésicos',
-        dosage: 'Caixa de 20 Comprimidos',
-        priceKz: 1200,
-        pharmacyName:
-            'Farmácia Sagrada Esperança',
-        province: 'Luanda',
-        district: 'Maianga',
-        inStock: true,
-        stockQuantity: 80,
-        requiresPrescription: false,
-        isGeneric: false,
-        genericAlternative:
-            'Paracetamol Genérico (450 Kz)',
-        description:
-            'Alívio de dores ligeiras a moderadas e febre.',
-        dosageInstructions:
-            '1 a 2 comprimidos de 6 em 6 horas.',
-      ),
-      MedicineModel(
-        id: 'med-3',
-        name:
-            'Amoxicilina 500mg (Genérico)',
-        activeIngredient:
-            'Amoxicilina Tri-hidratada',
-        category: 'Antibióticos',
-        dosage: 'Caixa de 16 Cápsulas',
-        priceKz: 2800,
-        pharmacyName:
-            'Farmácia Popular de Luanda',
-        province: 'Luanda',
-        district: 'Ingombota',
-        inStock: true,
-        stockQuantity: 15,
-        requiresPrescription: true,
-        isGeneric: true,
-        description:
-            'Antibiótico bactericida de amplo espectro.',
-        dosageInstructions:
-            '1 cápsula de 8 em 8 horas conforme receita.',
-      ),
-      MedicineModel(
-        id: 'med-4',
-        name: 'Ibuprofeno 400mg',
-        activeIngredient: 'Ibuprofeno',
-        category: 'Anti-inflamatórios',
-        dosage: 'Caixa de 20 Comprimidos',
-        priceKz: 1850,
-        pharmacyName:
-            'Farmácia Central Benguela',
-        province: 'Benguela',
-        district: 'Benguela Centro',
-        inStock: true,
-        stockQuantity: 42,
-        requiresPrescription: false,
-        isGeneric: false,
-        description:
-            'Anti-inflamatório para dor articular e muscular.',
-        dosageInstructions:
-            'Tomar após as refeições.',
-      ),
-      MedicineModel(
-        id: 'med-5',
-        name:
-            'Vitercal D3 (Cálcio + Vitamina D3)',
-        activeIngredient:
-            'Cálcio + Colecalciferol',
-        category: 'Vitaminas',
-        dosage: 'Frasco de 30 Comprimidos',
-        priceKz: 6200,
-        pharmacyName:
-            'Farmácia Moderna Huambo',
-        province: 'Huambo',
-        district: 'Huambo Centro',
-        inStock: true,
-        stockQuantity: 18,
-        requiresPrescription: false,
-        isGeneric: false,
-        description:
-            'Suplementação para saúde óssea e imunidade.',
-        dosageInstructions:
-            'Dissolver 1 comprimido num copo de água diariamente.',
-      ),
-    ];
-
-    return list.where((m) {
-      if (province != null &&
-          province.isNotEmpty &&
-          m.province != province) {
-        return false;
-      }
-
-      if (onlyInStock == true && !m.inStock) {
-        return false;
-      }
-
-      if (genericsOnly == true && !m.isGeneric) {
-        return false;
-      }
-
-      if (query != null && query.isNotEmpty) {
-        final q = query.toLowerCase();
-
-        if (!m.name.toLowerCase().contains(q) &&
-            !m.activeIngredient
-                .toLowerCase()
-                .contains(q)) {
-          return false;
-        }
-      }
-
-      return true;
-    }).toList();
-  }
-
-  // -------------------------------------------------------------
-  // FALLBACK PHARMACIES
-  // -------------------------------------------------------------
-
-  List<PharmacyModel> _getFallbackPharmacies({
-    String? province,
-    bool? only24h,
-  }) {
-    final now = DateTime.now();
-
-    final list = [
-      PharmacyModel(
-        id: 'pharm-1',
-        name: 'Farmácia Mecofarma Talatona',
-        province: 'Luanda',
-        district: 'Talatona',
-        address:
-            'Via AL15, Próximo ao Shopping Avennida',
-        phone: '+244 923 100 200',
-        openingHours: '24 Horas / 7 Dias',
-        isOpen24h: true,
-        hasDelivery: true,
-        rating: 4.9,
-        logoUrl:
-            'https://images.unsplash.com/photo-1586015555751-63bb77f4322a?w=150',
-        subscriptionStatus: 'trial',
-        trialEndsAt:
-            now.add(const Duration(days: 68)),
-        paymentDueDate:
-            now.add(const Duration(days: 68)),
-        monthlyFee: 15000.0,
-      ),
-      PharmacyModel(
-        id: 'pharm-2',
-        name: 'Farmácia Sagrada Esperança',
-        province: 'Luanda',
-        district: 'Maianga',
-        address:
-            'Avenida Lenine, Edifício Clínica Sagrada Esperança',
-        phone: '+244 912 300 400',
-        openingHours: '07:30 - 22:00',
-        isOpen24h: false,
-        hasDelivery: true,
-        rating: 4.8,
-        logoUrl:
-            'https://images.unsplash.com/photo-1576602976047-174e57a47881?w=150',
-        subscriptionStatus: 'active',
-        trialEndsAt:
-            now.subtract(const Duration(days: 30)),
-        paymentDueDate:
-            now.add(const Duration(days: 22)),
-        monthlyFee: 15000.0,
-        lastPaymentAt:
-            now.subtract(const Duration(days: 8)),
-      ),
-      PharmacyModel(
-        id: 'pharm-3',
-        name: 'Farmácia Popular de Luanda',
-        province: 'Luanda',
-        district: 'Ingombota',
-        address:
-            'Rua Rainha Ginga, Mutamba',
-        phone: '+244 924 555 777',
-        openingHours: '08:00 - 20:00',
-        isOpen24h: false,
-        hasDelivery: false,
-        rating: 4.6,
-        logoUrl:
-            'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?w=150',
-        subscriptionStatus: 'trial',
-        trialEndsAt:
-            now.add(const Duration(days: 3)),
-        paymentDueDate:
-            now.add(const Duration(days: 3)),
-        monthlyFee: 15000.0,
-      ),
-      PharmacyModel(
-        id: 'pharm-4',
-        name: 'Farmácia Central Benguela',
-        province: 'Benguela',
-        district: 'Benguela Centro',
-        address:
-            'Avenida 10 de Fevereiro, Edifício Central',
-        phone: '+244 931 222 333',
-        openingHours: '24 Horas / 7 Dias',
-        isOpen24h: true,
-        hasDelivery: true,
-        rating: 4.7,
-        logoUrl:
-            'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=150',
-        subscriptionStatus: 'expired',
-        trialEndsAt:
-            now.subtract(const Duration(days: 10)),
-        paymentDueDate:
-            now.subtract(const Duration(days: 10)),
-        monthlyFee: 15000.0,
-      ),
-      PharmacyModel(
-        id: 'pharm-5',
-        name: 'Farmácia Moderna Huambo',
-        province: 'Huambo',
-        district: 'Huambo Centro',
-        address:
-            'Rua do Comércio, nº 45',
-        phone: '+244 945 888 999',
-        openingHours: '08:00 - 21:00',
-        isOpen24h: false,
-        hasDelivery: true,
-        rating: 4.8,
-        logoUrl:
-            'https://images.unsplash.com/photo-1585435557343-3b092031a831?w=150',
-        subscriptionStatus: 'blocked',
-        trialEndsAt:
-            now.subtract(const Duration(days: 45)),
-        paymentDueDate:
-            now.subtract(const Duration(days: 45)),
-        monthlyFee: 15000.0,
-      ),
-    ];
-
-    return list.where((p) {
-      if (province != null &&
-          province.isNotEmpty &&
-          p.province != province) {
-        return false;
-      }
-
-      if (only24h == true && !p.isOpen24h) {
-        return false;
-      }
-
-      return true;
-    }).toList();
-  }
-
-  // -------------------------------------------------------------
-  // FALLBACK PAYMENTS
-  // -------------------------------------------------------------
-
-  List<PharmacyPaymentModel>
-      _getFallbackPayments() {
-    final now = DateTime.now();
-
-    return [
-      PharmacyPaymentModel(
-        id: 'pay-1',
-        pharmacyId: 'pharm-4',
-        pharmacyName:
-            'Farmácia Central Benguela',
-        amount: 15000.0,
-        paymentMethod:
-            'Transferência IBAN Multicaixa',
-        referenceNumber:
-            'AO06.0040.0000.8192.1001.3018.9',
-        proofUrl:
-            'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500',
-        status: 'pending',
-        periodMonths: 1,
-        notes:
-            'Comprovativo de transferência de 15.000 Kz submetido via BAI Directo.',
-        createdAt:
-            now.subtract(const Duration(hours: 4)),
-      ),
-      PharmacyPaymentModel(
-        id: 'pay-2',
-        pharmacyId: 'pharm-2',
-        pharmacyName:
-            'Farmácia Sagrada Esperança',
-        amount: 15000.0,
-        paymentMethod:
-            'Multicaixa Express',
-        referenceNumber: 'MCX-998231',
-        proofUrl:
-            'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500',
-        status: 'approved',
-        periodMonths: 1,
-        notes:
-            'Pagamento verificado e mensalidade renovada.',
-        createdAt:
-            now.subtract(const Duration(days: 8)),
-        approvedAt:
-            now.subtract(const Duration(days: 8)),
-      ),
-    ];
-  }
-
-  // -------------------------------------------------------------
-  // FALLBACK RESERVATIONS
-  // -------------------------------------------------------------
-
-  List<ReservationModel>
-      _getFallbackReservations() {
-    return [
-      ReservationModel(
-        id: 'res-101',
-        medicineName: 'Coartem 80/480mg',
-        pharmacyId: 'pharm-1',
-        pharmacyName:
-            'Farmácia Mecofarma Talatona',
-        pickupCode: 'FJ-9281',
-        totalPriceKz: 4500,
-        reservationDate: '22 Julho 2026',
-        expiryDate:
-            '23 Julho 2026 - 18:00',
-        status: 'active',
-        prescriptionUploaded: true,
-      ),
-      ReservationModel(
-        id: 'res-100',
-        medicineName:
-            'Paracetamol 500mg (Bial)',
-        pharmacyId: 'pharm-2',
-        pharmacyName:
-            'Farmácia Sagrada Esperança',
-        pickupCode: 'FJ-4102',
-        totalPriceKz: 1200,
-        reservationDate: '15 Julho 2026',
-        expiryDate:
-            '16 Julho 2026 - 18:00',
-        status: 'completed',
-        prescriptionUploaded: false,
-        isReviewed: false,
-      ),
-    ];
-  }
-
-  // -------------------------------------------------------------
-  // REVIEWS & MODERATION
-  // -------------------------------------------------------------
-
-  static final List<ReviewModel>
-      _localReviewsMemory = [
-    ReviewModel(
-      id: 'rev-1',
-      reservationId: 'res-100',
-      userId: 'usr-10',
-      userName: 'Manuel Agostinho',
-      pharmacyId: 'pharm-2',
-      pharmacyName:
-          'Farmácia Sagrada Esperança',
-      pharmacyRating: 5.0,
-      pharmacyComment:
-          'Excelente atendimento! Medicamento entregue rapidamente.',
-      appRating: 5.0,
-      appComment:
-          'A aplicação FarmaJá é super prática para encontrar fármacos em Luanda.',
-      createdAt:
-          DateTime.now().subtract(
-        const Duration(days: 2),
-      ),
-      status: 'approved',
-    ),
-    ReviewModel(
-      id: 'rev-2',
-      reservationId: 'res-99',
-      userId: 'usr-11',
-      userName: 'Ana Paula Kiala',
-      pharmacyId: 'pharm-1',
-      pharmacyName:
-          'Farmácia Mecofarma Talatona',
-      pharmacyRating: 1.0,
-      pharmacyComment:
-          'Cheguei à farmácia e disseram que o stock tinha esgotado.',
-      appRating: 4.0,
-      appComment:
-          'O app funciona, mas a farmácia não respeitou o código de reserva.',
-      createdAt:
-          DateTime.now().subtract(
-        const Duration(hours: 8),
-      ),
-      status: 'pending_moderation',
-      isLowRating: true,
-    ),
-  ];
-
-  static final List<AdminNotificationModel>
-      _localNotificationsMemory = [
-    AdminNotificationModel(
-      id: 'notif-1',
-      type: 'low_rating_alert',
-      title:
-          '🚨 Alerta de Avaliação Baixa (1.0★)',
-      message:
-          'Ana Paula Kiala enviou uma crítica de 1.0★ para a Farmácia Mecofarma Talatona. Requer moderação.',
-      targetId: 'rev-2',
-      isRead: false,
-      createdAt:
-          DateTime.now().subtract(
-        const Duration(hours: 8),
-      ),
-    ),
-  ];
-
-  Future<Map<String, dynamic>> submitReview(
-    ReviewModel review,
-  ) async {
-    final existingLocal =
-        _localReviewsMemory
-            .where(
-              (r) =>
-                  r.reservationId ==
-                  review.reservationId,
+      final medicine = Map<String, dynamic>.from(row);
+      final pharmacyId = medicine['farmacia_id']?.toString() ?? '';
+
+      Map<String, dynamic>? pharmacy;
+
+      if (pharmacyId.isNotEmpty) {
+        pharmacy = await _client
+            .from('farmacias')
+            .select(
+              'id, nome, endereco, telefone, avaliacao, aberta_agora',
             )
-            .toList();
-
-    if (existingLocal.isNotEmpty) {
-      return {
-        'success': false,
-        'message':
-            'Esta reserva já possui uma avaliação enviada.',
-      };
-    }
-
-    final isLow =
-        review.pharmacyRating <= 2.0 ||
-        review.appRating <= 2.0;
-
-    final status =
-        isLow ? 'pending_moderation' : 'approved';
-
-    final newReview = ReviewModel(
-      id: review.id.isNotEmpty
-          ? review.id
-          : 'rev-${DateTime.now().millisecondsSinceEpoch}',
-      reservationId: review.reservationId,
-      userId: review.userId,
-      userName: review.userName,
-      userPhone: review.userPhone,
-      pharmacyId: review.pharmacyId,
-      pharmacyName: review.pharmacyName,
-      pharmacyRating: review.pharmacyRating,
-      pharmacyComment: review.pharmacyComment,
-      appRating: review.appRating,
-      appComment: review.appComment,
-      createdAt: DateTime.now(),
-      status: status,
-      isLowRating: isLow,
-    );
-
-    try {
-      await _client
-          .from('reviews')
-          .insert(newReview.toJson());
-    } catch (_) {}
-
-    _localReviewsMemory.add(newReview);
-
-    if (isLow) {
-      final notif = AdminNotificationModel(
-        id:
-            'notif-${DateTime.now().millisecondsSinceEpoch}',
-        type: 'low_rating_alert',
-        title:
-            '🚨 Alerta de Avaliação Baixa '
-            '(${review.pharmacyRating.toStringAsFixed(1)}★ / '
-            '${review.appRating.toStringAsFixed(1)}★)',
-        message:
-            '${review.userName} enviou uma avaliação baixa sobre '
-            '${review.pharmacyName}. Requer moderação no Painel Admin.',
-        targetId: newReview.id,
-        createdAt: DateTime.now(),
-      );
-
-      try {
-        await _client
-            .from('admin_notifications')
-            .insert(notif.toJson());
-      } catch (_) {}
-
-      _localNotificationsMemory.insert(
-        0,
-        notif,
-      );
-    }
-
-    try {
-      await _client
-          .from('reservations')
-          .update({
-            'is_reviewed': true,
-            'review_rating': review.pharmacyRating,
-          })
-          .eq('id', review.reservationId);
-    } catch (_) {}
-
-    if (status == 'approved') {
-      await _updatePharmacyAverageRating(
-        review.pharmacyId,
-      );
-    }
-
-    return {
-      'success': true,
-      'review': newReview,
-      'requiresModeration': isLow,
-      'message': isLow
-          ? 'Sua avaliação foi enviada! Como contém nota baixa, passará por moderação pela equipa FarmaJá.'
-          : 'Obrigado! A sua avaliação foi publicada com sucesso.',
-    };
-  }
-
-  Future<List<ReviewModel>>
-      getReviewsForPharmacy(
-    String pharmacyId,
-  ) async {
-    try {
-      final List<dynamic> data = await _client
-          .from('reviews')
-          .select()
-          .eq('pharmacy_id', pharmacyId)
-          .eq('status', 'approved')
-          .order(
-            'created_at',
-            ascending: false,
-          );
-
-      return data
-          .map(
-            (json) => ReviewModel.fromJson(json),
-          )
-          .toList();
-    } catch (_) {
-      return _localReviewsMemory
-          .where(
-            (r) =>
-                r.pharmacyId == pharmacyId &&
-                r.status == 'approved',
-          )
-          .toList();
-    }
-  }
-
-  Future<List<ReviewModel>>
-      getAllReviews() async {
-    try {
-      final List<dynamic> data = await _client
-          .from('reviews')
-          .select()
-          .order(
-            'created_at',
-            ascending: false,
-          );
-
-      return data
-          .map(
-            (json) => ReviewModel.fromJson(json),
-          )
-          .toList();
-    } catch (_) {
-      return List.from(
-        _localReviewsMemory,
-      );
-    }
-  }
-
-  Future<bool> moderateReview({
-    required String reviewId,
-    required String status,
-    String? note,
-  }) async {
-    try {
-      await _client
-          .from('reviews')
-          .update({
-            'status': status,
-            'moderation_note': note,
-            'moderated_at':
-                DateTime.now().toIso8601String(),
-          })
-          .eq('id', reviewId);
-    } catch (_) {}
-
-    final index =
-        _localReviewsMemory.indexWhere(
-      (r) => r.id == reviewId,
-    );
-
-    if (index != -1) {
-      _localReviewsMemory[index] =
-          _localReviewsMemory[index].copyWith(
-        status: status,
-        moderationNote: note,
-        moderatedAt: DateTime.now(),
-      );
-
-      if (status == 'approved') {
-        await _updatePharmacyAverageRating(
-          _localReviewsMemory[index].pharmacyId,
-        );
+            .eq('id', pharmacyId)
+            .maybeSingle();
       }
-    }
 
-    return true;
-  }
+      final available = medicine['disponivel'] == true;
 
-  Future<void> _updatePharmacyAverageRating(
-    String pharmacyId,
-  ) async {
-    final reviews =
-        await getReviewsForPharmacy(pharmacyId);
-
-    if (reviews.isEmpty) return;
-
-    final total = reviews.fold(
-      0.0,
-      (sum, r) => sum + r.pharmacyRating,
-    );
-
-    final avg = double.parse(
-      (total / reviews.length)
-          .toStringAsFixed(1),
-    );
-
-    try {
-      await _client
-          .from('pharmacies')
-          .update({'rating': avg})
-          .eq('id', pharmacyId);
-    } catch (_) {}
-  }
-
-  Future<List<AdminNotificationModel>>
-      getAdminNotifications() async {
-    try {
-      final List<dynamic> data = await _client
-          .from('admin_notifications')
-          .select()
-          .order(
-            'created_at',
-            ascending: false,
-          );
-
-      return data
-          .map(
-            (json) =>
-                AdminNotificationModel.fromJson(json),
-          )
-          .toList();
-    } catch (_) {
-      return List.from(
-        _localNotificationsMemory,
+      return MedicineModel(
+        id: medicine['id']?.toString() ?? '',
+        pharmacyId: pharmacyId,
+        name: medicine['nome_medicamento']?.toString() ?? '',
+        activeIngredient: '',
+        category: 'Geral',
+        dosage: 'Não especificado',
+        priceKz: _toDouble(medicine['preco_kwanza']),
+        pharmacyName: pharmacy?['nome']?.toString() ?? '',
+        province: '',
+        district: pharmacy?['endereco']?.toString() ?? '',
+        inStock: available,
+        stockQuantity: 0,
+        requiresPrescription: false,
+        isGeneric: false,
+        genericAlternative: null,
+        description: '',
+        dosageInstructions:
+            'Consulta a embalagem e as indicações de um profissional de saúde.',
+        pharmacyLatitude: -8.8383,
+        pharmacyLongitude: 13.2344,
       );
+    } on PostgrestException catch (error) {
+      throw Exception(
+        'Erro ao consultar o medicamento: ${error.message}',
+      );
+    } catch (error) {
+      throw Exception('Não foi possível carregar o medicamento: $error');
     }
   }
 
-  Future<void> markAdminNotificationRead(
-    String id,
-  ) async {
-    try {
-      await _client
-          .from('admin_notifications')
-          .update({'is_read': true})
-          .eq('id', id);
-    } catch (_) {}
-
-    final idx =
-        _localNotificationsMemory.indexWhere(
-      (n) => n.id == id,
-    );
-
-    if (idx != -1) {
-      final current =
-          _localNotificationsMemory[idx];
-
-      _localNotificationsMemory[idx] =
-          AdminNotificationModel(
-        id: current.id,
-        type: current.type,
-        title: current.title,
-        message: current.message,
-        targetId: current.targetId,
-        isRead: true,
-        createdAt: current.createdAt,
-      );
+  double _toDouble(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
     }
+
+    return double.tryParse(value?.toString() ?? '') ?? 0.0;
   }
 }
-
-// -------------------------------------------------------------
-// SUPABASE DATABASE SERVICE PROVIDER
-// -------------------------------------------------------------
-//
-// Este provider é utilizado por:
-// - admin_reviews_provider.dart
-// - admin_subscription_provider.dart
-// - outros módulos que precisem do serviço Supabase.
-//
-// A ausência deste provider era responsável pelo erro:
-// "Undefined name: supabaseDatabaseServiceProvider"
-
-final supabaseDatabaseServiceProvider =
-    Provider<SupabaseDatabaseService>((ref) {
-  return SupabaseDatabaseService();
-});
