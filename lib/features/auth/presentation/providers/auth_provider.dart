@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/services/supabase_auth_service.dart';
-import '../../../../core/services/supabase_database_service.dart';
+import '../../../../essencial/serviços/supabase_auth_service.dart';
+import '../../../../essencial/serviços/supabase_database_service.dart';
 import '../../domain/user_model.dart';
 
-final supabaseAuthServiceProvider = Provider<SupabaseAuthService>((ref) {
+final supabaseAuthServiceProvider =
+    Provider<SupabaseAuthService>((ref) {
   return SupabaseAuthService();
 });
 
@@ -47,7 +48,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final currentUser = _authService.currentUser;
 
     if (currentUser != null) {
-      final profile = await _dbService.getUserProfile(currentUser.id);
+      final profile =
+          await _dbService.getUserProfile(currentUser.id);
 
       if (profile != null) {
         state = AuthState(
@@ -60,10 +62,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final user = UserModel(
           id: currentUser.id,
           email: currentUser.email ?? '',
-          fullName:
-              meta['full_name'] ??
+          fullName: meta['full_name'] ??
               meta['fullName'] ??
-              'Utilizador FarmaJá',
+              'Utilizador FARCLIK',
           phone: meta['phone'] ?? '+244 923 000 000',
           province: meta['province'] ?? 'Luanda',
           district: meta['district'] ?? 'Talatona',
@@ -89,7 +90,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final user = data.session?.user;
 
       if (user != null) {
-        final profile = await _dbService.getUserProfile(user.id);
+        final profile =
+            await _dbService.getUserProfile(user.id);
 
         if (profile != null) {
           state = AuthState(
@@ -102,10 +104,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
           final newUser = UserModel(
             id: user.id,
             email: user.email ?? '',
-            fullName:
-                meta['full_name'] ??
+            fullName: meta['full_name'] ??
                 meta['fullName'] ??
-                'Utilizador FarmaJá',
+                'Utilizador FARCLIK',
             phone: meta['phone'] ?? '+244 923 000 000',
             province: meta['province'] ?? 'Luanda',
             district: meta['district'] ?? 'Talatona',
@@ -129,7 +130,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     });
   }
 
-  /// Real Supabase Auth Login
   Future<bool> login(
     String email,
     String password,
@@ -158,10 +158,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
           profile = UserModel(
             id: user.id,
             email: user.email ?? email,
-            fullName:
-                meta['full_name'] ??
+            fullName: meta['full_name'] ??
                 meta['fullName'] ??
-                'Utilizador FarmaJá',
+                'Utilizador FARCLIK',
             phone: meta['phone'] ?? '+244 923 000 000',
             province: meta['province'] ?? 'Luanda',
             district: meta['district'] ?? 'Talatona',
@@ -180,14 +179,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
 
         return true;
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Falha na autenticação Supabase.',
-        );
-
-        return false;
       }
+
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Falha na autenticação Supabase.',
+      );
+
+      return false;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -198,7 +197,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Real Supabase Auth Register
   Future<bool> register({
     required String fullName,
     required String email,
@@ -232,12 +230,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       final user = response.user;
 
-      final userId =
-          user?.id ??
-          'usr-${DateTime.now().millisecondsSinceEpoch}';
+      if (user == null) {
+        state = state.copyWith(
+          isLoading: false,
+          error:
+              'O registo não devolveu um utilizador. Verifica a confirmação de email no Supabase.',
+        );
+
+        return false;
+      }
 
       final newProfile = UserModel(
-        id: userId,
+        id: user.id,
         email: email,
         fullName: fullName,
         phone: phone,
@@ -266,7 +270,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Real Supabase Auth Password Reset
   Future<bool> resetPassword(String email) async {
     state = state.copyWith(
       isLoading: true,
@@ -291,12 +294,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Logout from Supabase Auth
   Future<void> logout() async {
     await _authService.signOut();
 
     state = AuthState(
       user: null,
+      isLoading: false,
     );
   }
 }
