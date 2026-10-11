@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../essencial/serviços/supabase_auth_service.dart';
-import '../../../../essencial/serviços/supabase_database_service.dart';
+import '../../../../core/services/supabase_auth_service.dart';
+import '../../../../core/services/supabase_database_service.dart';
 import '../../domain/user_model.dart';
 
 final supabaseAuthServiceProvider =
@@ -45,53 +45,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> _initAuth() async {
-    final currentUser = _authService.currentUser;
+    try {
+      final currentUser = _authService.currentUser;
 
-    if (currentUser != null) {
-      final profile =
-          await _dbService.getUserProfile(currentUser.id);
-
-      if (profile != null) {
-        state = AuthState(
-          user: profile,
-          isLoading: false,
-        );
-      } else {
-        final meta = currentUser.userMetadata ?? {};
-
-        final user = UserModel(
-          id: currentUser.id,
-          email: currentUser.email ?? '',
-          fullName: meta['full_name'] ??
-              meta['fullName'] ??
-              'Utilizador FARCLIK',
-          phone: meta['phone'] ?? '+244 923 000 000',
-          province: meta['province'] ?? 'Luanda',
-          district: meta['district'] ?? 'Talatona',
-          insuranceProvider:
-              meta['insurance_provider'] ?? 'ENSA Seguros',
-          role: meta['role'] ?? 'customer',
-          pharmacyName: meta['pharmacy_name'],
-        );
-
-        state = AuthState(
-          user: user,
-          isLoading: false,
-        );
-      }
-    } else {
-      state = AuthState(
-        user: null,
-        isLoading: false,
-      );
-    }
-
-    _authService.authStateChanges.listen((data) async {
-      final user = data.session?.user;
-
-      if (user != null) {
+      if (currentUser != null) {
         final profile =
-            await _dbService.getUserProfile(user.id);
+            await _dbService.getUserProfile(currentUser.id);
 
         if (profile != null) {
           state = AuthState(
@@ -99,6 +58,58 @@ class AuthNotifier extends StateNotifier<AuthState> {
             isLoading: false,
           );
         } else {
+          final meta = currentUser.userMetadata ?? {};
+
+          final user = UserModel(
+            id: currentUser.id,
+            email: currentUser.email ?? '',
+            fullName: meta['full_name'] ??
+                meta['fullName'] ??
+                'Utilizador FARCLIK',
+            phone: meta['phone'] ?? '+244 923 000 000',
+            province: meta['province'] ?? 'Luanda',
+            district: meta['district'] ?? 'Talatona',
+            insuranceProvider:
+                meta['insurance_provider'] ?? 'ENSA Seguros',
+            role: meta['role'] ?? 'customer',
+            pharmacyName: meta['pharmacy_name'],
+          );
+
+          state = AuthState(
+            user: user,
+            isLoading: false,
+          );
+        }
+      } else {
+        state = AuthState(
+          user: null,
+          isLoading: false,
+        );
+      }
+
+      _authService.authStateChanges.listen((data) async {
+        try {
+          final user = data.session?.user;
+
+          if (user == null) {
+            state = AuthState(
+              user: null,
+              isLoading: false,
+            );
+            return;
+          }
+
+          final profile =
+              await _dbService.getUserProfile(user.id);
+
+          if (profile != null) {
+            state = AuthState(
+              user: profile,
+              isLoading: false,
+            );
+            return;
+          }
+
           final meta = user.userMetadata ?? {};
 
           final newUser = UserModel(
@@ -120,14 +131,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
             user: newUser,
             isLoading: false,
           );
+        } catch (e) {
+          state = state.copyWith(
+            isLoading: false,
+            error: e.toString(),
+          );
         }
-      } else {
-        state = AuthState(
-          user: null,
-          isLoading: false,
-        );
-      }
-    });
+      });
+    } catch (e) {
+      state = AuthState(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
   }
 
   Future<bool> login(
@@ -148,51 +164,49 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       final user = response.user;
 
-      if (user != null) {
-        UserModel? profile =
-            await _dbService.getUserProfile(user.id);
-
-        if (profile == null) {
-          final meta = user.userMetadata ?? {};
-
-          profile = UserModel(
-            id: user.id,
-            email: user.email ?? email,
-            fullName: meta['full_name'] ??
-                meta['fullName'] ??
-                'Utilizador FARCLIK',
-            phone: meta['phone'] ?? '+244 923 000 000',
-            province: meta['province'] ?? 'Luanda',
-            district: meta['district'] ?? 'Talatona',
-            insuranceProvider:
-                meta['insurance_provider'] ?? 'ENSA Seguros',
-            role: meta['role'] ?? 'customer',
-            pharmacyName: meta['pharmacy_name'],
-          );
-
-          await _dbService.upsertUserProfile(profile);
-        }
-
-        state = AuthState(
-          user: profile,
+      if (user == null) {
+        state = state.copyWith(
           isLoading: false,
+          error: 'Falha na autenticação Supabase.',
         );
-
-        return true;
+        return false;
       }
 
-      state = state.copyWith(
+      UserModel? profile =
+          await _dbService.getUserProfile(user.id);
+
+      if (profile == null) {
+        final meta = user.userMetadata ?? {};
+
+        profile = UserModel(
+          id: user.id,
+          email: user.email ?? email,
+          fullName: meta['full_name'] ??
+              meta['fullName'] ??
+              'Utilizador FARCLIK',
+          phone: meta['phone'] ?? '+244 923 000 000',
+          province: meta['province'] ?? 'Luanda',
+          district: meta['district'] ?? 'Talatona',
+          insuranceProvider:
+              meta['insurance_provider'] ?? 'ENSA Seguros',
+          role: meta['role'] ?? 'customer',
+          pharmacyName: meta['pharmacy_name'],
+        );
+
+        await _dbService.upsertUserProfile(profile);
+      }
+
+      state = AuthState(
+        user: profile,
         isLoading: false,
-        error: 'Falha na autenticação Supabase.',
       );
 
-      return false;
+      return true;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
       );
-
       return false;
     }
   }
@@ -236,7 +250,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
           error:
               'O registo não devolveu um utilizador. Verifica a confirmação de email no Supabase.',
         );
-
         return false;
       }
 
@@ -265,7 +278,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
         error: e.toString(),
       );
-
       return false;
     }
   }
@@ -289,18 +301,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
         error: e.toString(),
       );
-
       return false;
     }
   }
 
   Future<void> logout() async {
-    await _authService.signOut();
+    try {
+      await _authService.signOut();
 
-    state = AuthState(
-      user: null,
-      isLoading: false,
-    );
+      state = AuthState(
+        user: null,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
   }
 }
 
