@@ -1,4 +1,4 @@
-import '../../../core/services/serviço_catálogo_de_medicamentos.dart';
+import '../../../essencial/serviços/serviço_catálogo_de_medicamentos.dart';
 import '../domain/medicine_model.dart';
 
 class MedicinesRepository {
