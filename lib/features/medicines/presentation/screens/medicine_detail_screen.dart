@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/supabase_storage_service.dart';
@@ -27,91 +28,183 @@ class _MedicineDetailScreenState
     extends ConsumerState<MedicineDetailScreen> {
   bool _prescriptionUploaded = false;
   bool _isUploadingPrescription = false;
-  String? _prescriptionUrl;
+  bool _isCreatingReservation = false;
+
+  String? _prescriptionPath;
+  Uint8List? _prescriptionBytes;
+
+  final ImagePicker _imagePicker = ImagePicker();
 
   Future<void> _handleUploadPrescription() async {
     final user = ref.read(authProvider).user;
-    if (user == null) return;
+
+    if (user == null) {
+      _showMessage('Inicia sessão para anexar a receita médica.');
+      return;
+    }
+
+    if (_isUploadingPrescription || _isCreatingReservation) {
+      return;
+    }
+
+    try {
+      final XFile? selectedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
+      if (selectedFile == null) return;
+
+      final Uint8List bytes = await selectedFile.readAsBytes();
+
+      if (bytes.isEmpty) {
+        _showMessage('O ficheiro seleccionado está vazio.');
+        return;
+      }
+
+      if (bytes.length > 10 * 1024 * 1024) {
+        _showMessage(
+          'O ficheiro excede o limite de 10 MB.',
+        );
+        return;
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _isUploadingPrescription = true;
+        _prescriptionUploaded = false;
+        _prescriptionPath = null;
+        _prescriptionBytes = null;
+      });
+
+      final extension = selectedFile.name.contains('.')
+          ? selectedFile.name.split('.').last.toLowerCase()
+          : 'jpg';
+
+      final contentType = switch (extension) {
+        'png' => 'image/png',
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'pdf' => 'application/pdf',
+        _ => '',
+      };
+
+      if (contentType.isEmpty) {
+        throw Exception(
+          'Formato não suportado. Selecciona uma imagem JPG ou PNG.',
+        );
+      }
+
+      final storageService = SupabaseStorageService();
+
+      final path = await storageService.uploadPrescription(
+        userId: user.id,
+        fileBytes: bytes,
+        fileName: selectedFile.name,
+        contentType: contentType,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _prescriptionUploaded = true;
+        _prescriptionPath = path;
+        _prescriptionBytes = bytes;
+        _isUploadingPrescription = false;
+      });
+
+      _showMessage('Receita carregada com sucesso.');
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _prescriptionUploaded = false;
+        _prescriptionPath = null;
+        _prescriptionBytes = null;
+        _isUploadingPrescription = false;
+      });
+
+      _showMessage('Não foi possível carregar a receita: $e');
+    }
+  }
+
+  Future<void> _handleCreateReservation({
+    required bool requiresPrescription,
+    required String medicineId,
+    required String pharmacyId,
+  }) async {
+    if (_isCreatingReservation || _isUploadingPrescription) {
+      return;
+    }
+
+    final user = ref.read(authProvider).user;
+
+    if (user == null) {
+      _showMessage('Inicia sessão antes de efectuar a reserva.');
+      return;
+    }
+
+    if (medicineId.isEmpty || pharmacyId.isEmpty) {
+      _showMessage(
+        'Não foi possível identificar o medicamento ou a farmácia.',
+      );
+      return;
+    }
+
+    if (requiresPrescription &&
+        (!_prescriptionUploaded ||
+            _prescriptionPath == null ||
+            _prescriptionPath!.isEmpty)) {
+      _showMessage(
+        'Anexa a receita médica antes de efectuar a reserva.',
+      );
+      return;
+    }
 
     setState(() {
-      _isUploadingPrescription = true;
+      _isCreatingReservation = true;
     });
 
     try {
-      final storageService = SupabaseStorageService();
+      await ref.read(reservationsProvider.notifier).addReservation(
+            medicineId: medicineId,
+            pharmacyId: pharmacyId,
+            prescriptionUploaded: requiresPrescription,
+            prescriptionPath:
+                requiresPrescription ? _prescriptionPath : null,
+          );
 
-      final dummyBytes = Uint8List.fromList(
-        List.generate(100, (i) => i % 256),
-      );
+      if (!mounted) return;
 
-      final url = await storageService.uploadPrescription(
-        userId: user.id,
-        fileBytes: dummyBytes,
-        fileName:
-            'receita_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
-
-      if (mounted) {
-        setState(() {
-          _prescriptionUploaded = true;
-          _prescriptionUrl = url;
-          _isUploadingPrescription = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Receita médica carregada com sucesso no Supabase Storage!',
-            ),
-            backgroundColor: AppColors.primary,
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Reserva criada com sucesso. Consulta os detalhes da reserva.',
           ),
-        );
-      }
+          backgroundColor: AppColors.primary,
+        ),
+      );
+
+      context.go('/reservations');
     } catch (e) {
+      if (!mounted) return;
+
+      _showMessage('Não foi possível efectuar a reserva: $e');
+    } finally {
       if (mounted) {
         setState(() {
-          _prescriptionUploaded = true;
-          _isUploadingPrescription = false;
+          _isCreatingReservation = false;
         });
       }
     }
   }
 
-  void _handleCreateReservation(
-    bool requiresPrescription,
-    String medicineName,
-    String pharmacyName,
-    double price,
-  ) {
-    if (requiresPrescription && !_prescriptionUploaded) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Por favor anexe a foto da receita médica obrigatória antes de reservar.',
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    ref.read(reservationsProvider.notifier).addReservation(
-          medicineName: medicineName,
-          pharmacyName: pharmacyName,
-          totalPriceKz: price,
-          prescriptionUploaded: _prescriptionUploaded,
-        );
+  void _showMessage(String message) {
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Reserva de 2 horas efetuada com sucesso! Apresente o QR code na farmácia.',
-        ),
-        backgroundColor: AppColors.primary,
-      ),
+      SnackBar(content: Text(message)),
     );
-
-    context.go('/reservations');
   }
 
   @override
@@ -132,6 +225,18 @@ class _MedicineDetailScreenState
             );
           }
 
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Não foi possível carregar o medicamento: ${snapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
+
           final med = snapshot.data;
 
           if (med == null) {
@@ -148,7 +253,7 @@ class _MedicineDetailScreenState
               .toStringAsFixed(1);
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -166,8 +271,6 @@ class _MedicineDetailScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
@@ -187,8 +290,7 @@ class _MedicineDetailScreenState
                                     margin: const EdgeInsets.only(
                                       top: 4,
                                     ),
-                                    padding:
-                                        const EdgeInsets.symmetric(
+                                    padding: const EdgeInsets.symmetric(
                                       horizontal: 8,
                                       vertical: 2,
                                     ),
@@ -196,9 +298,6 @@ class _MedicineDetailScreenState
                                       color: Colors.blue.shade50,
                                       borderRadius:
                                           BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: Colors.blue.shade200,
-                                      ),
                                     ),
                                     child: const Text(
                                       'Medicamento Genérico',
@@ -212,10 +311,11 @@ class _MedicineDetailScreenState
                               ],
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
                             '${med.priceKz.toInt()} Kz',
                             style: const TextStyle(
-                              fontSize: 22,
+                              fontSize: 20,
                               fontWeight: FontWeight.w900,
                               color: AppColors.primary,
                             ),
@@ -223,26 +323,13 @@ class _MedicineDetailScreenState
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.science_outlined,
-                            size: 16,
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'Princípio Ativo: ${med.activeIngredient}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color:
-                                    AppColors.textSecondaryLight,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Princípio activo: ${med.activeIngredient}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondaryLight,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Wrap(
@@ -258,8 +345,7 @@ class _MedicineDetailScreenState
                             label: Text(
                               '${med.pharmacyName} (${med.district})',
                             ),
-                            backgroundColor:
-                                AppColors.primaryLight,
+                            backgroundColor: AppColors.primaryLight,
                           ),
                           Chip(
                             avatar: const Icon(
@@ -267,11 +353,8 @@ class _MedicineDetailScreenState
                               size: 16,
                               color: AppColors.primaryDark,
                             ),
-                            label: Text(
-                              '📍 $distance km de distância GPS',
-                            ),
-                            backgroundColor:
-                                Colors.teal.shade50,
+                            label: Text('$distance km de distância GPS'),
+                            backgroundColor: Colors.teal.shade50,
                           ),
                           Chip(
                             avatar: Icon(
@@ -285,8 +368,8 @@ class _MedicineDetailScreenState
                             ),
                             label: Text(
                               med.inStock
-                                  ? 'Stock: ${med.stockQuantity} unidades'
-                                  : 'Sem Stock',
+                                  ? 'Disponível'
+                                  : 'Sem stock',
                             ),
                             backgroundColor: med.inStock
                                 ? AppColors.primaryLight
@@ -297,9 +380,7 @@ class _MedicineDetailScreenState
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -309,21 +390,20 @@ class _MedicineDetailScreenState
                       color: Colors.blue.shade200,
                     ),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.timer_outlined,
                         color: Colors.blue,
                         size: 24,
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Expanded(
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Reserva Garantida por 2 Horas',
+                            Text(
+                              'Reserva por 2 horas',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
@@ -331,13 +411,8 @@ class _MedicineDetailScreenState
                               ),
                             ),
                             Text(
-                              'A farmácia reservará o medicamento durante 2 horas após a confirmação.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.black.withValues(
-                                  alpha: 0.70,
-                                ),
-                              ),
+                              'A validade é definida pelo servidor quando a reserva é criada.',
+                              style: TextStyle(fontSize: 11),
                             ),
                           ],
                         ),
@@ -345,11 +420,9 @@ class _MedicineDetailScreenState
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 const Text(
-                  'Indicação e Descrição',
+                  'Indicação e descrição',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -363,11 +436,9 @@ class _MedicineDetailScreenState
                     height: 1.4,
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
                 const Text(
-                  'Posologia Recomendada',
+                  'Posologia',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -381,9 +452,7 @@ class _MedicineDetailScreenState
                     height: 1.4,
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
                 if (med.requiresPrescription) ...[
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -395,37 +464,29 @@ class _MedicineDetailScreenState
                       ),
                     ),
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        const Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.assignment_late_rounded,
                               color: Colors.amber,
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             Text(
-                              'Receita Médica Obrigatória',
+                              'Receita médica obrigatória',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black.withValues(
-                                  alpha: 0.80,
-                                ),
                                 fontSize: 14,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Este medicamento exige apresentação de receita médica válida para confirmação da reserva.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.black.withValues(
-                              alpha: 0.70,
-                            ),
-                          ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Selecciona uma imagem JPG ou PNG da receita. '
+                          'O ficheiro será guardado no armazenamento privado.',
+                          style: TextStyle(fontSize: 12),
                         ),
                         const SizedBox(height: 12),
                         SizedBox(
@@ -435,8 +496,7 @@ class _MedicineDetailScreenState
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child:
-                                        CircularProgressIndicator(
+                                    child: CircularProgressIndicator(
                                       strokeWidth: 2,
                                     ),
                                   )
@@ -444,33 +504,19 @@ class _MedicineDetailScreenState
                                     _prescriptionUploaded
                                         ? Icons.check_circle
                                         : Icons.camera_alt_outlined,
-                                    color: _prescriptionUploaded
-                                        ? Colors.green
-                                        : AppColors.primary,
                                   ),
                             label: Text(
-                              _prescriptionUploaded
-                                  ? 'Receita Anexada com Sucesso'
-                                  : 'Carregar Foto da Receita',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: _prescriptionUploaded
-                                    ? Colors.green
-                                    : AppColors.primary,
-                              ),
+                              _isUploadingPrescription
+                                  ? 'A carregar...'
+                                  : _prescriptionUploaded
+                                      ? 'Receita anexada'
+                                      : 'Seleccionar receita',
                             ),
                             onPressed:
-                                _isUploadingPrescription
+                                _isUploadingPrescription ||
+                                        _isCreatingReservation
                                     ? null
                                     : _handleUploadPrescription,
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              side: BorderSide(
-                                color: _prescriptionUploaded
-                                    ? Colors.green
-                                    : AppColors.primary,
-                              ),
-                            ),
                           ),
                         ),
                       ],
@@ -478,21 +524,32 @@ class _MedicineDetailScreenState
                   ),
                   const SizedBox(height: 24),
                 ],
-
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    icon: const Icon(Icons.bookmark_add),
-                    label: const Text(
-                      'Confirmar Reserva de 2 Horas',
+                    icon: _isCreatingReservation
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.bookmark_add),
+                    label: Text(
+                      _isCreatingReservation
+                          ? 'A criar reserva...'
+                          : 'Confirmar reserva',
                     ),
-                    onPressed: () =>
-                        _handleCreateReservation(
-                      med.requiresPrescription,
-                      med.name,
-                      med.pharmacyName,
-                      med.priceKz,
-                    ),
+                    onPressed: _isCreatingReservation ||
+                            _isUploadingPrescription
+                        ? null
+                        : () => _handleCreateReservation(
+                              requiresPrescription:
+                                  med.requiresPrescription,
+                              medicineId: med.id,
+                              pharmacyId: med.pharmacyId,
+                            ),
                   ),
                 ),
               ],
