@@ -1,65 +1,139 @@
 import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseStorageService {
-  final SupabaseClient _client = Supabase.instance.client;
+  SupabaseStorageService({SupabaseClient? client})
+      : _client = client ?? Supabase.instance.client;
 
-  static const String prescriptionsBucket = 'prescriptions';
+  final SupabaseClient _client;
+
+  static const String prescriptionsBucket = 'receitas-medicas';
   static const String avatarsBucket = 'avatars';
   static const String pharmacyLogosBucket = 'pharmacies';
 
-  /// Upload prescription image bytes to Supabase Storage
+  /// Envia a receita médica para o bucket privado do utilizador.
+  ///
+  /// O caminho começa pelo ID autenticado, conforme as políticas
+  /// de armazenamento configuradas no Supabase.
+  /// Se o envio falhar, a excepção é propagada.
   Future<String> uploadPrescription({
     required String userId,
     required Uint8List fileBytes,
     required String fileName,
+    String contentType = 'image/jpeg',
   }) async {
-    try {
-      final path = 'user_$userId/${DateTime.now().millisecondsSinceEpoch}_$fileName';
-      
-      await _client.storage.from(prescriptionsBucket).uploadBinary(
-        path,
-        fileBytes,
-        fileOptions: const FileOptions(
-          cacheControl: '3600',
-          upsert: true,
-        ),
-      );
+    _validateAuthenticatedUser(userId);
 
-      final publicUrl = _client.storage.from(prescriptionsBucket).getPublicUrl(path);
-      return publicUrl;
-    } catch (e) {
-      // Return a simulated cloud URL if bucket doesn't exist yet
-      return 'https://xyzkjghfklqw.supabase.co/storage/v1/object/public/$prescriptionsBucket/user_$userId/$fileName';
+    if (fileBytes.isEmpty) {
+      throw ArgumentError('O ficheiro da receita está vazio.');
     }
+
+    if (fileBytes.length > 10 * 1024 * 1024) {
+      throw ArgumentError(
+        'A receita não pode exceder 10 MB.',
+      );
+    }
+
+    final safeFileName = _sanitizeFileName(fileName);
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final path = '$userId/${timestamp}_$safeFileName';
+
+    await _client.storage.from(prescriptionsBucket).uploadBinary(
+          path,
+          fileBytes,
+          fileOptions: FileOptions(
+            cacheControl: '3600',
+            upsert: false,
+            contentType: contentType,
+          ),
+        );
+
+    // O bucket é privado: não gerar nem guardar URLs públicos.
+    // O caminho identifica o objecto e será guardado na reserva.
+    return path;
   }
 
-  /// Upload user profile avatar to Supabase Storage
+  /// Envia a fotografia do perfil.
+  ///
+  /// Este método não simula URLs caso ocorra uma falha.
   Future<String> uploadAvatar({
     required String userId,
     required Uint8List fileBytes,
     required String fileName,
   }) async {
-    try {
-      final path = 'avatar_$userId.$fileName';
-      
-      await _client.storage.from(avatarsBucket).uploadBinary(
-        path,
-        fileBytes,
-        fileOptions: const FileOptions(
-          cacheControl: '3600',
-          upsert: true,
-        ),
-      );
+    _validateAuthenticatedUser(userId);
 
-      return _client.storage.from(avatarsBucket).getPublicUrl(path);
-    } catch (e) {
-      return 'https://xyzkjghfklqw.supabase.co/storage/v1/object/public/$avatarsBucket/avatar_$userId.$fileName';
+    if (fileBytes.isEmpty) {
+      throw ArgumentError('O ficheiro do avatar está vazio.');
+    }
+
+    final safeFileName = _sanitizeFileName(fileName);
+    final path = '$userId/avatars/$safeFileName';
+
+    await _client.storage.from(avatarsBucket).uploadBinary(
+          path,
+          fileBytes,
+          fileOptions: const FileOptions(
+            cacheControl: '3600',
+            upsert: true,
+          ),
+        );
+
+    return path;
+  }
+
+  /// Devolve um URL temporário para um objecto de um bucket privado.
+  ///
+  /// O URL expira após o tempo indicado.
+  Future<String> createSignedUrl({
+    required String bucket,
+    required String path,
+    int expiresInSeconds = 300,
+  }) async {
+    if (path.trim().isEmpty) {
+      throw ArgumentError('O caminho do ficheiro é obrigatório.');
+    }
+
+    return _client.storage.from(bucket).createSignedUrl(
+          path,
+          expiresInSeconds,
+        );
+  }
+
+  /// Mantido para compatibilidade com chamadas existentes.
+  ///
+  /// Só funciona com objectos de buckets públicos.
+  String getPublicUrl(String bucket, String path) {
+    return _client.storage.from(bucket).getPublicUrl(path);
+  }
+
+  void _validateAuthenticatedUser(String userId) {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception(
+        'Inicia sessão antes de enviar ficheiros.',
+      );
+    }
+
+    if (currentUser.id != userId) {
+      throw Exception(
+        'O utilizador autenticado não corresponde ao proprietário do ficheiro.',
+      );
     }
   }
 
-  /// Get public URL for any object in a Supabase Storage bucket
-  String getPublicUrl(String bucket, String path) {
-    return _client.storage.from(bucket).getPublicUrl(path);
+  String _sanitizeFileName(String fileName) {
+    final normalized = fileName.trim().replaceAll(
+          RegExp(r'[^a-zA-Z0-9._-]'),
+          '_',
+        );
+
+    if (normalized.isEmpty || normalized == '.' || normalized == '..') {
+      throw ArgumentError('O nome do ficheiro é inválido.');
+    }
+
+    return normalized;
   }
 }
