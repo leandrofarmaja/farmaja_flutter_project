@@ -31,7 +31,6 @@ class _MedicineDetailScreenState
   bool _isCreatingReservation = false;
 
   String? _prescriptionPath;
-  Uint8List? _prescriptionBytes;
 
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -39,7 +38,9 @@ class _MedicineDetailScreenState
     final user = ref.read(authProvider).user;
 
     if (user == null) {
-      _showMessage('Inicia sessão para anexar a receita médica.');
+      _showMessage(
+        'Inicia sessão para anexar a receita médica.',
+      );
       return;
     }
 
@@ -58,7 +59,9 @@ class _MedicineDetailScreenState
       final Uint8List bytes = await selectedFile.readAsBytes();
 
       if (bytes.isEmpty) {
-        _showMessage('O ficheiro seleccionado está vazio.');
+        _showMessage(
+          'O ficheiro seleccionado está vazio.',
+        );
         return;
       }
 
@@ -69,15 +72,6 @@ class _MedicineDetailScreenState
         return;
       }
 
-      if (!mounted) return;
-
-      setState(() {
-        _isUploadingPrescription = true;
-        _prescriptionUploaded = false;
-        _prescriptionPath = null;
-        _prescriptionBytes = null;
-      });
-
       final extension = selectedFile.name.contains('.')
           ? selectedFile.name.split('.').last.toLowerCase()
           : 'jpg';
@@ -85,15 +79,23 @@ class _MedicineDetailScreenState
       final contentType = switch (extension) {
         'png' => 'image/png',
         'jpg' || 'jpeg' => 'image/jpeg',
-        'pdf' => 'application/pdf',
         _ => '',
       };
 
       if (contentType.isEmpty) {
-        throw Exception(
+        _showMessage(
           'Formato não suportado. Selecciona uma imagem JPG ou PNG.',
         );
+        return;
       }
+
+      if (!mounted) return;
+
+      setState(() {
+        _isUploadingPrescription = true;
+        _prescriptionUploaded = false;
+        _prescriptionPath = null;
+      });
 
       final storageService = SupabaseStorageService();
 
@@ -109,27 +111,30 @@ class _MedicineDetailScreenState
       setState(() {
         _prescriptionUploaded = true;
         _prescriptionPath = path;
-        _prescriptionBytes = bytes;
         _isUploadingPrescription = false;
       });
 
-      _showMessage('Receita carregada com sucesso.');
+      _showMessage(
+        'Receita carregada com sucesso.',
+      );
     } catch (e) {
       if (!mounted) return;
 
       setState(() {
         _prescriptionUploaded = false;
         _prescriptionPath = null;
-        _prescriptionBytes = null;
         _isUploadingPrescription = false;
       });
 
-      _showMessage('Não foi possível carregar a receita: $e');
+      _showMessage(
+        'Não foi possível carregar a receita: $e',
+      );
     }
   }
 
   Future<void> _handleCreateReservation({
     required bool requiresPrescription,
+    required bool inStock,
     required String medicineId,
     required String pharmacyId,
   }) async {
@@ -140,11 +145,21 @@ class _MedicineDetailScreenState
     final user = ref.read(authProvider).user;
 
     if (user == null) {
-      _showMessage('Inicia sessão antes de efectuar a reserva.');
+      _showMessage(
+        'Inicia sessão antes de efectuar a reserva.',
+      );
       return;
     }
 
-    if (medicineId.isEmpty || pharmacyId.isEmpty) {
+    if (!inStock) {
+      _showMessage(
+        'Este medicamento está sem stock e não pode ser reservado.',
+      );
+      return;
+    }
+
+    if (medicineId.trim().isEmpty ||
+        pharmacyId.trim().isEmpty) {
       _showMessage(
         'Não foi possível identificar o medicamento ou a farmácia.',
       );
@@ -154,7 +169,7 @@ class _MedicineDetailScreenState
     if (requiresPrescription &&
         (!_prescriptionUploaded ||
             _prescriptionPath == null ||
-            _prescriptionPath!.isEmpty)) {
+            _prescriptionPath!.trim().isEmpty)) {
       _showMessage(
         'Anexa a receita médica antes de efectuar a reserva.',
       );
@@ -189,7 +204,9 @@ class _MedicineDetailScreenState
     } catch (e) {
       if (!mounted) return;
 
-      _showMessage('Não foi possível efectuar a reserva: $e');
+      _showMessage(
+        'Não foi possível efectuar a reserva: $e',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -203,7 +220,9 @@ class _MedicineDetailScreenState
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+      SnackBar(
+        content: Text(message),
+      ),
     );
   }
 
@@ -214,12 +233,15 @@ class _MedicineDetailScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Detalhes do Medicamento'),
+        title: const Text(
+          'Detalhes do Medicamento',
+        ),
       ),
       body: FutureBuilder(
         future: repo.getMedicineById(widget.medicineId),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState ==
+              ConnectionState.waiting) {
             return const Center(
               child: CircularProgressIndicator(),
             );
@@ -241,7 +263,9 @@ class _MedicineDetailScreenState
 
           if (med == null) {
             return const Center(
-              child: Text('Medicamento não encontrado.'),
+              child: Text(
+                'Medicamento não encontrado.',
+              ),
             );
           }
 
@@ -268,10 +292,12 @@ class _MedicineDetailScreenState
                     ),
                   ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
                     children: [
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: Column(
@@ -290,7 +316,8 @@ class _MedicineDetailScreenState
                                     margin: const EdgeInsets.only(
                                       top: 4,
                                     ),
-                                    padding: const EdgeInsets.symmetric(
+                                    padding:
+                                        const EdgeInsets.symmetric(
                                       horizontal: 8,
                                       vertical: 2,
                                     ),
@@ -345,7 +372,8 @@ class _MedicineDetailScreenState
                             label: Text(
                               '${med.pharmacyName} (${med.district})',
                             ),
-                            backgroundColor: AppColors.primaryLight,
+                            backgroundColor:
+                                AppColors.primaryLight,
                           ),
                           Chip(
                             avatar: const Icon(
@@ -353,8 +381,11 @@ class _MedicineDetailScreenState
                               size: 16,
                               color: AppColors.primaryDark,
                             ),
-                            label: Text('$distance km de distância GPS'),
-                            backgroundColor: Colors.teal.shade50,
+                            label: Text(
+                              '$distance km de distância GPS',
+                            ),
+                            backgroundColor:
+                                Colors.teal.shade50,
                           ),
                           Chip(
                             avatar: Icon(
@@ -400,7 +431,8 @@ class _MedicineDetailScreenState
                       SizedBox(width: 12),
                       Expanded(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Reserva por 2 horas',
@@ -412,7 +444,9 @@ class _MedicineDetailScreenState
                             ),
                             Text(
                               'A validade é definida pelo servidor quando a reserva é criada.',
-                              style: TextStyle(fontSize: 11),
+                              style: TextStyle(
+                                fontSize: 11,
+                              ),
                             ),
                           ],
                         ),
@@ -464,7 +498,8 @@ class _MedicineDetailScreenState
                       ),
                     ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
                       children: [
                         const Row(
                           children: [
@@ -486,7 +521,9 @@ class _MedicineDetailScreenState
                         const Text(
                           'Selecciona uma imagem JPG ou PNG da receita. '
                           'O ficheiro será guardado no armazenamento privado.',
-                          style: TextStyle(fontSize: 12),
+                          style: TextStyle(
+                            fontSize: 12,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         SizedBox(
@@ -496,7 +533,8 @@ class _MedicineDetailScreenState
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(
+                                    child:
+                                        CircularProgressIndicator(
                                       strokeWidth: 2,
                                     ),
                                   )
@@ -535,18 +573,24 @@ class _MedicineDetailScreenState
                               strokeWidth: 2,
                             ),
                           )
-                        : const Icon(Icons.bookmark_add),
+                        : const Icon(
+                            Icons.bookmark_add,
+                          ),
                     label: Text(
                       _isCreatingReservation
                           ? 'A criar reserva...'
-                          : 'Confirmar reserva',
+                          : med.inStock
+                              ? 'Confirmar reserva'
+                              : 'Medicamento indisponível',
                     ),
                     onPressed: _isCreatingReservation ||
-                            _isUploadingPrescription
+                            _isUploadingPrescription ||
+                            !med.inStock
                         ? null
                         : () => _handleCreateReservation(
                               requiresPrescription:
                                   med.requiresPrescription,
+                              inStock: med.inStock,
                               medicineId: med.id,
                               pharmacyId: med.pharmacyId,
                             ),
