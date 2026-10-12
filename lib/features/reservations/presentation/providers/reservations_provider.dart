@@ -1,18 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/supabase_database_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/reservation_model.dart';
 
-class ReservationsNotifier
-    extends StateNotifier<List<ReservationModel>> {
+class ReservationsNotifier extends StateNotifier<List<ReservationModel>> {
   ReservationsNotifier(
     this._dbService,
     this._userId,
-  ) : super([]);
+  ) : super([]) {
+    if (_userId != null && _userId!.isNotEmpty) {
+      unawaited(fetchReservations());
+    }
+  }
 
   final SupabaseDatabaseService _dbService;
   final String? _userId;
+
+  bool _isFetching = false;
 
   Future<void> fetchReservations() async {
     final userId = _userId;
@@ -22,11 +29,19 @@ class ReservationsNotifier
       return;
     }
 
+    if (_isFetching) return;
+
+    _isFetching = true;
+
     try {
       final reservations = await _dbService.getReservations(userId);
       state = reservations;
     } catch (e) {
-      throw Exception('Não foi possível carregar as reservas: $e');
+      throw Exception(
+        'Não foi possível carregar as reservas: $e',
+      );
+    } finally {
+      _isFetching = false;
     }
   }
 
@@ -58,8 +73,6 @@ class ReservationsNotifier
   }
 
   void cancelReservation(String id) {
-    // Não remover apenas da lista local:
-    // o cancelamento também precisa de ser persistido no Supabase.
     throw UnsupportedError(
       'O cancelamento de reservas ainda não está implementado no Supabase.',
     );
