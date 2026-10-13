@@ -12,15 +12,23 @@ class MedicinesRepository {
     bool? genericsOnly,
     bool? only24h,
   }) async {
-    return _databaseService.getMedicines(
-      query: query,
-      province: province,
-      onlyInStock: onlyInStock,
-      genericsOnly: genericsOnly,
-    );
+    try {
+      return await _databaseService.getMedicines(
+        query: query,
+        province: province,
+        onlyInStock: onlyInStock,
+        genericsOnly: genericsOnly,
+      );
+    } catch (e) {
+      throw Exception('Não foi possível carregar os medicamentos: $e');
+    }
   }
 
   Future<MedicineModel?> getMedicineById(String id) async {
-    return _databaseService.getMedicineById(id);
+    try {
+      return await _databaseService.getMedicineById(id);
+    } catch (e) {
+      throw Exception('Não foi possível consultar o medicamento: $e');
+    }
   }
 }
