@@ -1,5 +1,7 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/supabase_database_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -18,10 +20,12 @@ class RateExperienceDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<RateExperienceDialog> createState() => _RateExperienceDialogState();
+  ConsumerState<RateExperienceDialog> createState() =>
+      _RateExperienceDialogState();
 }
 
-class _RateExperienceDialogState extends ConsumerState<RateExperienceDialog> {
+class _RateExperienceDialogState
+    extends ConsumerState<RateExperienceDialog> {
   double _pharmacyRating = 5.0;
   final _pharmacyCommentController = TextEditingController();
 
@@ -37,65 +41,66 @@ class _RateExperienceDialogState extends ConsumerState<RateExperienceDialog> {
     super.dispose();
   }
 
-  void _handleSubmit() async {
+  Future<void> _handleSubmit() async {
     final user = ref.read(authProvider).user;
+
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inicie sessão para enviar a sua avaliação.')),
+        const SnackBar(
+          content: Text('Inicie sessão para enviar a sua avaliação.'),
+        ),
       );
       return;
     }
 
     setState(() => _isSubmitting = true);
 
-    final review = ReviewModel(
-      id: 'rev-${DateTime.now().millisecondsSinceEpoch}',
-      reservationId: widget.reservation.id,
-      userId: user.id,
-      userName: user.fullName,
-      userPhone: user.phone,
-      pharmacyId: widget.reservation.pharmacyId,
-      pharmacyName: widget.reservation.pharmacyName,
-      pharmacyRating: _pharmacyRating,
-      pharmacyComment: _pharmacyCommentController.text.trim().isNotEmpty
-          ? _pharmacyCommentController.text.trim()
-          : null,
-      appRating: _appRating,
-      appComment: _appCommentController.text.trim().isNotEmpty
-          ? _appCommentController.text.trim()
-          : null,
-      createdAt: DateTime.now(),
-    );
+    try {
+      final review = ReviewModel(
+        id: 'rev-${DateTime.now().millisecondsSinceEpoch}',
+        reservationId: widget.reservation.id,
+        userId: user.id,
+        userName: user.fullName,
+        userPhone: user.phone,
+        pharmacyId: widget.reservation.pharmacyId,
+        pharmacyName: widget.reservation.pharmacyName,
+        pharmacyRating: _pharmacyRating,
+        pharmacyComment:
+            _pharmacyCommentController.text.trim().isNotEmpty
+                ? _pharmacyCommentController.text.trim()
+                : null,
+        appRating: _appRating,
+        appComment: _appCommentController.text.trim().isNotEmpty
+            ? _appCommentController.text.trim()
+            : null,
+        createdAt: DateTime.now(),
+      );
 
-    final db = SupabaseDatabaseService();
-    final result = await db.submitReview(review);
+      final db = SupabaseDatabaseService();
 
-    setState(() => _isSubmitting = false);
+      await db.submitReview(review);
 
-    if (mounted) {
-      Navigator.pop(context);
+      if (!mounted) return;
+
+      Navigator.of(context).pop();
       widget.onSubmitted();
 
-      final isLow = result['requiresModeration'] == true;
-      final msg = result['message'] as String? ?? 'Avaliação submetida!';
-
-      showDialog(
+      await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          icon: Icon(
-            isLow ? Icons.shield_outlined : Icons.check_circle_rounded,
+          icon: const Icon(
+            Icons.check_circle_rounded,
             size: 48,
-            color: isLow ? Colors.amber.shade800 : Colors.green,
+            color: Colors.green,
           ),
-          title: Text(
-            isLow ? 'Avaliação para Moderação 🛡️' : 'Obrigado pela sua Avaliação! ⭐',
+          title: const Text(
+            'Avaliação submetida',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          content: Text(
-            msg,
+          content: const Text(
+            'O pedido de submissão foi concluído.',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14),
           ),
           actions: [
             FilledButton(
@@ -105,6 +110,28 @@ class _RateExperienceDialogState extends ConsumerState<RateExperienceDialog> {
           ],
         ),
       );
+    } on UnsupportedError catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'A submissão de avaliações ainda não está implementada: $e',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível enviar a avaliação: $e'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
@@ -113,11 +140,13 @@ class _RateExperienceDialogState extends ConsumerState<RateExperienceDialog> {
     final isLowRating = _pharmacyRating <= 2 || _appRating <= 2;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 500),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -125,28 +154,39 @@ class _RateExperienceDialogState extends ConsumerState<RateExperienceDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Avaliar Experiência ⭐',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  const Flexible(
+                    child: Text(
+                      'Avaliar Experiência ⭐',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => Navigator.pop(context),
                   ),
                 ],
               ),
               Text(
                 'Reserva concluída na ${widget.reservation.pharmacyName}',
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondaryLight),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondaryLight,
+                ),
               ),
               const SizedBox(height: 16),
-
-              // 1. Pharmacy Service Rating
               StarRatingInput(
                 label: '1. Atendimento da Farmácia',
-                description: 'Qualidade do serviço, rapidez e simpatia no balcão.',
+                description:
+                    'Qualidade do serviço, rapidez e simpatia no balcão.',
                 rating: _pharmacyRating,
-                onRatingChanged: (val) => setState(() => _pharmacyRating = val),
+                onRatingChanged: (val) {
+                  setState(() => _pharmacyRating = val);
+                },
               ),
               const SizedBox(height: 10),
               TextField(
@@ -154,31 +194,32 @@ class _RateExperienceDialogState extends ConsumerState<RateExperienceDialog> {
                 maxLines: 2,
                 decoration: const InputDecoration(
                   labelText: 'Comentário sobre a Farmácia (Opcional)',
-                  hintText: 'Ex: Atendimento atencioso e medicamento pronto a tempo.',
+                  hintText:
+                      'Ex: Atendimento atencioso e medicamento pronto a tempo.',
                   prefixIcon: Icon(Icons.rate_review_outlined),
                 ),
               ),
               const SizedBox(height: 20),
-
-              // 2. FarmaJá App Rating
               StarRatingInput(
-                label: '2. Aplicação FarmaJá 📱',
-                description: 'Facilidade de busca, reserva, navegação e rapidez do app.',
+                label: '2. Aplicação FARCLIK 📱',
+                description:
+                    'Facilidade de busca, reserva, navegação e rapidez da aplicação.',
                 rating: _appRating,
-                onRatingChanged: (val) => setState(() => _appRating = val),
+                onRatingChanged: (val) {
+                  setState(() => _appRating = val);
+                },
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: _appCommentController,
                 maxLines: 2,
                 decoration: const InputDecoration(
-                  labelText: 'Comentário sobre o Aplicativo (Opcional)',
-                  hintText: 'Ex: Encontrei fácil o fármaco em Luanda.',
+                  labelText: 'Comentário sobre a aplicação (Opcional)',
+                  hintText: 'Ex: Encontrei facilmente o medicamento.',
                   prefixIcon: Icon(Icons.smartphone_rounded),
                 ),
               ),
               const SizedBox(height: 16),
-
               if (isLowRating)
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -189,11 +230,14 @@ class _RateExperienceDialogState extends ConsumerState<RateExperienceDialog> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.shield_outlined, color: Colors.amber.shade900),
+                      Icon(
+                        Icons.shield_outlined,
+                        color: Colors.amber.shade900,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Avaliações com 1 ou 2 estrelas passam por moderação no Painel Admin FarmaJá antes de ficarem públicas.',
+                          'Avaliações com 1 ou 2 estrelas devem ser analisadas antes de serem publicadas.',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -205,7 +249,6 @@ class _RateExperienceDialogState extends ConsumerState<RateExperienceDialog> {
                   ),
                 ),
               const SizedBox(height: 20),
-
               FilledButton.icon(
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -215,12 +258,18 @@ class _RateExperienceDialogState extends ConsumerState<RateExperienceDialog> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Icon(Icons.send_rounded),
                 label: Text(
                   _isSubmitting ? 'A submeter...' : 'Enviar Avaliação',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 onPressed: _isSubmitting ? null : _handleSubmit,
               ),
