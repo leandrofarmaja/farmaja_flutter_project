@@ -1,4 +1,4 @@
-import '../../../essencial/serviços/supabase_database_service.dart';
+import '../../../core/services/supabase_database_service.dart';
 import '../domain/medicine_model.dart';
 
 class MedicinesRepository {
