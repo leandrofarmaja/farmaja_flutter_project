@@ -1,3 +1,4 @@
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -393,6 +394,46 @@ class SupabaseDatabaseService {
       isReviewed: false,
       reviewRating: null,
     );
+  }
+
+  // ============================================================
+  // CONFIRMAÇÃO DO LEVANTAMENTO
+  // Usa a função segura do Supabase.
+  // ============================================================
+
+  Future<void> confirmarLevantamento(
+    String reservationId,
+  ) async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception(
+        'Inicia sessão com a conta da farmácia para confirmar o levantamento.',
+      );
+    }
+
+    if (reservationId.trim().isEmpty) {
+      throw ArgumentError(
+        'O identificador da reserva é obrigatório.',
+      );
+    }
+
+    try {
+      await _client.rpc(
+        'confirmar_levantamento',
+        params: {
+          'p_reserva_id': reservationId.trim(),
+        },
+      );
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível confirmar o levantamento: ${e.message}',
+      );
+    } catch (e) {
+      throw Exception(
+        'Falha ao comunicar com o Supabase: $e',
+      );
+    }
   }
 
   // ============================================================
