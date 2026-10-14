@@ -1,320 +1,800 @@
-import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/widgets/qr_code_widget.dart';
-import '../../../reservations/domain/reservation_model.dart';
 
-class QrScannerDialog extends StatefulWidget {
-  final Future<ReservationModel?> Function(String code) onValidateCode;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-  const QrScannerDialog({
-    super.key,
-    required this.onValidateCode,
-  });
+import '../../features/medicines/domain/medicine_model.dart';
+import '../../features/pharmacies/domain/pharmacy_model.dart';
+import '../../features/pharmacies/domain/pharmacy_payment_model.dart';
+import '../../features/reservations/domain/reservation_model.dart';
+import '../../features/prescriptions/domain/prescription_model.dart';
+import '../../features/auth/domain/user_model.dart';
+import '../../features/reviews/domain/review_model.dart';
+import '../../features/admin/domain/admin_notification_model.dart';
 
-  @override
-  State<QrScannerDialog> createState() => _QrScannerDialogState();
-}
+class SupabaseDatabaseService {
+  final SupabaseClient _client = Supabase.instance.client;
 
-class _QrScannerDialogState extends State<QrScannerDialog> {
-  final TextEditingController _codeController =
-      TextEditingController();
+  SupabaseClient get client => _client;
 
-  bool _isScanning = false;
-  bool _isValidating = false;
+  // ============================================================
+  // MEDICAMENTOS
+  // ============================================================
 
-  ReservationModel? _validatedReservation;
-  String? _errorMessage;
+  Future<List<MedicineModel>> getMedicines({
+    String? query,
+    String? province,
+    bool? onlyInStock,
+    bool? genericsOnly,
+  }) async {
+    if (province != null && province.trim().isNotEmpty) {
+      throw UnsupportedError(
+        'A tabela medicamentos ainda não possui uma coluna de província.',
+      );
+    }
 
-  @override
-  void dispose() {
-    _codeController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _handleValidate() async {
-    final code = _codeController.text.trim().toUpperCase();
-
-    if (code.isEmpty) return;
-
-    setState(() {
-      _isValidating = true;
-      _errorMessage = null;
-      _validatedReservation = null;
-    });
+    if (genericsOnly == true) {
+      throw UnsupportedError(
+        'A tabela medicamentos ainda não possui informação sobre genéricos.',
+      );
+    }
 
     try {
-      final res = await widget.onValidateCode(code);
+      final response = await _client
+          .from('medicamentos')
+          .select(
+            'id, nome_medicamento, preco_kwanza, farmacia_id, '
+            'disponivel, distancia_km, receita_obrigatoria, '
+            'farmacias(id, nome, endereco, telefone, aberta_agora, avaliacao)',
+          )
+          .order('nome_medicamento');
 
-      if (res != null) {
-        setState(() {
-          _validatedReservation = res;
-          _isValidating = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage =
-              'Código de reserva "$code" não encontrado ou já resgatado.';
-          _isValidating = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage =
-            'Erro ao validar código. Verifique a ligação.';
-        _isValidating = false;
+      final rows = List<Map<String, dynamic>>.from(response);
+
+      final filteredRows = rows.where((row) {
+        final available = row['disponivel'] == true;
+
+        if (onlyInStock == true && !available) {
+          return false;
+        }
+
+        if (query != null && query.trim().isNotEmpty) {
+          final name = (row['nome_medicamento'] ?? '')
+              .toString()
+              .toLowerCase();
+
+          if (!name.contains(query.trim().toLowerCase())) {
+            return false;
+          }
+        }
+
+        return true;
       });
+
+      return filteredRows.map(_medicineFromDatabase).toList();
+    } catch (e) {
+      throw Exception(
+        'Não foi possível carregar os medicamentos: $e',
+      );
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 450,
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons.qr_code_scanner_rounded,
-                        color: AppColors.primary,
-                        size: 28,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Validar QR Code',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.close_rounded,
-                    ),
-                    onPressed: () =>
-                        Navigator.pop(context),
-                  ),
-                ],
-              ),
+  Future<MedicineModel?> getMedicineById(String id) async {
+    try {
+      final response = await _client
+          .from('medicamentos')
+          .select(
+            'id, nome_medicamento, preco_kwanza, farmacia_id, '
+            'disponivel, distancia_km, receita_obrigatoria, '
+            'farmacias(id, nome, endereco, telefone, aberta_agora, avaliacao)',
+          )
+          .eq('id', id)
+          .maybeSingle();
 
-              const Divider(),
-              const SizedBox(height: 12),
+      if (response == null) return null;
 
-              if (_validatedReservation != null) ...[
-                // Resultado de sucesso
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius:
-                        BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.green.shade300,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.check_circle_rounded,
-                        color: Colors.green,
-                        size: 48,
-                      ),
+      return _medicineFromDatabase(
+        Map<String, dynamic>.from(response),
+      );
+    } catch (e) {
+      throw Exception(
+        'Não foi possível consultar o medicamento: $e',
+      );
+    }
+  }
 
-                      const SizedBox(height: 8),
+  MedicineModel _medicineFromDatabase(
+    Map<String, dynamic> row,
+  ) {
+    final pharmacyValue = row['farmacias'];
 
-                      const Text(
-                        'Reserva Confirmada com Sucesso!',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
+    final pharmacy = pharmacyValue is Map
+        ? Map<String, dynamic>.from(pharmacyValue)
+        : <String, dynamic>{};
 
-                      const SizedBox(height: 12),
+    final price = row['preco_kwanza'];
 
-                      Text(
-                        'Medicamento: ${_validatedReservation!.medicineName}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      Text(
-                        'Código: ${_validatedReservation!.pickupCode}',
-                      ),
-
-                      Text(
-                        'Valor Total: ${_validatedReservation!.totalPriceKz.toInt()} Kz',
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      const Chip(
-                        label: Text(
-                          'Status: Entregue ao Cliente',
-                        ),
-                        backgroundColor: Colors.green,
-                        labelStyle: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () {
-                      setState(() {
-                        _validatedReservation = null;
-                        _codeController.clear();
-                      });
-                    },
-                    child: const Text(
-                      'Validar Outro QR Code',
-                    ),
-                  ),
-                ),
-              ] else ...[
-                // Scanner
-                Container(
-                  width: double.infinity,
-                  height: 160,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius:
-                        BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.borderLight,
-                      width: 2,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment:
-                        MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _isScanning
-                            ? Icons.qr_code_2_rounded
-                            : Icons.camera_alt_outlined,
-                        size: 56,
-                        color: AppColors.primary,
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      Text(
-                        _isScanning
-                            ? 'Scanner Ativo - Aponte para a câmara'
-                            : 'Digitalização de QR Code ativa',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black.withValues(
-                            alpha: 0.80,
-                          ),
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _codeController,
-                  textCapitalization:
-                      TextCapitalization.characters,
-                  decoration: InputDecoration(
-                    labelText:
-                        'Ou Digite o Código de Levantamento',
-                    hintText: 'Ex: FJ-9281',
-                    prefixIcon: const Icon(
-                      Icons.key_rounded,
-                    ),
-                    suffixIcon: IconButton(
-                      icon: const Icon(
-                        Icons.arrow_forward_rounded,
-                        color: AppColors.primary,
-                      ),
-                      onPressed: _isValidating
-                          ? null
-                          : _handleValidate,
-                    ),
-                  ),
-                  onFieldSubmitted: (_) =>
-                      _handleValidate(),
-                ),
-
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 12),
-
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-
-                const SizedBox(height: 20),
-
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    icon: _isValidating
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child:
-                                CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.verified_user_rounded,
-                          ),
-                    label: Text(
-                      _isValidating
-                          ? 'A Validar...'
-                          : 'Validar & Confirmar Levantamento',
-                    ),
-                    onPressed: _isValidating
-                        ? null
-                        : _handleValidate,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
+    return MedicineModel(
+      id: (row['id'] ?? '').toString(),
+      pharmacyId: (row['farmacia_id'] ?? '').toString(),
+      name: (row['nome_medicamento'] ?? '').toString(),
+      activeIngredient: '',
+      category: '',
+      dosage: '',
+      priceKz: price is num ? price.toDouble() : 0.0,
+      pharmacyName: (pharmacy['nome'] ?? '').toString(),
+      province: '',
+      district: '',
+      inStock: row['disponivel'] == true,
+      stockQuantity: 0,
+      requiresPrescription: row['receita_obrigatoria'] == true,
+      isGeneric: false,
+      genericAlternative: null,
+      description: '',
+      dosageInstructions: '',
+      pharmacyLatitude: 0.0,
+      pharmacyLongitude: 0.0,
     );
   }
+
+  // ============================================================
+  // FARMÁCIAS
+  // ============================================================
+
+  Future<List<PharmacyModel>> getPharmacies({
+    String? province,
+    bool? only24h,
+  }) async {
+    if (province != null && province.trim().isNotEmpty) {
+      throw UnsupportedError(
+        'A tabela farmacias ainda não possui uma coluna de província.',
+      );
+    }
+
+    if (only24h == true) {
+      throw UnsupportedError(
+        'A tabela farmacias ainda não possui informação sobre funcionamento 24 horas.',
+      );
+    }
+
+    try {
+      final response = await _client
+          .from('farmacias')
+          .select(
+            'id, nome, avaliacao, endereco, telefone, '
+            'aberta_agora, owner_user_id',
+          )
+          .order('nome');
+
+      return List<Map<String, dynamic>>.from(response)
+          .map(_pharmacyFromDatabase)
+          .toList();
+    } catch (e) {
+      throw Exception(
+        'Não foi possível carregar as farmácias: $e',
+      );
+    }
+  }
+
+  Future<List<PharmacyModel>> getAllPharmacies() {
+    return getPharmacies();
+  }
+
+  Future<PharmacyModel?> getPharmacyById(String id) async {
+    try {
+      final response = await _client
+          .from('farmacias')
+          .select(
+            'id, nome, avaliacao, endereco, telefone, '
+            'aberta_agora, owner_user_id',
+          )
+          .eq('id', id)
+          .maybeSingle();
+
+      if (response == null) return null;
+
+      return _pharmacyFromDatabase(
+        Map<String, dynamic>.from(response),
+      );
+    } catch (e) {
+      throw Exception(
+        'Não foi possível consultar a farmácia: $e',
+      );
+    }
+  }
+
+  PharmacyModel _pharmacyFromDatabase(
+    Map<String, dynamic> row,
+  ) {
+    final rating = row['avaliacao'];
+
+    return PharmacyModel(
+      id: (row['id'] ?? '').toString(),
+      name: (row['nome'] ?? '').toString(),
+      province: '',
+      district: '',
+      address: (row['endereco'] ?? '').toString(),
+      phone: (row['telefone'] ?? '').toString(),
+      openingHours: row['aberta_agora'] == true
+          ? 'Aberta'
+          : 'Fechada',
+      isOpen24h: false,
+      hasDelivery: false,
+      rating: rating is num ? rating.toDouble() : 0.0,
+      logoUrl: '',
+      latitude: 0.0,
+      longitude: 0.0,
+      subscriptionStatus: 'unknown',
+      trialEndsAt: null,
+      paymentDueDate: null,
+      monthlyFee: 0.0,
+      lastPaymentAt: null,
+    );
+  }
+
+  // ============================================================
+  // RESERVAS DO CLIENTE
+  // ============================================================
+
+  Future<List<ReservationModel>> getReservations(
+    String userId,
+  ) async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null || currentUser.id != userId) {
+      throw Exception(
+        'Só podes consultar as reservas da conta autenticada.',
+      );
+    }
+
+    try {
+      final response = await _client
+          .from('reservas')
+          .select(
+            'id, medicamento_id, farmacia_id, status, '
+            'codigo_reserva, url_foto_receita, criado_em, '
+            'user_id, preco_kwanza, expira_em, receita_enviada, '
+            'medicamentos(nome_medicamento), farmacias(nome)',
+          )
+          .eq('user_id', currentUser.id)
+          .order('criado_em', ascending: false);
+
+      return List<Map<String, dynamic>>.from(response)
+          .map(_reservationFromDatabase)
+          .toList();
+    } catch (e) {
+      throw Exception(
+        'Não foi possível carregar as reservas: $e',
+      );
+    }
+  }
+
+  // ============================================================
+  // RESERVAS DA FARMÁCIA
+  // A autorização é validada no Supabase.
+  // ============================================================
+
+  Future<List<ReservationModel>> getAllReservationsForPharmacy({
+    String? pharmacyName,
+  }) async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception(
+        'Inicia sessão com a conta da farmácia.',
+      );
+    }
+
+    try {
+      final rpcResult = await _client.rpc(
+        'listar_reservas_farmacia',
+      );
+
+      if (rpcResult is! List) {
+        throw Exception(
+          'O Supabase devolveu um formato inesperado para as reservas.',
+        );
+      }
+
+      final reservationRows = rpcResult
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
+
+      if (reservationRows.isEmpty) {
+        return <ReservationModel>[];
+      }
+
+      final pharmacyIds = reservationRows
+          .map((row) => row['farmacia_id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final medicineIds = reservationRows
+          .map((row) => row['medicamento_id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final pharmacyRows = pharmacyIds.isEmpty
+          ? <Map<String, dynamic>>[]
+          : List<Map<String, dynamic>>.from(
+              await _client
+                  .from('farmacias')
+                  .select('id, nome')
+                  .inFilter('id', pharmacyIds),
+            );
+
+      final medicineRows = medicineIds.isEmpty
+          ? <Map<String, dynamic>>[]
+          : List<Map<String, dynamic>>.from(
+              await _client
+                  .from('medicamentos')
+                  .select('id, nome_medicamento')
+                  .inFilter('id', medicineIds),
+            );
+
+      final pharmacyNames = <String, String>{
+        for (final row in pharmacyRows)
+          (row['id'] ?? '').toString():
+              (row['nome'] ?? '').toString(),
+      };
+
+      final medicineNames = <String, String>{
+        for (final row in medicineRows)
+          (row['id'] ?? '').toString():
+              (row['nome_medicamento'] ?? '').toString(),
+      };
+
+      final reservations = reservationRows.map((row) {
+        final pharmacyId =
+            (row['farmacia_id'] ?? '').toString();
+        final medicineId =
+            (row['medicamento_id'] ?? '').toString();
+
+        return _reservationFromDatabase({
+          ...row,
+          'farmacias': {
+            'nome': pharmacyNames[pharmacyId] ?? '',
+          },
+          'medicamentos': {
+            'nome_medicamento':
+                medicineNames[medicineId] ?? '',
+          },
+        });
+      }).toList();
+
+      if (pharmacyName != null &&
+          pharmacyName.trim().isNotEmpty) {
+        return reservations
+            .where(
+              (reservation) =>
+                  reservation.pharmacyName.toLowerCase() ==
+                  pharmacyName.trim().toLowerCase(),
+            )
+            .toList();
+      }
+
+      return reservations;
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'O Supabase não conseguiu carregar as reservas da farmácia: ${e.message}',
+      );
+    } catch (e) {
+      throw Exception(
+        'Não foi possível carregar as reservas da farmácia: $e',
+      );
+    }
+  }
+
+  Future<ReservationModel> createReservation({
+    required String userId,
+    required String medicineId,
+    required String pharmacyId,
+    required bool prescriptionUploaded,
+    String? prescriptionPath,
+  }) async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception(
+        'É necessário iniciar sessão para efectuar uma reserva.',
+      );
+    }
+
+    if (currentUser.id != userId) {
+      throw Exception(
+        'O utilizador autenticado não corresponde ao utilizador da reserva.',
+      );
+    }
+
+    if (medicineId.trim().isEmpty ||
+        pharmacyId.trim().isEmpty) {
+      throw ArgumentError(
+        'O medicamento e a farmácia devem ser identificados.',
+      );
+    }
+
+    if (prescriptionUploaded &&
+        (prescriptionPath == null ||
+            prescriptionPath.trim().isEmpty)) {
+      throw ArgumentError(
+        'A receita foi indicada como enviada, mas o caminho do ficheiro está vazio.',
+      );
+    }
+
+    try {
+      final rpcResult = await _client.rpc(
+        'criar_reserva',
+        params: {
+          'p_medicamento_id': medicineId,
+          'p_farmacia_id': pharmacyId,
+          'p_receita_enviada': prescriptionUploaded,
+          'p_url_foto_receita': prescriptionUploaded
+              ? prescriptionPath!.trim()
+              : null,
+        },
+      );
+
+      Map<String, dynamic>? createdReservation;
+
+      if (rpcResult is Map) {
+        createdReservation =
+            Map<String, dynamic>.from(rpcResult);
+      } else if (rpcResult is List &&
+          rpcResult.isNotEmpty &&
+          rpcResult.first is Map) {
+        createdReservation =
+            Map<String, dynamic>.from(rpcResult.first as Map);
+      }
+
+      final reservationId =
+          createdReservation?['id']?.toString();
+
+      if (reservationId == null || reservationId.isEmpty) {
+        throw Exception(
+          'O Supabase não devolveu o identificador da reserva criada.',
+        );
+      }
+
+      final response = await _client
+          .from('reservas')
+          .select(
+            'id, medicamento_id, farmacia_id, status, '
+            'codigo_reserva, url_foto_receita, criado_em, '
+            'user_id, preco_kwanza, expira_em, receita_enviada, '
+            'medicamentos(nome_medicamento), farmacias(nome)',
+          )
+          .eq('id', reservationId)
+          .eq('user_id', currentUser.id)
+          .single();
+
+      return _reservationFromDatabase(
+        Map<String, dynamic>.from(response),
+      );
+    } catch (e) {
+      throw Exception(
+        'Não foi possível criar a reserva: $e',
+      );
+    }
+  }
+
+  ReservationModel _reservationFromDatabase(
+    Map<String, dynamic> row,
+  ) {
+    final medicineValue = row['medicamentos'];
+    final pharmacyValue = row['farmacias'];
+
+    final medicine = medicineValue is Map
+        ? Map<String, dynamic>.from(medicineValue)
+        : <String, dynamic>{};
+
+    final pharmacy = pharmacyValue is Map
+        ? Map<String, dynamic>.from(pharmacyValue)
+        : <String, dynamic>{};
+
+    final price = row['preco_kwanza'];
+
+    return ReservationModel(
+      id: (row['id'] ?? '').toString(),
+      medicineName:
+          (medicine['nome_medicamento'] ?? '').toString(),
+      pharmacyId: (row['farmacia_id'] ?? '').toString(),
+      pharmacyName: (pharmacy['nome'] ?? '').toString(),
+      pickupCode: (row['codigo_reserva'] ?? '').toString(),
+      totalPriceKz: price is num ? price.toDouble() : 0.0,
+      reservationDate: (row['criado_em'] ?? '').toString(),
+      expiryDate: (row['expira_em'] ?? '').toString(),
+      status: (row['status'] ?? 'Aguardando confirmação')
+          .toString(),
+      prescriptionUploaded: row['receita_enviada'] == true,
+      isReviewed: false,
+      reviewRating: null,
+    );
+  }
+
+  // ============================================================
+  // CONFIRMAÇÃO DO LEVANTAMENTO POR IDENTIFICADOR
+  // ============================================================
+
+  Future<void> confirmarLevantamento(
+    String reservationId,
+  ) async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception(
+        'Inicia sessão com a conta da farmácia para confirmar o levantamento.',
+      );
+    }
+
+    if (reservationId.trim().isEmpty) {
+      throw ArgumentError(
+        'O identificador da reserva é obrigatório.',
+      );
+    }
+
+    try {
+      await _client.rpc(
+        'confirmar_levantamento',
+        params: {
+          'p_reserva_id': reservationId.trim(),
+        },
+      );
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível confirmar o levantamento: ${e.message}',
+      );
+    } catch (e) {
+      throw Exception(
+        'Falha ao comunicar com o Supabase: $e',
+      );
+    }
+  }
+
+  // ============================================================
+  // VALIDAÇÃO DO CÓDIGO DE LEVANTAMENTO
+  // Usa a função SQL confirmar_levantamento_por_codigo.
+  // A verificação e a alteração de estado são feitas no servidor.
+  // ============================================================
+
+  Future<ReservationModel?> validateReservationByQrCode(
+    String code,
+  ) async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception(
+        'Inicia sessão com a conta da farmácia para validar a reserva.',
+      );
+    }
+
+    final normalizedCode = code.trim().toUpperCase();
+
+    if (normalizedCode.isEmpty) {
+      throw ArgumentError(
+        'O código de levantamento é obrigatório.',
+      );
+    }
+
+    try {
+      final result = await _client.rpc(
+        'confirmar_levantamento_por_codigo',
+        params: {
+          'p_codigo_reserva': normalizedCode,
+        },
+      );
+
+      if (result is! Map) {
+        throw Exception(
+          'O Supabase devolveu uma resposta inesperada.',
+        );
+      }
+
+      return _reservationFromDatabase(
+        Map<String, dynamic>.from(result),
+      );
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível validar o levantamento: ${e.message}',
+      );
+    } catch (e) {
+      if (e is ArgumentError || e is Exception) {
+        rethrow;
+      }
+
+      throw Exception(
+        'Falha ao comunicar com o Supabase: $e',
+      );
+    }
+  }
+
+  // ============================================================
+  // PERFIL DO UTILIZADOR
+  // ============================================================
+
+  Future<UserModel?> getUserProfile(String userId) async {
+    try {
+      final response = await _client
+          .from('profiles')
+          .select(
+            'id, email, full_name, phone, province, district, '
+            'insurance_provider, role, pharmacy_name',
+          )
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (response == null) return null;
+
+      return UserModel.fromJson(
+        Map<String, dynamic>.from(response),
+      );
+    } catch (e) {
+      throw Exception(
+        'Não foi possível carregar o perfil: $e',
+      );
+    }
+  }
+
+  Future<void> upsertUserProfile(UserModel user) async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null || currentUser.id != user.id) {
+      throw Exception(
+        'Só podes guardar o perfil do utilizador autenticado.',
+      );
+    }
+
+    try {
+      await _client.from('profiles').upsert(
+        user.toJson(),
+        onConflict: 'id',
+      );
+    } catch (e) {
+      throw Exception(
+        'Não foi possível guardar o perfil. '
+        'Confirma as políticas RLS da tabela profiles: $e',
+      );
+    }
+  }
+
+  // ============================================================
+  // OPERAÇÕES AINDA NÃO SUPORTADAS
+  // ============================================================
+
+  Never _unsupported(String operation) {
+    throw UnsupportedError(
+      '$operation ainda não pode ser executado. '
+      'A estrutura actual do Supabase não contém as tabelas '
+      'ou colunas necessárias.',
+    );
+  }
+
+  Future<void> updatePharmacySubscription({
+    required String pharmacyId,
+    required String status,
+    DateTime? nextDueDate,
+  }) async {
+    _unsupported('Actualização da subscrição da farmácia');
+  }
+
+  Future<void> submitPharmacyPayment(
+    PharmacyPaymentModel payment,
+  ) async {
+    _unsupported('Registo de pagamento da farmácia');
+  }
+
+  Future<List<PharmacyPaymentModel>> getAllPharmacyPayments()
+      async {
+    _unsupported('Consulta dos pagamentos das farmácias');
+  }
+
+  Future<void> approvePharmacyPayment({
+    required String paymentId,
+    required String pharmacyId,
+    int periodMonths = 1,
+  }) async {
+    _unsupported('Aprovação de pagamento da farmácia');
+  }
+
+  Future<void> rejectPharmacyPayment(
+    String paymentId,
+    String? notes,
+  ) async {
+    _unsupported('Rejeição de pagamento da farmácia');
+  }
+
+  Future<void> addMedicine(MedicineModel medicine) async {
+    _unsupported('Adição de medicamentos pelo painel da farmácia');
+  }
+
+  Future<void> updateMedicine(MedicineModel medicine) async {
+    _unsupported('Actualização de medicamentos');
+  }
+
+  Future<void> updateMedicineStock(
+    String medicineId,
+    int newStock,
+    bool inStock,
+  ) async {
+    _unsupported('Actualização do stock');
+  }
+
+  Future<void> updateMedicinePrice(
+    String medicineId,
+    double newPrice,
+  ) async {
+    _unsupported('Actualização do preço do medicamento');
+  }
+
+  Future<void> deleteMedicine(String medicineId) async {
+    _unsupported('Eliminação de medicamentos');
+  }
+
+  Future<void> updateReservationStatus(
+    String reservationId,
+    String newStatus,
+  ) async {
+    _unsupported(
+      'Actualização do estado da reserva. '
+      'A política RLS actual não permite esta operação.',
+    );
+  }
+
+  Future<List<PrescriptionModel>> getPrescriptionsForPharmacy()
+      async {
+    _unsupported('Consulta de receitas médicas');
+  }
+
+  Future<void> updatePrescriptionStatus(
+    String prescriptionId,
+    String status,
+    String? notes,
+  ) async {
+    _unsupported('Actualização do estado das receitas médicas');
+  }
+
+  Future<void> submitReview(ReviewModel review) async {
+    _unsupported('Submissão de avaliações');
+  }
+
+  Future<List<ReviewModel>> getReviewsForPharmacy(
+    String pharmacyId,
+  ) async {
+    _unsupported('Consulta de avaliações da farmácia');
+  }
+
+  Future<List<ReviewModel>> getAllReviews() async {
+    _unsupported('Consulta de todas as avaliações');
+  }
+
+  Future<void> moderateReview({
+    required String reviewId,
+    required String status,
+    String? note,
+  }) async {
+    _unsupported('Moderação de avaliações');
+  }
+
+  Future<void> _updatePharmacyAverageRating(
+    String pharmacyId,
+  ) async {
+    _unsupported('Actualização da avaliação média da farmácia');
+  }
+
+  Future<List<AdminNotificationModel>> getAdminNotifications()
+      async {
+    _unsupported('Consulta de notificações administrativas');
+  }
+
+  Future<void> markAdminNotificationRead(
+    String notificationId,
+  ) async {
+    _unsupported('Marcação de notificações como lidas');
+  }
 }
+
+final supabaseDatabaseServiceProvider =
+    Provider<SupabaseDatabaseService>((ref) {
+  return SupabaseDatabaseService();
+});
