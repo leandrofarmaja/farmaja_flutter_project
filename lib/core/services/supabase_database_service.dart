@@ -23,6 +23,7 @@ class SupabaseDatabaseService {
   Future<List<MedicineModel>> getMedicines({
     String? query,
     String? province,
+    String? pharmacyId,
     bool? onlyInStock,
     bool? genericsOnly,
   }) async {
@@ -38,15 +39,26 @@ class SupabaseDatabaseService {
       );
     }
 
+    if (pharmacyId != null && pharmacyId.trim().isEmpty) {
+      throw ArgumentError(
+        'O identificador da farmácia não pode estar vazio.',
+      );
+    }
+
     try {
-      final response = await _client
+      var request = _client
           .from('medicamentos')
           .select(
             'id, nome_medicamento, preco_kwanza, farmacia_id, '
             'disponivel, distancia_km, receita_obrigatoria, '
             'farmacias(id, nome, endereco, telefone, aberta_agora, avaliacao)',
-          )
-          .order('nome_medicamento');
+          );
+
+      if (pharmacyId != null) {
+        request = request.eq('farmacia_id', pharmacyId.trim());
+      }
+
+      final response = await request.order('nome_medicamento');
 
       final rows = List<Map<String, dynamic>>.from(response);
 
@@ -177,6 +189,49 @@ class SupabaseDatabaseService {
 
   Future<List<PharmacyModel>> getAllPharmacies() {
     return getPharmacies();
+  }
+
+  /// Devolve a farmácia associada à conta autenticada.
+  ///
+  /// Devolve null se a conta ainda não tiver uma farmácia associada.
+  /// Se existirem várias, interrompe para evitar escolher uma ao acaso.
+  Future<PharmacyModel?> getOwnedPharmacy() async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception(
+        'Inicia sessão para consultar a farmácia associada à conta.',
+      );
+    }
+
+    try {
+      final response = await _client
+          .from('farmacias')
+          .select(
+            'id, nome, avaliacao, endereco, telefone, '
+            'aberta_agora, owner_user_id',
+          )
+          .eq('owner_user_id', currentUser.id);
+
+      final rows = List<Map<String, dynamic>>.from(response);
+
+      if (rows.isEmpty) {
+        return null;
+      }
+
+      if (rows.length > 1) {
+        throw Exception(
+          'Esta conta está associada a várias farmácias. '
+          'É necessário seleccionar a farmácia correcta.',
+        );
+      }
+
+      return _pharmacyFromDatabase(rows.first);
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível identificar a farmácia da conta: ${e.message}',
+      );
+    }
   }
 
   Future<PharmacyModel?> getPharmacyById(String id) async {
@@ -554,8 +609,6 @@ class SupabaseDatabaseService {
 
   // ============================================================
   // VALIDAÇÃO DO CÓDIGO DE LEVANTAMENTO
-  // Usa a função SQL confirmar_levantamento_por_codigo.
-  // A verificação e a alteração de estado são feitas no servidor.
   // ============================================================
 
   Future<ReservationModel?> validateReservationByQrCode(
