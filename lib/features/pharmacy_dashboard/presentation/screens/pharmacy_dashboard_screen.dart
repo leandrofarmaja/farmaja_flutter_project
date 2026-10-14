@@ -1,9 +1,10 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/constants/app_colors.dart';
 import '../../../medicines/domain/medicine_model.dart';
-import '../../../pharmacies/domain/pharmacy_model.dart';
 import '../providers/pharmacy_dashboard_provider.dart';
 import '../widgets/add_edit_medicine_dialog.dart';
 import '../widgets/qr_scanner_dialog.dart';
@@ -29,6 +30,12 @@ class _PharmacyDashboardScreenState
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(pharmacyDashboardProvider.notifier).loadDashboardData();
+      }
+    });
   }
 
   @override
@@ -37,7 +44,45 @@ class _PharmacyDashboardScreenState
     super.dispose();
   }
 
-  void _showAddEditMedicineModal([MedicineModel? med]) {
+  void _showMessage(
+    String message, {
+    bool isError = false,
+  }) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              isError ? Colors.red.shade700 : AppColors.primary,
+        ),
+      );
+  }
+
+  Future<void> _runOperation(
+    Future<dynamic> Function() operation, {
+    required String successMessage,
+    required String failureMessage,
+  }) async {
+    try {
+      final result = await operation();
+
+      if (!mounted) return;
+
+      if (result == true) {
+        _showMessage(successMessage);
+      } else {
+        _showMessage(failureMessage, isError: true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage(failureMessage, isError: true);
+    }
+  }
+
+  void _showAddEditMedicineModal([MedicineModel? medicine]) {
     final state = ref.read(pharmacyDashboardProvider);
 
     if (state.isBlockedOrExpired) {
@@ -45,36 +90,27 @@ class _PharmacyDashboardScreenState
       return;
     }
 
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) => AddEditMedicineDialog(
-        medicine: med,
+      builder: (dialogContext) => AddEditMedicineDialog(
+        medicine: medicine,
         onSave: (updated) {
-          if (med == null) {
-            ref
-                .read(pharmacyDashboardProvider.notifier)
-                .addMedicine(updated);
+          Navigator.of(dialogContext).pop();
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Medicamento adicionado ao stock da farmácia com sucesso!',
-                ),
-                backgroundColor: AppColors.primary,
-              ),
-            );
-          } else {
-            ref
-                .read(pharmacyDashboardProvider.notifier)
-                .updateMedicine(updated);
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Medicamento atualizado no Supabase!'),
-                backgroundColor: AppColors.primary,
-              ),
-            );
-          }
+          _runOperation(
+            () => medicine == null
+                ? ref
+                    .read(pharmacyDashboardProvider.notifier)
+                    .addMedicine(updated)
+                : ref
+                    .read(pharmacyDashboardProvider.notifier)
+                    .updateMedicine(updated),
+            successMessage: medicine == null
+                ? 'Medicamento adicionado com sucesso.'
+                : 'Medicamento atualizado com sucesso.',
+            failureMessage:
+                'Não foi possível guardar o medicamento. Verifica os dados e as permissões.',
+          );
         },
       ),
     );
@@ -88,9 +124,9 @@ class _PharmacyDashboardScreenState
       return;
     }
 
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) => QrScannerDialog(
+      builder: (dialogContext) => QrScannerDialog(
         onValidateCode: (code) async {
           return await ref
               .read(pharmacyDashboardProvider.notifier)
@@ -101,9 +137,9 @@ class _PharmacyDashboardScreenState
   }
 
   void _showPaymentModal() {
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) => SubscriptionPaymentDialog(
+      builder: (dialogContext) => SubscriptionPaymentDialog(
         onSubmit: ({
           required paymentMethod,
           required referenceNumber,
@@ -124,195 +160,40 @@ class _PharmacyDashboardScreenState
   }
 
   void _showBlockedDialog() {
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         icon: const Icon(
           Icons.lock_rounded,
           size: 48,
           color: Colors.red,
         ),
         title: const Text(
-          'Acesso Bloqueado',
+          'Acesso bloqueado',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         content: const Text(
-          'A subscrição desta farmácia expirou (3 meses de teste concluídos). '
-          'Para continuar a utilizar o painel, envie o comprovativo do pagamento de 15.000 Kz/mês.',
+          'A subscrição desta farmácia está expirada ou bloqueada. '
+          'Consulta o estado da conta antes de efectuar um pagamento.',
         ),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.of(dialogContext).pop();
               context.push('/admin/subscriptions');
             },
             child: const Text('Painel Admin'),
           ),
           FilledButton.icon(
             icon: const Icon(Icons.upload_file_rounded),
-            label: const Text('Pagar 15.000 Kz'),
+            label: const Text('Enviar comprovativo'),
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.of(dialogContext).pop();
               _showPaymentModal();
             },
           ),
         ],
       ),
-    );
-  }
-
-  void _showPharmacySwitcherModal() {
-    final mockPharmacies = [
-      PharmacyModel(
-        id: 'pharm-1',
-        name: 'Farmácia Mecofarma Talatona',
-        province: 'Luanda',
-        district: 'Talatona',
-        address: 'Via AL15',
-        phone: '923 100 200',
-        openingHours: '08:00 - 20:00',
-        isOpen24h: false,
-        hasDelivery: false,
-        logoUrl: '',
-        rating: 5.0,
-        subscriptionStatus: 'trial',
-        trialEndsAt: DateTime.now().add(const Duration(days: 68)),
-        paymentDueDate: DateTime.now().add(const Duration(days: 68)),
-      ),
-      PharmacyModel(
-        id: 'pharm-2',
-        name: 'Farmácia Sagrada Esperança',
-        province: 'Luanda',
-        district: 'Maianga',
-        address: 'Avenida Lenine',
-        phone: '912 300 400',
-        openingHours: '08:00 - 20:00',
-        isOpen24h: false,
-        hasDelivery: false,
-        logoUrl: '',
-        rating: 5.0,
-        subscriptionStatus: 'active',
-        trialEndsAt: DateTime.now().subtract(const Duration(days: 30)),
-        paymentDueDate: DateTime.now().add(const Duration(days: 22)),
-      ),
-      PharmacyModel(
-        id: 'pharm-3',
-        name: 'Farmácia Popular de Luanda',
-        province: 'Luanda',
-        district: 'Ingombota',
-        address: 'Rua Rainha Ginga',
-        phone: '924 555 777',
-        openingHours: '08:00 - 20:00',
-        isOpen24h: false,
-        hasDelivery: false,
-        logoUrl: '',
-        rating: 5.0,
-        subscriptionStatus: 'trial',
-        trialEndsAt: DateTime.now().add(const Duration(days: 3)),
-        paymentDueDate: DateTime.now().add(const Duration(days: 3)),
-      ),
-      PharmacyModel(
-        id: 'pharm-4',
-        name: 'Farmácia Central Benguela',
-        province: 'Benguela',
-        district: 'Benguela Centro',
-        address: 'Avenida 10 de Fevereiro',
-        phone: '931 222 333',
-        openingHours: '08:00 - 20:00',
-        isOpen24h: false,
-        hasDelivery: false,
-        logoUrl: '',
-        rating: 5.0,
-        subscriptionStatus: 'expired',
-        trialEndsAt: DateTime.now().subtract(const Duration(days: 10)),
-        paymentDueDate: DateTime.now().subtract(const Duration(days: 10)),
-      ),
-      PharmacyModel(
-        id: 'pharm-5',
-        name: 'Farmácia Moderna Huambo',
-        province: 'Huambo',
-        district: 'Huambo Centro',
-        address: 'Rua do Comércio',
-        phone: '945 888 999',
-        openingHours: '08:00 - 20:00',
-        isOpen24h: false,
-        hasDelivery: false,
-        logoUrl: '',
-        rating: 5.0,
-        subscriptionStatus: 'blocked',
-        trialEndsAt: DateTime.now().subtract(const Duration(days: 45)),
-        paymentDueDate: DateTime.now().subtract(const Duration(days: 45)),
-      ),
-    ];
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Mudar Perfil da Farmácia (Testar Estados de Subscrição)',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: mockPharmacies.length,
-                  itemBuilder: (context, idx) {
-                    final p = mockPharmacies[idx];
-
-                    return ListTile(
-                      leading: Icon(
-                        p.subscriptionStatus == 'active'
-                            ? Icons.check_circle_rounded
-                            : (p.subscriptionStatus == 'trial'
-                                ? Icons.timer_rounded
-                                : Icons.lock_rounded),
-                        color: p.subscriptionStatus == 'active'
-                            ? Colors.green
-                            : (p.subscriptionStatus == 'trial'
-                                ? Colors.blue
-                                : Colors.red),
-                      ),
-                      title: Text(
-                        p.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      subtitle: Text(
-                        'Estado: ${p.subscriptionStatus.toUpperCase()} '
-                        '${p.subscriptionStatus == 'trial' ? '(${p.daysLeftInTrial} dias de teste restantes)' : ''}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      onTap: () {
-                        ref
-                            .read(pharmacyDashboardProvider.notifier)
-                            .switchPharmacy(p);
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
@@ -325,27 +206,13 @@ class _PharmacyDashboardScreenState
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    state.activePharmacyName ?? 'Painel da Farmácia',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.swap_horiz_rounded,
-                    size: 20,
-                  ),
-                  tooltip: 'Mudar Farmácia / Testar Estado',
-                  onPressed: _showPharmacySwitcherModal,
-                ),
-              ],
+            Text(
+              state.activePharmacyName ?? 'Painel da Farmácia',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
             Text(
               'Subscrição: ${_getSubscriptionStatusBadge(state)}',
@@ -370,12 +237,12 @@ class _PharmacyDashboardScreenState
               Icons.qr_code_scanner_rounded,
               color: AppColors.primary,
             ),
-            tooltip: 'Validar QR Code',
+            tooltip: 'Validar código de levantamento',
             onPressed: _showQrScannerModal,
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Atualizar Dados',
+            tooltip: 'Actualizar dados',
             onPressed: () {
               ref
                   .read(pharmacyDashboardProvider.notifier)
@@ -410,28 +277,9 @@ class _PharmacyDashboardScreenState
         ),
       ),
       body: state.isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
-          : Column(
-              children: [
-                _buildSubscriptionBanner(state),
-                Expanded(
-                  child: state.isBlockedOrExpired
-                      ? _buildBlockedOverlay(state)
-                      : TabBarView(
-                          controller: _tabController,
-                          children: [
-                            _buildStatsTab(state),
-                            _buildMedicinesTab(state),
-                            _buildReservationsTab(state),
-                            _buildPrescriptionsTab(state),
-                          ],
-                        ),
-                ),
-              ],
-            ),
-      floatingActionButton: state.isBlockedOrExpired
+          ? const Center(child: CircularProgressIndicator())
+          : _buildDashboardBody(state),
+      floatingActionButton: state.isLoading || state.isBlockedOrExpired
           ? null
           : FloatingActionButton.extended(
               onPressed: () => _showAddEditMedicineModal(),
@@ -451,14 +299,76 @@ class _PharmacyDashboardScreenState
     );
   }
 
+  Widget _buildDashboardBody(PharmacyDashboardState state) {
+    if (state.error != null && state.error!.trim().isNotEmpty) {
+      return Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 56,
+                color: Colors.red,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Não foi possível carregar o painel',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                state.error!,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () {
+                  ref
+                      .read(pharmacyDashboardProvider.notifier)
+                      .loadDashboardData();
+                },
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Tentar novamente'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        _buildSubscriptionBanner(state),
+        Expanded(
+          child: state.isBlockedOrExpired
+              ? _buildBlockedOverlay()
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildStatsTab(state),
+                    _buildMedicinesTab(state),
+                    _buildReservationsTab(state),
+                    _buildPrescriptionsTab(state),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildSubscriptionBanner(PharmacyDashboardState state) {
     final status =
         state.pharmacyDetails?.subscriptionStatus ?? 'trial';
 
     if (status == 'trial') {
-      final days = state.daysLeftInTrial;
-
       return Container(
+        width: double.infinity,
         padding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 10,
@@ -469,7 +379,6 @@ class _PharmacyDashboardScreenState
             const Icon(
               Icons.timer_outlined,
               color: Colors.blue,
-              size: 22,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -477,37 +386,32 @@ class _PharmacyDashboardScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Período Experimental de 3 Meses: Restam $days dias',
+                    'Período experimental: ${state.daysLeftInTrial} dias restantes',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                      fontSize: 12,
                       color: AppColors.primaryDark,
                     ),
                   ),
                   const Text(
-                    'Utilização gratuita para clientes e farmácia. Mensalidade: 15.000 Kz/mês após o teste.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.black87,
-                    ),
+                    'Confirma as condições da subscrição antes de efectuar pagamentos.',
+                    style: TextStyle(fontSize: 11),
                   ),
                 ],
               ),
             ),
             TextButton(
               onPressed: _showPaymentModal,
-              child: const Text(
-                'Renovar Já',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+              child: const Text('Renovar'),
             ),
           ],
         ),
       );
-    } else if (status == 'active') {
-      final days = state.daysUntilPaymentDue;
+    }
 
+    if (status == 'active') {
       return Container(
+        width: double.infinity,
         padding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 8,
@@ -518,12 +422,12 @@ class _PharmacyDashboardScreenState
             const Icon(
               Icons.verified_rounded,
               color: Colors.green,
-              size: 20,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Subscrição Ativa (15.000 Kz/mês) • Próximo pagamento em $days dias',
+                'Subscrição activa • Próximo pagamento em '
+                '${state.daysUntilPaymentDue} dias',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -533,14 +437,7 @@ class _PharmacyDashboardScreenState
             ),
             OutlinedButton(
               onPressed: _showPaymentModal,
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(80, 30),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-              child: const Text(
-                'Renovar',
-                style: TextStyle(fontSize: 11),
-              ),
+              child: const Text('Renovar'),
             ),
           ],
         ),
@@ -550,8 +447,9 @@ class _PharmacyDashboardScreenState
     return const SizedBox.shrink();
   }
 
-  Widget _buildBlockedOverlay(PharmacyDashboardState state) {
+  Widget _buildBlockedOverlay() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(24),
       color: Colors.red.shade50.withValues(alpha: 0.5),
       child: Center(
@@ -565,7 +463,8 @@ class _PharmacyDashboardScreenState
             ),
             const SizedBox(height: 16),
             const Text(
-              'Acesso ao Painel Suspenso',
+              'Acesso ao painel suspenso',
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
@@ -574,8 +473,8 @@ class _PharmacyDashboardScreenState
             ),
             const SizedBox(height: 8),
             const Text(
-              'O seu período de teste gratuito de 3 meses expirou.\n'
-              'Para desbloquear a gestão da farmácia e aprovação de reservas, efetue o pagamento da mensalidade de 15.000 Kz.',
+              'O acesso à gestão está bloqueado. '
+              'Contacta o administrador para confirmar o estado da conta.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -583,27 +482,20 @@ class _PharmacyDashboardScreenState
               ),
             ),
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 12,
               children: [
                 FilledButton.icon(
                   icon: const Icon(Icons.upload_file_rounded),
-                  label: const Text(
-                    'Enviar Comprovativo de 15.000 Kz',
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                  ),
+                  label: const Text('Enviar comprovativo'),
                   onPressed: _showPaymentModal,
                 ),
-                const SizedBox(width: 12),
                 OutlinedButton.icon(
-                  icon: const Icon(
-                    Icons.admin_panel_settings_rounded,
-                  ),
+                  icon: const Icon(Icons.admin_panel_settings_rounded),
                   label: const Text('Painel Admin'),
-                  onPressed: () =>
-                      context.push('/admin/subscriptions'),
+                  onPressed: () => context.push('/admin/subscriptions'),
                 ),
               ],
             ),
@@ -620,69 +512,50 @@ class _PharmacyDashboardScreenState
         state.pharmacyDetails?.subscriptionStatus ?? 'trial';
 
     if (status == 'trial') {
-      return 'Trial Gratuito (${state.daysLeftInTrial}d)';
+      return 'Período experimental (${state.daysLeftInTrial}d)';
     }
+    if (status == 'active') return 'Activa';
+    if (status == 'expired') return 'Expirada';
+    return 'Bloqueada';
+  }
 
-    if (status == 'active') {
-      return 'Ativo ✅';
-    }
-
-    if (status == 'expired') {
-      return 'Expirado ⚠️';
-    }
-
-    return 'Bloqueado 🔒';
+  bool _isCompleted(String status) {
+    final normalized = status.trim().toLowerCase();
+    return normalized == 'completed' ||
+        normalized == 'levantada' ||
+        normalized == 'resgatado' ||
+        normalized == 'entregue';
   }
 
   Widget _buildStatsTab(PharmacyDashboardState state) {
-    final double periodMultiplier = _selectedStatsPeriod == 'Dia'
-        ? 1.0
-        : (_selectedStatsPeriod == 'Semana' ? 7.0 : 30.0);
-
-    final double estimatedRevenue =
-        state.totalRevenue * periodMultiplier;
-
-    final int estimatedReservations =
-        (state.completedReservationsCount * periodMultiplier).toInt();
-
+    // Os dados apresentados são os valores carregados pelo serviço.
+    // Não multiplicamos totais para simular períodos que não foram
+    // consultados na base de dados.
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Visão Geral do Desempenho',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(
-                    value: 'Dia',
-                    label: Text('Dia'),
-                  ),
-                  ButtonSegment(
-                    value: 'Semana',
-                    label: Text('Semana'),
-                  ),
-                  ButtonSegment(
-                    value: 'Mês',
-                    label: Text('Mês'),
-                  ),
-                ],
-                selected: {_selectedStatsPeriod},
-                onSelectionChanged: (set) {
-                  setState(() {
-                    _selectedStatsPeriod = set.first;
-                  });
-                },
-              ),
+          const Text(
+            'Visão geral do desempenho',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'Dia', label: Text('Dia')),
+              ButtonSegment(value: 'Semana', label: Text('Semana')),
+              ButtonSegment(value: 'Mês', label: Text('Mês')),
             ],
+            selected: {_selectedStatsPeriod},
+            onSelectionChanged: (selection) {
+              setState(() {
+                _selectedStatsPeriod = selection.first;
+              });
+            },
           ),
           const SizedBox(height: 16),
           GridView.count(
@@ -695,28 +568,28 @@ class _PharmacyDashboardScreenState
             physics: const NeverScrollableScrollPhysics(),
             children: [
               _buildStatCard(
-                title: 'Faturação (${_selectedStatsPeriod})',
-                value: '${estimatedRevenue.toInt()} Kz',
+                title: 'Faturação carregada',
+                value: '${state.totalRevenue.toInt()} Kz',
                 icon: Icons.payments_rounded,
                 color: Colors.green.shade700,
                 bgColor: Colors.green.shade50,
               ),
               _buildStatCard(
-                title: 'Reservas Concluídas',
-                value: '$estimatedReservations',
+                title: 'Reservas concluídas',
+                value: '${state.completedReservationsCount}',
                 icon: Icons.check_circle_rounded,
                 color: Colors.blue.shade700,
                 bgColor: Colors.blue.shade50,
               ),
               _buildStatCard(
-                title: 'Itens em Stock',
-                value: '${state.totalStockItems} un.',
+                title: 'Itens em stock',
+                value: '${state.totalStockItems}',
                 icon: Icons.inventory_2_rounded,
                 color: Colors.amber.shade800,
                 bgColor: Colors.amber.shade50,
               ),
               _buildStatCard(
-                title: 'Receitas Pendentes',
+                title: 'Receitas pendentes',
                 value: '${state.pendingPrescriptionsCount}',
                 icon: Icons.assignment_late_rounded,
                 color: Colors.purple.shade700,
@@ -746,19 +619,18 @@ class _PharmacyDashboardScreenState
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Validação de Código do Cliente',
+                        'Validar código de levantamento',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: 15,
                         ),
                       ),
                       Text(
-                        'Digitalize o QR Code do cliente no momento do levantamento para concluir a reserva.',
+                        'Confirma o código da reserva no levantamento.',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 12,
@@ -773,74 +645,58 @@ class _PharmacyDashboardScreenState
                     backgroundColor: Colors.white,
                     foregroundColor: AppColors.primaryDark,
                   ),
-                  child: const Text(
-                    'Validar',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child: const Text('Validar'),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
           const Text(
-            'Atividade Recente',
+            'Actividade recente',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 8),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount:
-                state.reservations.length > 3
-                    ? 3
-                    : state.reservations.length,
-            itemBuilder: (context, index) {
-              final res = state.reservations[index];
+          if (state.reservations.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Ainda não existem reservas para apresentar.'),
+            )
+          else
+            ...state.reservations.take(3).map((reservation) {
+              final completed = _isCompleted(reservation.status);
 
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: res.status == 'completed'
+                    backgroundColor: completed
                         ? Colors.green.shade100
                         : Colors.blue.shade100,
                     child: Icon(
-                      res.status == 'completed'
-                          ? Icons.check
-                          : Icons.bookmark,
-                      color: res.status == 'completed'
-                          ? Colors.green
-                          : AppColors.primary,
+                      completed ? Icons.check : Icons.bookmark,
+                      color: completed ? Colors.green : AppColors.primary,
                     ),
                   ),
                   title: Text(
-                    res.medicineName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    reservation.medicineName,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   subtitle: Text(
-                    'Código: ${res.pickupCode} • ${res.totalPriceKz.toInt()} Kz',
+                    'Código: ${reservation.pickupCode} • '
+                    '${reservation.totalPriceKz.toInt()} Kz',
                   ),
                   trailing: Text(
-                    res.status == 'completed'
-                        ? 'Concluída'
-                        : 'Ativa',
+                    completed ? 'Concluída' : 'Pendente',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: res.status == 'completed'
-                          ? Colors.green
-                          : AppColors.primary,
+                      color: completed ? Colors.green : AppColors.primary,
                     ),
                   ),
                 ),
               );
-            },
-          ),
+            }),
         ],
       ),
     );
@@ -864,18 +720,8 @@ class _PharmacyDashboardScreenState
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(
-                icon,
-                color: color,
-                size: 22,
-              ),
-            ],
-          ),
+          Icon(icon, color: color, size: 22),
           const Spacer(),
           Text(
             value,
@@ -898,16 +744,13 @@ class _PharmacyDashboardScreenState
     );
   }
 
-  Widget _buildMedicinesTab(
-    PharmacyDashboardState state,
-  ) {
-    final filtered = state.medicines.where((m) {
+  Widget _buildMedicinesTab(PharmacyDashboardState state) {
+    final filtered = state.medicines.where((medicine) {
       if (_searchQuery.isEmpty) return true;
 
-      final q = _searchQuery.toLowerCase();
-
-      return m.name.toLowerCase().contains(q) ||
-          m.activeIngredient.toLowerCase().contains(q);
+      final query = _searchQuery.toLowerCase();
+      return medicine.name.toLowerCase().contains(query) ||
+          medicine.activeIngredient.toLowerCase().contains(query);
     }).toList();
 
     return Column(
@@ -916,516 +759,443 @@ class _PharmacyDashboardScreenState
           padding: const EdgeInsets.all(16),
           child: TextField(
             decoration: InputDecoration(
-              hintText:
-                  'Pesquisar medicamentos no stock...',
-              prefixIcon:
-                  const Icon(Icons.search_rounded),
+              hintText: 'Pesquisar medicamentos no stock...',
+              prefixIcon: const Icon(Icons.search_rounded),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear),
-                      onPressed: () =>
-                          setState(() => _searchQuery = ''),
+                      onPressed: () => setState(() => _searchQuery = ''),
                     )
                   : null,
             ),
-            onChanged: (val) =>
-                setState(() => _searchQuery = val),
+            onChanged: (value) => setState(() => _searchQuery = value),
           ),
         ),
         Expanded(
-          child: ListView.builder(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: filtered.length,
-            itemBuilder: (context, index) {
-              final med = filtered[index];
+          child: filtered.isEmpty
+              ? const Center(
+                  child: Text('Não existem medicamentos para apresentar.'),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final medicine = filtered[index];
 
-              return Card(
-                margin:
-                    const EdgeInsets.only(bottom: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      Row(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  med.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        medicine.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      Text(
+                                        medicine.activeIngredient,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color:
+                                              AppColors.textSecondaryLight,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 4,
+                                        children: [
+                                          if (medicine.requiresPrescription)
+                                            _medicineTag(
+                                              'Exige receita',
+                                              Colors.amber.shade100,
+                                              Colors.amber.shade900,
+                                            ),
+                                          if (medicine.isGeneric)
+                                            _medicineTag(
+                                              'Genérico',
+                                              Colors.blue.shade100,
+                                              Colors.blue.shade900,
+                                            ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Text(
-                                  med.activeIngredient,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors
-                                        .textSecondaryLight,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    if (med.requiresPrescription)
-                                      Container(
-                                        margin: const EdgeInsets
-                                            .only(right: 6),
-                                        padding:
-                                            const EdgeInsets
-                                                .symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
-                                        ),
-                                        decoration:
-                                            BoxDecoration(
-                                          color: Colors
-                                              .amber.shade100,
-                                          borderRadius:
-                                              BorderRadius
-                                                  .circular(6),
-                                        ),
-                                        child: const Text(
-                                          'Exige Receita',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: Colors.amber,
-                                            fontWeight:
-                                                FontWeight.bold,
-                                          ),
-                                        ),
+                                    Text(
+                                      '${medicine.priceKz.toInt()} Kz',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppColors.primaryDark,
                                       ),
-                                    if (med.isGeneric)
-                                      Container(
-                                        padding:
-                                            const EdgeInsets
-                                                .symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
-                                        ),
-                                        decoration:
-                                            BoxDecoration(
-                                          color: Colors
-                                              .blue.shade100,
-                                          borderRadius:
-                                              BorderRadius
-                                                  .circular(6),
-                                        ),
-                                        child: const Text(
-                                          'Genérico',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: Colors.blue,
-                                            fontWeight:
-                                                FontWeight.bold,
-                                          ),
-                                        ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Stock: ${medicine.stockQuantity}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: medicine.inStock
+                                            ? AppColors.primary
+                                            : Colors.red,
                                       ),
+                                    ),
                                   ],
                                 ),
                               ],
                             ),
-                          ),
-                          Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '${med.priceKz.toInt()} Kz',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight:
-                                      FontWeight.w900,
-                                  color:
-                                      AppColors.primaryDark,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding:
-                                    const EdgeInsets
-                                        .symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration:
-                                    BoxDecoration(
-                                  color: med.inStock
-                                      ? AppColors.primaryLight
-                                      : Colors.red.shade50,
-                                  borderRadius:
-                                      BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'Stock: ${med.stockQuantity}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight:
-                                        FontWeight.bold,
-                                    color: med.inStock
-                                        ? AppColors.primary
-                                        : Colors.red,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 20),
-                      Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              IconButton.outlined(
-                                icon: const Icon(
-                                  Icons.remove,
-                                  size: 16,
-                                ),
-                                tooltip: 'Reduzir Stock',
-                                onPressed:
-                                    med.stockQuantity > 0
-                                        ? () {
-                                            ref
+                            const Divider(height: 20),
+                            Row(
+                              children: [
+                                IconButton.outlined(
+                                  icon: const Icon(Icons.remove, size: 16),
+                                  tooltip: 'Reduzir stock',
+                                  onPressed: medicine.stockQuantity > 0
+                                      ? () {
+                                          _runOperation(
+                                            () => ref
                                                 .read(
                                                   pharmacyDashboardProvider
                                                       .notifier,
                                                 )
                                                 .updateStock(
-                                                  med.id,
-                                                  med.stockQuantity -
-                                                      1,
-                                                );
-                                          }
-                                        : null,
-                              ),
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                                  medicine.id,
+                                                  medicine.stockQuantity - 1,
+                                                ),
+                                            successMessage: 'Stock actualizado.',
+                                            failureMessage:
+                                                'Não foi possível actualizar o stock.',
+                                          );
+                                        }
+                                      : null,
                                 ),
-                                child: Text(
-                                  '${med.stockQuantity}',
-                                  style: const TextStyle(
-                                    fontWeight:
-                                        FontWeight.bold,
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  child: Text(
+                                    '${medicine.stockQuantity}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              IconButton.outlined(
-                                icon: const Icon(
-                                  Icons.add,
-                                  size: 16,
+                                IconButton.outlined(
+                                  icon: const Icon(Icons.add, size: 16),
+                                  tooltip: 'Aumentar stock',
+                                  onPressed: () {
+                                    _runOperation(
+                                      () => ref
+                                          .read(
+                                            pharmacyDashboardProvider.notifier,
+                                          )
+                                          .updateStock(
+                                            medicine.id,
+                                            medicine.stockQuantity + 1,
+                                          ),
+                                      successMessage: 'Stock actualizado.',
+                                      failureMessage:
+                                          'Não foi possível actualizar o stock.',
+                                    );
+                                  },
                                 ),
-                                tooltip: 'Aumentar Stock',
-                                onPressed: () {
-                                  ref
-                                      .read(
-                                        pharmacyDashboardProvider
-                                            .notifier,
-                                      )
-                                      .updateStock(
-                                        med.id,
-                                        med.stockQuantity + 1,
-                                      );
-                                },
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.edit_outlined,
-                                  color: AppColors.primary,
+                                const Spacer(),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    color: AppColors.primary,
+                                  ),
+                                  tooltip: 'Editar medicamento',
+                                  onPressed: () =>
+                                      _showAddEditMedicineModal(medicine),
                                 ),
-                                tooltip: 'Editar Detalhes',
-                                onPressed: () =>
-                                    _showAddEditMedicineModal(
-                                  med,
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                  ),
+                                  tooltip: 'Eliminar medicamento',
+                                  onPressed: () =>
+                                      _confirmDeleteMedicine(medicine),
                                 ),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.red,
-                                ),
-                                tooltip: 'Eliminar Medicamento',
-                                onPressed: () {
-                                  ref
-                                      .read(
-                                        pharmacyDashboardProvider
-                                            .notifier,
-                                      )
-                                      .deleteMedicine(med.id);
-
-                                  ScaffoldMessenger.of(
-                                    context,
-                                  ).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Medicamento removido do stock.',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildReservationsTab(
-    PharmacyDashboardState state,
+  Widget _medicineTag(
+    String label,
+    Color background,
+    Color foreground,
   ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          color: foreground,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteMedicine(MedicineModel medicine) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminar medicamento?'),
+        content: Text(
+          'Confirma a eliminação de "${medicine.name}" do stock.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    await _runOperation(
+      () => ref
+          .read(pharmacyDashboardProvider.notifier)
+          .deleteMedicine(medicine.id),
+      successMessage: 'Medicamento eliminado.',
+      failureMessage: 'Não foi possível eliminar o medicamento.',
+    );
+  }
+
+  Widget _buildReservationsTab(PharmacyDashboardState state) {
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  icon: const Icon(
-                    Icons.qr_code_scanner,
-                  ),
-                  label: const Text(
-                    'Validar QR Code de Levantamento',
-                  ),
-                  onPressed: _showQrScannerModal,
-                ),
-              ),
-            ],
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Validar código de levantamento'),
+              onPressed: _showQrScannerModal,
+            ),
           ),
         ),
         Expanded(
-          child: ListView.builder(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: state.reservations.length,
-            itemBuilder: (context, index) {
-              final res = state.reservations[index];
+          child: state.reservations.isEmpty
+              ? const Center(
+                  child: Text('Ainda não existem reservas.'),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: state.reservations.length,
+                  itemBuilder: (context, index) {
+                    final reservation = state.reservations[index];
+                    final completed = _isCompleted(reservation.status);
 
-              return Card(
-                margin:
-                    const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  title: Text(
-                    res.medicineName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Código: ${res.pickupCode} • Validade: 2 Horas',
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        title: Text(
+                          reservation.medicineName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Código: ${reservation.pickupCode}'),
+                            Text(
+                              'Preço: ${reservation.totalPriceKz.toInt()} Kz',
+                            ),
+                            const Text('Prazo de levantamento: 2 horas'),
+                          ],
+                        ),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: completed
+                                ? Colors.green.shade100
+                                : Colors.amber.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            completed ? 'Levantada' : 'Pendente',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: completed
+                                  ? Colors.green.shade800
+                                  : Colors.amber.shade900,
+                            ),
+                          ),
+                        ),
                       ),
-                      Text(
-                        'Preço: ${res.totalPriceKz.toInt()} Kz',
-                      ),
-                    ],
-                  ),
-                  trailing: Container(
-                    padding:
-                        const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: res.status == 'completed'
-                          ? Colors.green.shade100
-                          : Colors.amber.shade100,
-                      borderRadius:
-                          BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      res.status == 'completed'
-                          ? 'Resgatado'
-                          : 'Aguardando',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: res.status == 'completed'
-                            ? Colors.green
-                            : Colors.amber.shade900,
-                      ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildPrescriptionsTab(
-    PharmacyDashboardState state,
-  ) {
+  Widget _buildPrescriptionsTab(PharmacyDashboardState state) {
+    if (state.prescriptions.isEmpty) {
+      return const Center(
+        child: Text('Ainda não existem receitas para apresentar.'),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: state.prescriptions.length,
       itemBuilder: (context, index) {
-        final presc = state.prescriptions[index];
-        final isVerified =
-            presc.status == 'verified';
-        final isRejected =
-            presc.status == 'rejected';
+        final prescription = state.prescriptions[index];
+        final isVerified = prescription.status == 'verified';
+        final isRejected = prescription.status == 'rejected';
 
         return Card(
-          margin:
-              const EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(bottom: 12),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Paciente: ${presc.userName}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                    Expanded(
+                      child: Text(
+                        'Paciente: ${prescription.userName}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
                         color: isVerified
                             ? Colors.green.shade100
-                            : (isRejected
+                            : isRejected
                                 ? Colors.red.shade100
-                                : Colors.amber.shade100),
-                        borderRadius:
-                            BorderRadius.circular(8),
+                                : Colors.amber.shade100,
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         isVerified
                             ? 'Aprovada'
-                            : (isRejected
+                            : isRejected
                                 ? 'Rejeitada'
-                                : 'Pendente'),
+                                : 'Pendente',
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight:
-                              FontWeight.bold,
+                          fontWeight: FontWeight.bold,
                           color: isVerified
-                              ? Colors.green
-                              : (isRejected
-                                  ? Colors.red
-                                  : Colors.amber
-                                      .shade900),
+                              ? Colors.green.shade800
+                              : isRejected
+                                  ? Colors.red.shade800
+                                  : Colors.amber.shade900,
                         ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
+                Text('Medicamento: ${prescription.medicineName}'),
                 Text(
-                  'Medicamento Solicitado: ${presc.medicineName}',
-                ),
-                Text(
-                  'Data do Pedido: ${presc.createdAt}',
+                  'Data do pedido: ${prescription.createdAt}',
                   style: const TextStyle(
                     fontSize: 11,
                     color: Colors.grey,
                   ),
                 ),
-                const SizedBox(height: 12),
-                if (presc.notes != null &&
-                    presc.notes!.isNotEmpty) ...[
-                  Text(
-                    'Obs: ${presc.notes}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
+                if (prescription.notes != null &&
+                    prescription.notes!.isNotEmpty) ...[
                   const SizedBox(height: 8),
+                  Text('Observações: ${prescription.notes}'),
                 ],
-                Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton.icon(
-                      icon: const Icon(
-                        Icons.remove_red_eye_rounded,
-                        size: 16,
-                      ),
-                      label: const Text(
-                        'Analisar Receita',
-                      ),
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) =>
-                              PrescriptionReviewDialog(
-                            prescription: presc,
-                            onReview:
-                                (status, notes) {
-                              ref
-                                  .read(
-                                    pharmacyDashboardProvider
-                                        .notifier,
-                                  )
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(
+                      Icons.remove_red_eye_rounded,
+                      size: 16,
+                    ),
+                    label: const Text('Analisar receita'),
+                    onPressed: () {
+                      showDialog<void>(
+                        context: context,
+                        builder: (dialogContext) =>
+                            PrescriptionReviewDialog(
+                          prescription: prescription,
+                          onReview: (status, notes) {
+                            Navigator.of(dialogContext).pop();
+
+                            _runOperation(
+                              () => ref
+                                  .read(pharmacyDashboardProvider.notifier)
                                   .updatePrescription(
-                                    presc.id,
+                                    prescription.id,
                                     status,
                                     notes,
-                                  );
-
-                              ScaffoldMessenger.of(
-                                context,
-                              ).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    status == 'verified'
-                                        ? 'Receita aprovada com sucesso!'
-                                        : 'Receita rejeitada.',
                                   ),
-                                  backgroundColor:
-                                      status == 'verified'
-                                          ? Colors.green
-                                          : Colors.red,
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                              successMessage: status == 'verified'
+                                  ? 'Receita aprovada.'
+                                  : 'Receita actualizada.',
+                              failureMessage:
+                                  'Não foi possível actualizar a receita.',
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
