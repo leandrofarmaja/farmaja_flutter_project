@@ -107,11 +107,9 @@ class SupabaseDatabaseService {
   ) {
     final pharmacyValue = row['farmacias'];
 
-    Map<String, dynamic> pharmacy = {};
-
-    if (pharmacyValue is Map) {
-      pharmacy = Map<String, dynamic>.from(pharmacyValue);
-    }
+    final pharmacy = pharmacyValue is Map
+        ? Map<String, dynamic>.from(pharmacyValue)
+        : <String, dynamic>{};
 
     final price = row['preco_kwanza'];
 
@@ -441,17 +439,13 @@ class SupabaseDatabaseService {
       Map<String, dynamic>? createdReservation;
 
       if (rpcResult is Map) {
-        createdReservation = Map<String, dynamic>.from(
-          rpcResult,
-        );
-      } else if (rpcResult is List && rpcResult.isNotEmpty) {
-        final first = rpcResult.first;
-
-        if (first is Map) {
-          createdReservation = Map<String, dynamic>.from(
-            first,
-          );
-        }
+        createdReservation =
+            Map<String, dynamic>.from(rpcResult);
+      } else if (rpcResult is List &&
+          rpcResult.isNotEmpty &&
+          rpcResult.first is Map) {
+        createdReservation =
+            Map<String, dynamic>.from(rpcResult.first as Map);
       }
 
       final reservationId =
@@ -520,7 +514,7 @@ class SupabaseDatabaseService {
   }
 
   // ============================================================
-  // CONFIRMAÇÃO DO LEVANTAMENTO
+  // CONFIRMAÇÃO DO LEVANTAMENTO POR IDENTIFICADOR
   // ============================================================
 
   Future<void> confirmarLevantamento(
@@ -552,6 +546,63 @@ class SupabaseDatabaseService {
         'Não foi possível confirmar o levantamento: ${e.message}',
       );
     } catch (e) {
+      throw Exception(
+        'Falha ao comunicar com o Supabase: $e',
+      );
+    }
+  }
+
+  // ============================================================
+  // VALIDAÇÃO DO CÓDIGO DE LEVANTAMENTO
+  // Usa a função SQL confirmar_levantamento_por_codigo.
+  // A verificação e a alteração de estado são feitas no servidor.
+  // ============================================================
+
+  Future<ReservationModel?> validateReservationByQrCode(
+    String code,
+  ) async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception(
+        'Inicia sessão com a conta da farmácia para validar a reserva.',
+      );
+    }
+
+    final normalizedCode = code.trim().toUpperCase();
+
+    if (normalizedCode.isEmpty) {
+      throw ArgumentError(
+        'O código de levantamento é obrigatório.',
+      );
+    }
+
+    try {
+      final result = await _client.rpc(
+        'confirmar_levantamento_por_codigo',
+        params: {
+          'p_codigo_reserva': normalizedCode,
+        },
+      );
+
+      if (result is! Map) {
+        throw Exception(
+          'O Supabase devolveu uma resposta inesperada.',
+        );
+      }
+
+      return _reservationFromDatabase(
+        Map<String, dynamic>.from(result),
+      );
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível validar o levantamento: ${e.message}',
+      );
+    } catch (e) {
+      if (e is ArgumentError || e is Exception) {
+        rethrow;
+      }
+
       throw Exception(
         'Falha ao comunicar com o Supabase: $e',
       );
@@ -678,12 +729,6 @@ class SupabaseDatabaseService {
 
   Future<void> deleteMedicine(String medicineId) async {
     _unsupported('Eliminação de medicamentos');
-  }
-
-  Future<ReservationModel?> validateReservationByQrCode(
-    String code,
-  ) async {
-    _unsupported('Validação de reservas por código QR');
   }
 
   Future<void> updateReservationStatus(
