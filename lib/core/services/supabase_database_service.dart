@@ -18,7 +18,6 @@ class SupabaseDatabaseService {
 
   // ============================================================
   // MEDICAMENTOS
-  // Tabela real: medicamentos
   // ============================================================
 
   Future<List<MedicineModel>> getMedicines({
@@ -141,7 +140,6 @@ class SupabaseDatabaseService {
 
   // ============================================================
   // FARMÁCIAS
-  // Tabela real: farmacias
   // ============================================================
 
   Future<List<PharmacyModel>> getPharmacies({
@@ -236,13 +234,20 @@ class SupabaseDatabaseService {
   }
 
   // ============================================================
-  // RESERVAS
-  // Tabela real: reservas
+  // RESERVAS DO CLIENTE
   // ============================================================
 
   Future<List<ReservationModel>> getReservations(
     String userId,
   ) async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null || currentUser.id != userId) {
+      throw Exception(
+        'Só podes consultar as reservas da conta autenticada.',
+      );
+    }
+
     try {
       final response = await _client
           .from('reservas')
@@ -250,10 +255,9 @@ class SupabaseDatabaseService {
             'id, medicamento_id, farmacia_id, status, '
             'codigo_reserva, url_foto_receita, criado_em, '
             'user_id, preco_kwanza, expira_em, receita_enviada, '
-            'medicamentos(nome_medicamento), '
-            'farmacias(nome)',
+            'medicamentos(nome_medicamento), farmacias(nome)',
           )
-          .eq('user_id', userId)
+          .eq('user_id', currentUser.id)
           .order('criado_em', ascending: false);
 
       return List<Map<String, dynamic>>.from(response)
@@ -262,6 +266,125 @@ class SupabaseDatabaseService {
     } catch (e) {
       throw Exception(
         'Não foi possível carregar as reservas: $e',
+      );
+    }
+  }
+
+  // ============================================================
+  // RESERVAS DA FARMÁCIA
+  // A autorização é validada no Supabase.
+  // ============================================================
+
+  Future<List<ReservationModel>> getAllReservationsForPharmacy({
+    String? pharmacyName,
+  }) async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception(
+        'Inicia sessão com a conta da farmácia.',
+      );
+    }
+
+    try {
+      final rpcResult = await _client.rpc(
+        'listar_reservas_farmacia',
+      );
+
+      if (rpcResult is! List) {
+        throw Exception(
+          'O Supabase devolveu um formato inesperado para as reservas.',
+        );
+      }
+
+      final reservationRows = rpcResult
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
+
+      if (reservationRows.isEmpty) {
+        return <ReservationModel>[];
+      }
+
+      final pharmacyIds = reservationRows
+          .map((row) => row['farmacia_id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final medicineIds = reservationRows
+          .map((row) => row['medicamento_id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final pharmacyRows = pharmacyIds.isEmpty
+          ? <Map<String, dynamic>>[]
+          : List<Map<String, dynamic>>.from(
+              await _client
+                  .from('farmacias')
+                  .select('id, nome')
+                  .inFilter('id', pharmacyIds),
+            );
+
+      final medicineRows = medicineIds.isEmpty
+          ? <Map<String, dynamic>>[]
+          : List<Map<String, dynamic>>.from(
+              await _client
+                  .from('medicamentos')
+                  .select('id, nome_medicamento')
+                  .inFilter('id', medicineIds),
+            );
+
+      final pharmacyNames = <String, String>{
+        for (final row in pharmacyRows)
+          (row['id'] ?? '').toString():
+              (row['nome'] ?? '').toString(),
+      };
+
+      final medicineNames = <String, String>{
+        for (final row in medicineRows)
+          (row['id'] ?? '').toString():
+              (row['nome_medicamento'] ?? '').toString(),
+      };
+
+      final reservations = reservationRows.map((row) {
+        final pharmacyId =
+            (row['farmacia_id'] ?? '').toString();
+        final medicineId =
+            (row['medicamento_id'] ?? '').toString();
+
+        return _reservationFromDatabase({
+          ...row,
+          'farmacias': {
+            'nome': pharmacyNames[pharmacyId] ?? '',
+          },
+          'medicamentos': {
+            'nome_medicamento':
+                medicineNames[medicineId] ?? '',
+          },
+        });
+      }).toList();
+
+      if (pharmacyName != null &&
+          pharmacyName.trim().isNotEmpty) {
+        return reservations
+            .where(
+              (reservation) =>
+                  reservation.pharmacyName.toLowerCase() ==
+                  pharmacyName.trim().toLowerCase(),
+            )
+            .toList();
+      }
+
+      return reservations;
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'O Supabase não conseguiu carregar as reservas da farmácia: ${e.message}',
+      );
+    } catch (e) {
+      throw Exception(
+        'Não foi possível carregar as reservas da farmácia: $e',
       );
     }
   }
@@ -398,7 +521,6 @@ class SupabaseDatabaseService {
 
   // ============================================================
   // CONFIRMAÇÃO DO LEVANTAMENTO
-  // Usa a função segura do Supabase.
   // ============================================================
 
   Future<void> confirmarLevantamento(
@@ -438,7 +560,6 @@ class SupabaseDatabaseService {
 
   // ============================================================
   // PERFIL DO UTILIZADOR
-  // Tabela real: profiles
   // ============================================================
 
   Future<UserModel?> getUserProfile(String userId) async {
@@ -487,8 +608,7 @@ class SupabaseDatabaseService {
   }
 
   // ============================================================
-  // OPERAÇÕES AINDA NÃO SUPORTADAS PELO ESQUEMA ACTUAL
-  // Não simulam gravações nem devolvem sucesso fictício.
+  // OPERAÇÕES AINDA NÃO SUPORTADAS
   // ============================================================
 
   Never _unsupported(String operation) {
@@ -558,14 +678,6 @@ class SupabaseDatabaseService {
 
   Future<void> deleteMedicine(String medicineId) async {
     _unsupported('Eliminação de medicamentos');
-  }
-
-  Future<List<ReservationModel>> getAllReservationsForPharmacy({
-    String? pharmacyName,
-  }) async {
-    _unsupported(
-      'Consulta administrativa das reservas das farmácias',
-    );
   }
 
   Future<ReservationModel?> validateReservationByQrCode(
