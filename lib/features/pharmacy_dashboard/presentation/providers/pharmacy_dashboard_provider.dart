@@ -1,3 +1,4 @@
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/supabase_database_service.dart';
@@ -25,7 +26,7 @@ class PharmacyDashboardState {
     this.pharmacyDetails,
     this.isLoading = false,
     this.error,
-    this.activePharmacyName = 'Farmácia Mecofarma Talatona',
+    this.activePharmacyName,
   });
 
   PharmacyDashboardState copyWith({
@@ -54,26 +55,46 @@ class PharmacyDashboardState {
   bool get isBlockedOrExpired =>
       pharmacyDetails?.isBlockedOrExpired ?? false;
 
-  bool get isTrialActive => pharmacyDetails?.isTrialActive ?? false;
+  bool get isTrialActive =>
+      pharmacyDetails?.isTrialActive ?? false;
 
-  int get daysLeftInTrial => pharmacyDetails?.daysLeftInTrial ?? 0;
+  int get daysLeftInTrial =>
+      pharmacyDetails?.daysLeftInTrial ?? 0;
 
   int get daysUntilPaymentDue =>
       pharmacyDetails?.daysUntilPaymentDue ?? 0;
 
+  bool _isCompleted(ReservationModel reservation) {
+    final status = reservation.status.trim().toLowerCase();
+
+    return status == 'completed' ||
+        status == 'levantada' ||
+        status == 'resgatado' ||
+        status == 'entregue';
+  }
+
+  bool _isActive(ReservationModel reservation) {
+    final status = reservation.status.trim().toLowerCase();
+
+    return status == 'active' ||
+        status == 'pending' ||
+        status == 'aguardando confirmação' ||
+        status == 'aguardando confirmacao';
+  }
+
   double get totalRevenue => reservations
-      .where((r) => r.status == 'completed' || r.status == 'active')
+      .where((r) => _isCompleted(r))
       .fold(0.0, (sum, r) => sum + r.totalPriceKz);
 
   int get completedReservationsCount =>
-      reservations.where((r) => r.status == 'completed').length;
+      reservations.where(_isCompleted).length;
 
-  int get activeReservationsCount => reservations
-      .where((r) => r.status == 'active' || r.status == 'pending')
+  int get activeReservationsCount =>
+      reservations.where(_isActive).length;
+
+  int get pendingPrescriptionsCount => prescriptions
+      .where((p) => p.status.toLowerCase() == 'pending')
       .length;
-
-  int get pendingPrescriptionsCount =>
-      prescriptions.where((p) => p.status == 'pending').length;
 
   int get totalStockItems =>
       medicines.fold(0, (sum, m) => sum + m.stockQuantity);
@@ -89,9 +110,13 @@ class PharmacyDashboardNotifier
   }
 
   Future<void> loadDashboardData() async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(
+      isLoading: true,
+      error: null,
+    );
 
     try {
+      // 1. Carregar o catálogo de farmácias.
       final pharmacies = await _dbService.getPharmacies();
 
       if (pharmacies.isEmpty) {
@@ -102,31 +127,73 @@ class PharmacyDashboardNotifier
         return;
       }
 
-      PharmacyModel currentPharm = pharmacies.firstWhere(
-        (p) => p.name == state.activePharmacyName,
-        orElse: () => pharmacies.first,
-      );
+      // Mantém a selecção visual existente, se ainda existir.
+      // A autorização das reservas continua a ser feita no Supabase.
+      final currentPharmacy = pharmacies.cast<PharmacyModel?>().firstWhere(
+            (p) => p?.name == state.activePharmacyName,
+            orElse: () => pharmacies.first,
+          )!;
 
-      final meds = await _dbService.getMedicines(
-        province: currentPharm.province,
-      );
+      // 2. Carregar os dados essenciais separadamente.
+      // Uma falha opcional não deve impedir as reservas.
+      List<MedicineModel> medicines = [];
+      List<ReservationModel> reservations = [];
+      List<PrescriptionModel> prescriptions = [];
+      List<PharmacyPaymentModel> payments = [];
 
-      final res = await _dbService.getAllReservationsForPharmacy(
-        pharmacyName: currentPharm.name,
-      );
+      String? loadingError;
 
-      final presc = await _dbService.getPrescriptionsForPharmacy();
-      final pays = await _dbService.getAllPharmacyPayments();
+      try {
+        medicines = await _dbService.getMedicines();
+      } catch (e) {
+        loadingError = 'Não foi possível carregar os medicamentos: $e';
+      }
 
+      try {
+        // A função SQL filtra as reservas pela farmácia
+        // associada ao utilizador autenticado.
+        // Não aplicar um filtro pelo nome escolhido na interface.
+        reservations =
+            await _dbService.getAllReservationsForPharmacy();
+      } catch (e) {
+        loadingError =
+            '${loadingError == null ? '' : '$loadingError\n'}'
+            'Não foi possível carregar as reservas: $e';
+      }
+
+      // 3. Receitas: funcionalidade ainda não implementada.
+      try {
+        prescriptions =
+            await _dbService.getPrescriptionsForPharmacy();
+      } on UnsupportedError {
+        prescriptions = [];
+      } catch (e) {
+        loadingError =
+            '${loadingError == null ? '' : '$loadingError\n'}'
+            'Não foi possível carregar as receitas: $e';
+      }
+
+      // 4. Pagamentos: funcionalidade ainda não implementada.
+      try {
+        payments = await _dbService.getAllPharmacyPayments();
+      } on UnsupportedError {
+        payments = [];
+      } catch (e) {
+        loadingError =
+            '${loadingError == null ? '' : '$loadingError\n'}'
+            'Não foi possível carregar os pagamentos: $e';
+      }
+
+      // 5. Guardar os dados, mesmo que uma área opcional falhe.
       state = state.copyWith(
-        pharmacyDetails: currentPharm,
-        activePharmacyName: currentPharm.name,
-        medicines: meds,
-        reservations: res,
-        prescriptions: presc,
-        payments: pays,
+        pharmacyDetails: currentPharmacy,
+        activePharmacyName: currentPharmacy.name,
+        medicines: medicines,
+        reservations: reservations,
+        prescriptions: prescriptions,
+        payments: payments,
         isLoading: false,
-        error: null,
+        error: loadingError,
       );
     } catch (e) {
       state = state.copyWith(
@@ -136,7 +203,9 @@ class PharmacyDashboardNotifier
     }
   }
 
-  Future<void> switchPharmacy(PharmacyModel targetPharmacy) async {
+  Future<void> switchPharmacy(
+    PharmacyModel targetPharmacy,
+  ) async {
     state = state.copyWith(
       activePharmacyName: targetPharmacy.name,
       pharmacyDetails: targetPharmacy,
@@ -145,17 +214,15 @@ class PharmacyDashboardNotifier
     await loadDashboardData();
   }
 
-  /// Envia comprovativo de pagamento.
-  /// A operação permanece indisponível enquanto o serviço não a suportar.
   Future<bool> submitPaymentProof({
     required String paymentMethod,
     required String referenceNumber,
     required String proofUrl,
     String? notes,
   }) async {
-    final pharm = state.pharmacyDetails;
+    final pharmacy = state.pharmacyDetails;
 
-    if (pharm == null) {
+    if (pharmacy == null) {
       state = state.copyWith(
         error: 'Não foi possível identificar a farmácia.',
       );
@@ -164,8 +231,8 @@ class PharmacyDashboardNotifier
 
     final newPayment = PharmacyPaymentModel(
       id: 'pay-${DateTime.now().millisecondsSinceEpoch}',
-      pharmacyId: pharm.id,
-      pharmacyName: pharm.name,
+      pharmacyId: pharmacy.id,
+      pharmacyName: pharmacy.name,
       amount: 15000.0,
       paymentMethod: paymentMethod,
       referenceNumber: referenceNumber,
@@ -194,7 +261,6 @@ class PharmacyDashboardNotifier
     }
   }
 
-  /// Adiciona medicamento quando o serviço estiver implementado.
   Future<bool> addMedicine(MedicineModel newMedicine) async {
     try {
       await _dbService.addMedicine(newMedicine);
@@ -214,8 +280,9 @@ class PharmacyDashboardNotifier
     }
   }
 
-  /// Actualiza medicamento quando o serviço estiver implementado.
-  Future<bool> updateMedicine(MedicineModel updatedMedicine) async {
+  Future<bool> updateMedicine(
+    MedicineModel updatedMedicine,
+  ) async {
     try {
       await _dbService.updateMedicine(updatedMedicine);
       await loadDashboardData();
@@ -234,8 +301,10 @@ class PharmacyDashboardNotifier
     }
   }
 
-  /// Actualiza stock quando o serviço estiver implementado.
-  Future<bool> updateStock(String medicineId, int newStock) async {
+  Future<bool> updateStock(
+    String medicineId,
+    int newStock,
+  ) async {
     if (newStock < 0) {
       state = state.copyWith(
         error: 'O stock não pode ser negativo.',
@@ -266,8 +335,10 @@ class PharmacyDashboardNotifier
     }
   }
 
-  /// Actualiza preço quando o serviço estiver implementado.
-  Future<bool> updatePrice(String medicineId, double newPrice) async {
+  Future<bool> updatePrice(
+    String medicineId,
+    double newPrice,
+  ) async {
     if (newPrice < 0) {
       state = state.copyWith(
         error: 'O preço não pode ser negativo.',
@@ -276,7 +347,11 @@ class PharmacyDashboardNotifier
     }
 
     try {
-      await _dbService.updateMedicinePrice(medicineId, newPrice);
+      await _dbService.updateMedicinePrice(
+        medicineId,
+        newPrice,
+      );
+
       await loadDashboardData();
       return true;
     } on UnsupportedError {
@@ -293,7 +368,6 @@ class PharmacyDashboardNotifier
     }
   }
 
-  /// Elimina medicamento quando o serviço estiver implementado.
   Future<bool> deleteMedicine(String medicineId) async {
     try {
       await _dbService.deleteMedicine(medicineId);
@@ -313,8 +387,9 @@ class PharmacyDashboardNotifier
     }
   }
 
-  /// Valida código de levantamento quando o serviço estiver implementado.
-  Future<ReservationModel?> validateQrCode(String code) async {
+  Future<ReservationModel?> validateQrCode(
+    String code,
+  ) async {
     try {
       final reservation =
           await _dbService.validateReservationByQrCode(code);
@@ -338,14 +413,18 @@ class PharmacyDashboardNotifier
     }
   }
 
-  /// Actualiza o estado da receita quando o serviço estiver implementado.
   Future<bool> updatePrescription(
     String id,
     String status,
     String? notes,
   ) async {
     try {
-      await _dbService.updatePrescriptionStatus(id, status, notes);
+      await _dbService.updatePrescriptionStatus(
+        id,
+        status,
+        notes,
+      );
+
       await loadDashboardData();
       return true;
     } on UnsupportedError {
@@ -365,7 +444,9 @@ class PharmacyDashboardNotifier
 
 final pharmacyDashboardProvider = StateNotifierProvider<
     PharmacyDashboardNotifier, PharmacyDashboardState>((ref) {
-  final dbService = ref.watch(supabaseDatabaseServiceProvider);
+  final dbService = ref.watch(
+    supabaseDatabaseServiceProvider,
+  );
 
   return PharmacyDashboardNotifier(dbService);
 });
