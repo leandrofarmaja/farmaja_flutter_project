@@ -83,7 +83,7 @@ class PharmacyDashboardState {
   }
 
   double get totalRevenue => reservations
-      .where((r) => _isCompleted(r))
+      .where(_isCompleted)
       .fold(0.0, (sum, r) => sum + r.totalPriceKz);
 
   int get completedReservationsCount =>
@@ -116,26 +116,22 @@ class PharmacyDashboardNotifier
     );
 
     try {
-      // 1. Carregar o catálogo de farmácias.
-      final pharmacies = await _dbService.getPharmacies();
+      // 1. Identificar a farmácia pertencente à conta autenticada.
+      final currentPharmacy =
+          await _dbService.getOwnedPharmacy();
 
-      if (pharmacies.isEmpty) {
-        state = state.copyWith(
+      if (currentPharmacy == null) {
+        state = PharmacyDashboardState(
           isLoading: false,
-          error: 'Não existem farmácias disponíveis para apresentar.',
+          error:
+              'Esta conta não tem uma farmácia associada. '
+              'Confirma o registo e a associação da conta no Supabase.',
         );
         return;
       }
 
-      // Mantém a selecção visual existente, se ainda existir.
-      // A autorização das reservas continua a ser feita no Supabase.
-      final currentPharmacy = pharmacies.cast<PharmacyModel?>().firstWhere(
-            (p) => p?.name == state.activePharmacyName,
-            orElse: () => pharmacies.first,
-          )!;
-
-      // 2. Carregar os dados essenciais separadamente.
-      // Uma falha opcional não deve impedir as reservas.
+      // 2. Carregar cada área separadamente.
+      // Uma área opcional não deve impedir o carregamento das restantes.
       List<MedicineModel> medicines = [];
       List<ReservationModel> reservations = [];
       List<PrescriptionModel> prescriptions = [];
@@ -144,15 +140,18 @@ class PharmacyDashboardNotifier
       String? loadingError;
 
       try {
-        medicines = await _dbService.getMedicines();
+        // Só carregar medicamentos desta farmácia.
+        medicines = await _dbService.getMedicines(
+          pharmacyId: currentPharmacy.id,
+        );
       } catch (e) {
-        loadingError = 'Não foi possível carregar os medicamentos: $e';
+        loadingError =
+            'Não foi possível carregar os medicamentos: $e';
       }
 
       try {
-        // A função SQL filtra as reservas pela farmácia
-        // associada ao utilizador autenticado.
-        // Não aplicar um filtro pelo nome escolhido na interface.
+        // O RPC do Supabase deve filtrar as reservas
+        // pelas farmácias pertencentes ao utilizador autenticado.
         reservations =
             await _dbService.getAllReservationsForPharmacy();
       } catch (e) {
@@ -161,7 +160,7 @@ class PharmacyDashboardNotifier
             'Não foi possível carregar as reservas: $e';
       }
 
-      // 3. Receitas: funcionalidade ainda não implementada.
+      // 3. Receitas: manter a falha isolada até à implementação.
       try {
         prescriptions =
             await _dbService.getPrescriptionsForPharmacy();
@@ -173,7 +172,7 @@ class PharmacyDashboardNotifier
             'Não foi possível carregar as receitas: $e';
       }
 
-      // 4. Pagamentos: funcionalidade ainda não implementada.
+      // 4. Pagamentos: manter a falha isolada até à implementação.
       try {
         payments = await _dbService.getAllPharmacyPayments();
       } on UnsupportedError {
@@ -184,7 +183,7 @@ class PharmacyDashboardNotifier
             'Não foi possível carregar os pagamentos: $e';
       }
 
-      // 5. Guardar os dados, mesmo que uma área opcional falhe.
+      // 5. Apresentar exclusivamente a farmácia associada à conta.
       state = state.copyWith(
         pharmacyDetails: currentPharmacy,
         activePharmacyName: currentPharmacy.name,
@@ -203,13 +202,23 @@ class PharmacyDashboardNotifier
     }
   }
 
+  // O painel não pode trocar para uma farmácia arbitrária do catálogo.
+  // A associação real é sempre confirmada pelo serviço Supabase.
   Future<void> switchPharmacy(
     PharmacyModel targetPharmacy,
   ) async {
-    state = state.copyWith(
-      activePharmacyName: targetPharmacy.name,
-      pharmacyDetails: targetPharmacy,
-    );
+    final ownedPharmacy =
+        await _dbService.getOwnedPharmacy();
+
+    if (ownedPharmacy == null ||
+        ownedPharmacy.id != targetPharmacy.id) {
+      state = state.copyWith(
+        error:
+            'Não podes abrir o painel de uma farmácia '
+            'que não esteja associada à tua conta.',
+      );
+      return;
+    }
 
     await loadDashboardData();
   }
@@ -262,6 +271,16 @@ class PharmacyDashboardNotifier
   }
 
   Future<bool> addMedicine(MedicineModel newMedicine) async {
+    final pharmacy = state.pharmacyDetails;
+
+    if (pharmacy == null || newMedicine.pharmacyId != pharmacy.id) {
+      state = state.copyWith(
+        error:
+            'O medicamento tem de pertencer à farmácia associada à conta.',
+      );
+      return false;
+    }
+
     try {
       await _dbService.addMedicine(newMedicine);
       await loadDashboardData();
@@ -283,6 +302,17 @@ class PharmacyDashboardNotifier
   Future<bool> updateMedicine(
     MedicineModel updatedMedicine,
   ) async {
+    final pharmacy = state.pharmacyDetails;
+
+    if (pharmacy == null ||
+        updatedMedicine.pharmacyId != pharmacy.id) {
+      state = state.copyWith(
+        error:
+            'Só podes editar medicamentos da farmácia associada à conta.',
+      );
+      return false;
+    }
+
     try {
       await _dbService.updateMedicine(updatedMedicine);
       await loadDashboardData();
