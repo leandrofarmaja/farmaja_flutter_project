@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -5,7 +6,7 @@ import '../../../medicines/domain/medicine_model.dart';
 
 class AddEditMedicineDialog extends StatefulWidget {
   final MedicineModel? medicine;
-  final Function(MedicineModel) onSave;
+  final Future<void> Function(MedicineModel) onSave;
 
   const AddEditMedicineDialog({
     super.key,
@@ -93,7 +94,7 @@ class _AddEditMedicineDialogState
     return null;
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_isSaving) return;
 
     if (!_formKey.currentState!.validate()) return;
@@ -106,8 +107,8 @@ class _AddEditMedicineDialogState
     final existingMedicine = widget.medicine;
 
     final medicine = MedicineModel(
-      // Em edição, conserva o UUID verdadeiro.
-      // Em criação, o serviço usa o UUID devolvido pelo Supabase.
+      // Conserva o UUID real quando se edita.
+      // Na criação, o Supabase gera o UUID.
       id: existingMedicine?.id ?? '',
       pharmacyId: existingMedicine?.pharmacyId ?? '',
       name: _nameController.text.trim(),
@@ -128,24 +129,32 @@ class _AddEditMedicineDialogState
       genericAlternative:
           existingMedicine?.genericAlternative,
       description: existingMedicine?.description ?? '',
-      pharmacyLatitude: existingMedicine?.pharmacyLatitude,
-      pharmacyLongitude: existingMedicine?.pharmacyLongitude,
+
+      // O modelo exige double não anulável.
+      // Estes valores são apenas alternativas técnicas,
+      // não representam coordenadas reais da farmácia.
+      pharmacyLatitude:
+          existingMedicine?.pharmacyLatitude ?? 0.0,
+      pharmacyLongitude:
+          existingMedicine?.pharmacyLongitude ?? 0.0,
     );
 
     setState(() {
       _isSaving = true;
     });
 
-    // O ecrã que abriu o diálogo é responsável por o fechar.
-    // Não chamar Navigator.pop() aqui para evitar fechar duas vezes.
     try {
-      widget.onSave(medicine);
+      await widget.onSave(medicine);
+
+      // O ecrã que abriu o diálogo fecha-o quando
+      // confirmar que a operação foi concluída.
     } catch (_) {
       if (mounted) {
         setState(() {
           _isSaving = false;
         });
       }
+
       rethrow;
     }
   }
@@ -191,16 +200,19 @@ class _AddEditMedicineDialogState
                       ),
                     ],
                   ),
+
                   const Divider(),
                   const SizedBox(height: 16),
 
                   TextFormField(
                     controller: _nameController,
                     enabled: !_isSaving,
-                    textCapitalization: TextCapitalization.sentences,
+                    textCapitalization:
+                        TextCapitalization.sentences,
                     decoration: const InputDecoration(
                       labelText: 'Nome do medicamento *',
-                      prefixIcon: Icon(Icons.medication_rounded),
+                      prefixIcon:
+                          Icon(Icons.medication_rounded),
                     ),
                     validator: _validateName,
                   ),
