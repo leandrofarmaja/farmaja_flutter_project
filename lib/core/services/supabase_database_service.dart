@@ -50,7 +50,8 @@ class SupabaseDatabaseService {
           .from('medicamentos')
           .select(
             'id, nome_medicamento, preco_kwanza, farmacia_id, '
-            'disponivel, distancia_km, receita_obrigatoria, '
+            'disponivel, quantidade_stock, distancia_km, '
+            'receita_obrigatoria, '
             'farmacias(id, nome, endereco, telefone, aberta_agora, avaliacao)',
           );
 
@@ -63,7 +64,12 @@ class SupabaseDatabaseService {
       final rows = List<Map<String, dynamic>>.from(response);
 
       final filteredRows = rows.where((row) {
-        final available = row['disponivel'] == true;
+        final stockValue = row['quantidade_stock'];
+        final stockQuantity =
+            stockValue is num ? stockValue.toInt() : 0;
+
+        final available =
+            row['disponivel'] == true && stockQuantity > 0;
 
         if (onlyInStock == true && !available) {
           return false;
@@ -96,7 +102,8 @@ class SupabaseDatabaseService {
           .from('medicamentos')
           .select(
             'id, nome_medicamento, preco_kwanza, farmacia_id, '
-            'disponivel, distancia_km, receita_obrigatoria, '
+            'disponivel, quantidade_stock, distancia_km, '
+            'receita_obrigatoria, '
             'farmacias(id, nome, endereco, telefone, aberta_agora, avaliacao)',
           )
           .eq('id', id)
@@ -124,6 +131,13 @@ class SupabaseDatabaseService {
         : <String, dynamic>{};
 
     final price = row['preco_kwanza'];
+    final stockValue = row['quantidade_stock'];
+
+    final stockQuantity =
+        stockValue is num ? stockValue.toInt() : 0;
+
+    final available =
+        row['disponivel'] == true && stockQuantity > 0;
 
     return MedicineModel(
       id: (row['id'] ?? '').toString(),
@@ -136,8 +150,8 @@ class SupabaseDatabaseService {
       pharmacyName: (pharmacy['nome'] ?? '').toString(),
       province: '',
       district: '',
-      inStock: row['disponivel'] == true,
-      stockQuantity: 0,
+      inStock: available,
+      stockQuantity: stockQuantity,
       requiresPrescription: row['receita_obrigatoria'] == true,
       isGeneric: false,
       genericAlternative: null,
@@ -843,7 +857,7 @@ class SupabaseDatabaseService {
   Future<void> markAdminNotificationRead(
     String notificationId,
   ) async {
-    _unsupported('Marcação de notificações como lidas');
+    _unsupported('Marcação de notificações administrativas');
   }
 }
 
