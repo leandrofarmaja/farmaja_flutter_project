@@ -771,12 +771,101 @@ class SupabaseDatabaseService {
     _unsupported('Rejeição de pagamento da farmácia');
   }
 
+  // ============================================================
+  // GESTÃO DE MEDICAMENTOS — RPCs SUPABASE
+  // ============================================================
+
   Future<void> addMedicine(MedicineModel medicine) async {
-    _unsupported('Adição de medicamentos pelo painel da farmácia');
+    final pharmacy = await getOwnedPharmacy();
+
+    if (pharmacy == null) {
+      throw Exception(
+        'Esta conta não tem uma farmácia associada.',
+      );
+    }
+
+    if (medicine.pharmacyId.isNotEmpty &&
+        medicine.pharmacyId != pharmacy.id) {
+      throw Exception(
+        'O medicamento não corresponde à farmácia da conta.',
+      );
+    }
+
+    if (medicine.name.trim().isEmpty) {
+      throw ArgumentError(
+        'O nome do medicamento é obrigatório.',
+      );
+    }
+
+    if (!medicine.priceKz.isFinite ||
+        medicine.priceKz < 0 ||
+        medicine.stockQuantity < 0) {
+      throw ArgumentError(
+        'O preço e o stock devem ser valores válidos e não negativos.',
+      );
+    }
+
+    try {
+      final result = await _client.rpc(
+        'farclik_criar_medicamento',
+        params: {
+          'p_nome_medicamento': medicine.name.trim(),
+          'p_preco_kwanza': medicine.priceKz,
+          'p_quantidade_stock': medicine.stockQuantity,
+          'p_receita_obrigatoria':
+              medicine.requiresPrescription,
+        },
+      );
+
+      if (result == null || result.toString().trim().isEmpty) {
+        throw Exception(
+          'O Supabase não devolveu o identificador do medicamento criado.',
+        );
+      }
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível criar o medicamento: ${e.message}',
+      );
+    }
   }
 
   Future<void> updateMedicine(MedicineModel medicine) async {
-    _unsupported('Actualização de medicamentos');
+    if (medicine.id.trim().isEmpty) {
+      throw ArgumentError(
+        'O identificador do medicamento é obrigatório.',
+      );
+    }
+
+    if (medicine.name.trim().isEmpty ||
+        !medicine.priceKz.isFinite ||
+        medicine.priceKz < 0) {
+      throw ArgumentError(
+        'O nome e o preço do medicamento devem ser válidos.',
+      );
+    }
+
+    try {
+      final result = await _client.rpc(
+        'farclik_editar_medicamento',
+        params: {
+          'p_medicamento_id': medicine.id.trim(),
+          'p_nome_medicamento': medicine.name.trim(),
+          'p_preco_kwanza': medicine.priceKz,
+          'p_receita_obrigatoria':
+              medicine.requiresPrescription,
+        },
+      );
+
+      if (result != true) {
+        throw Exception(
+          'O Supabase não confirmou a edição do medicamento.',
+        );
+      }
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível editar o medicamento: ${e.message}',
+      );
+    }
   }
 
   Future<void> updateMedicineStock(
@@ -784,19 +873,96 @@ class SupabaseDatabaseService {
     int newStock,
     bool inStock,
   ) async {
-    _unsupported('Actualização do stock');
+    if (medicineId.trim().isEmpty || newStock < 0) {
+      throw ArgumentError(
+        'O identificador do medicamento e o stock devem ser válidos.',
+      );
+    }
+
+    try {
+      final result = await _client.rpc(
+        'farclik_atualizar_stock',
+        params: {
+          'p_medicamento_id': medicineId.trim(),
+          'p_quantidade_stock': newStock,
+        },
+      );
+
+      if (result != true) {
+        throw Exception(
+          'O Supabase não confirmou a actualização do stock.',
+        );
+      }
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível actualizar o stock: ${e.message}',
+      );
+    }
   }
 
   Future<void> updateMedicinePrice(
     String medicineId,
     double newPrice,
   ) async {
-    _unsupported('Actualização do preço do medicamento');
+    if (medicineId.trim().isEmpty ||
+        !newPrice.isFinite ||
+        newPrice < 0) {
+      throw ArgumentError(
+        'O identificador do medicamento e o preço devem ser válidos.',
+      );
+    }
+
+    try {
+      final result = await _client.rpc(
+        'farclik_atualizar_preco',
+        params: {
+          'p_medicamento_id': medicineId.trim(),
+          'p_preco_kwanza': newPrice,
+        },
+      );
+
+      if (result != true) {
+        throw Exception(
+          'O Supabase não confirmou a actualização do preço.',
+        );
+      }
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível actualizar o preço: ${e.message}',
+      );
+    }
   }
 
   Future<void> deleteMedicine(String medicineId) async {
-    _unsupported('Eliminação de medicamentos');
+    if (medicineId.trim().isEmpty) {
+      throw ArgumentError(
+        'O identificador do medicamento é obrigatório.',
+      );
+    }
+
+    try {
+      final result = await _client.rpc(
+        'farclik_remover_medicamento',
+        params: {
+          'p_medicamento_id': medicineId.trim(),
+        },
+      );
+
+      if (result != true) {
+        throw Exception(
+          'O Supabase não confirmou a remoção do medicamento.',
+        );
+      }
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível remover o medicamento: ${e.message}',
+      );
+    }
   }
+
+  // ============================================================
+  // RESERVAS
+  // ============================================================
 
   Future<void> updateReservationStatus(
     String reservationId,
@@ -807,6 +973,10 @@ class SupabaseDatabaseService {
       'A política RLS actual não permite esta operação.',
     );
   }
+
+  // ============================================================
+  // RECEITAS MÉDICAS
+  // ============================================================
 
   Future<List<PrescriptionModel>> getPrescriptionsForPharmacy()
       async {
@@ -820,6 +990,10 @@ class SupabaseDatabaseService {
   ) async {
     _unsupported('Actualização do estado das receitas médicas');
   }
+
+  // ============================================================
+  // AVALIAÇÕES
+  // ============================================================
 
   Future<void> submitReview(ReviewModel review) async {
     _unsupported('Submissão de avaliações');
@@ -848,6 +1022,10 @@ class SupabaseDatabaseService {
   ) async {
     _unsupported('Actualização da avaliação média da farmácia');
   }
+
+  // ============================================================
+  // NOTIFICAÇÕES ADMINISTRATIVAS
+  // ============================================================
 
   Future<List<AdminNotificationModel>> getAdminNotifications()
       async {
