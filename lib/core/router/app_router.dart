@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,11 +25,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       if (authState.isLoading) return null;
 
-      final isAuthRoute = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register' ||
-          state.matchedLocation == '/welcome' ||
-          state.matchedLocation == '/splash' ||
-          state.matchedLocation == '/forgot-password';
+      final location = state.matchedLocation;
+
+      final isAuthRoute = location == '/login' ||
+          location == '/register' ||
+          location == '/welcome' ||
+          location == '/splash' ||
+          location == '/forgot-password';
 
       final isLoggedIn = authState.user != null;
 
@@ -36,8 +39,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
 
-      if (isLoggedIn && (state.matchedLocation == '/login' || state.matchedLocation == '/register' || state.matchedLocation == '/welcome')) {
-        return authState.user?.role == 'pharmacy' ? '/pharmacy-dashboard' : '/home';
+      if (isLoggedIn &&
+          (location == '/login' ||
+              location == '/register' ||
+              location == '/welcome')) {
+        return authState.user?.role == 'pharmacy'
+            ? '/pharmacy-dashboard'
+            : '/home';
       }
 
       return null;
@@ -107,13 +115,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
 class MainNavigationShell extends StatelessWidget {
   final Widget child;
-  const MainNavigationShell({super.key, required this.child});
+
+  const MainNavigationShell({
+    super.key,
+    required this.child,
+  });
+
+  static const Color _green = Color(0xFF16A34A);
+  static const Color _darkGreen = Color(0xFF15803D);
+  static const Color _softGreen = Color(0xFFE8F7ED);
+  static const Color _muted = Color(0xFF7B8794);
 
   @override
   Widget build(BuildContext context) {
-    final String location = GoRouterState.of(context).uri.toString();
+    final String location = GoRouterState.of(context).uri.path;
 
     int selectedIndex = 0;
+
     if (location.startsWith('/pharmacies')) {
       selectedIndex = 1;
     } else if (location.startsWith('/reservations')) {
@@ -123,47 +141,111 @@ class MainNavigationShell extends StatelessWidget {
     }
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: (index) {
-          switch (index) {
-            case 0:
-              context.go('/home');
-              break;
-            case 1:
-              context.go('/pharmacies');
-              break;
-            case 2:
-              context.go('/reservations');
-              break;
-            case 3:
-              context.go('/profile');
-              break;
-          }
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF16A34A)),
-            label: 'Início',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: const Border(
+            top: BorderSide(
+              color: Color(0xFFF0F3F1),
+              width: 1,
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.local_pharmacy_outlined),
-            selectedIcon: Icon(Icons.local_pharmacy, color: Color(0xFF16A34A)),
-            label: 'Farmácias',
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.035),
+              blurRadius: 18,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: NavigationBarTheme(
+            data: NavigationBarThemeData(
+              height: 72,
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              indicatorColor: _softGreen,
+              indicatorShape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 0,
+              labelBehavior:
+                  NavigationDestinationLabelBehavior.alwaysShow,
+              labelTextStyle:
+                  WidgetStateProperty.resolveWith<TextStyle>(
+                (states) {
+                  final selected =
+                      states.contains(WidgetState.selected);
+
+                  return TextStyle(
+                    fontSize: 11,
+                    height: 1.2,
+                    fontWeight:
+                        selected ? FontWeight.w700 : FontWeight.w500,
+                    letterSpacing: 0.1,
+                    color: selected ? _darkGreen : _muted,
+                  );
+                },
+              ),
+              iconTheme:
+                  WidgetStateProperty.resolveWith<IconThemeData>(
+                (states) {
+                  final selected =
+                      states.contains(WidgetState.selected);
+
+                  return IconThemeData(
+                    size: selected ? 24 : 22,
+                    color: selected ? _darkGreen : _muted,
+                  );
+                },
+              ),
+            ),
+            child: NavigationBar(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: (index) {
+                switch (index) {
+                  case 0:
+                    context.go('/home');
+                    break;
+                  case 1:
+                    context.go('/pharmacies');
+                    break;
+                  case 2:
+                    context.go('/reservations');
+                    break;
+                  case 3:
+                    context.go('/profile');
+                    break;
+                }
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded),
+                  label: 'Início',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.local_pharmacy_outlined),
+                  selectedIcon: Icon(Icons.local_pharmacy_rounded),
+                  label: 'Farmácias',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.confirmation_number_outlined),
+                  selectedIcon: Icon(Icons.confirmation_number_rounded),
+                  label: 'Reservas',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline_rounded),
+                  selectedIcon: Icon(Icons.person_rounded),
+                  label: 'Perfil',
+                ),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.bookmark_outline),
-            selectedIcon: Icon(Icons.bookmark, color: Color(0xFF16A34A)),
-            label: 'Reservas',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person, color: Color(0xFF16A34A)),
-            label: 'Perfil',
-          ),
-        ],
+        ),
       ),
     );
   }
