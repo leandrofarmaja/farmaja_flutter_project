@@ -25,6 +25,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       if (authState.isLoading) return null;
 
+      final user = authState.user;
       final location = state.matchedLocation;
 
       final isAuthRoute = location == '/login' ||
@@ -33,19 +34,44 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           location == '/splash' ||
           location == '/forgot-password';
 
-      final isLoggedIn = authState.user != null;
+      if (user == null) {
+        return isAuthRoute ? null : '/login';
+      }
 
-      if (!isLoggedIn && !isAuthRoute) {
+      final role = user.role;
+      final isPharmacy = role == 'pharmacy';
+      final isAdmin = role == 'admin';
+      final isCustomer = role == 'customer';
+
+      // Não permitir que contas com papel desconhecido
+      // acedam às áreas privadas da aplicação.
+      if (!isPharmacy && !isAdmin && !isCustomer) {
         return '/login';
       }
 
-      if (isLoggedIn &&
-          (location == '/login' ||
-              location == '/register' ||
-              location == '/welcome')) {
-        return authState.user?.role == 'pharmacy'
-            ? '/pharmacy-dashboard'
-            : '/home';
+      // Redireccionar utilizadores autenticados
+      // para a área correspondente ao seu papel.
+      if (isAuthRoute) {
+        if (location == '/forgot-password' ||
+            location == '/splash') {
+          return null;
+        }
+
+        if (isPharmacy) return '/pharmacy-dashboard';
+        if (isAdmin) return '/admin/subscriptions';
+        return '/home';
+      }
+
+      // Área exclusiva das farmácias.
+      if (location == '/pharmacy-dashboard' && !isPharmacy) {
+        if (isAdmin) return '/admin/subscriptions';
+        return '/home';
+      }
+
+      // Área exclusiva dos administradores.
+      if (location == '/admin/subscriptions' && !isAdmin) {
+        if (isPharmacy) return '/pharmacy-dashboard';
+        return '/home';
       }
 
       return null;
@@ -121,7 +147,6 @@ class MainNavigationShell extends StatelessWidget {
     required this.child,
   });
 
-  static const Color _green = Color(0xFF16A34A);
   static const Color _darkGreen = Color(0xFF15803D);
   static const Color _softGreen = Color(0xFFE8F7ED);
   static const Color _muted = Color(0xFF7B8794);
