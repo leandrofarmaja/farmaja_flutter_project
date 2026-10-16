@@ -61,7 +61,8 @@ class _PharmacyDashboardScreenState
       );
   }
 
-  Future<void> _runOperation(
+  /// Aceita resultados booleanos e UUIDs devolvidos pela base de dados.
+  Future<bool> _runOperation(
     Future<dynamic> Function() operation, {
     required String successMessage,
     required String failureMessage,
@@ -69,19 +70,30 @@ class _PharmacyDashboardScreenState
     try {
       final result = await operation();
 
-      if (!mounted) return;
+      if (!mounted) return false;
 
-      if (result == true) {
+      final success = result == true ||
+          (result is String && result.trim().isNotEmpty);
+
+      if (success) {
         _showMessage(successMessage);
-      } else {
-        _showMessage(failureMessage, isError: true);
+        return true;
       }
-    } catch (e) {
-      if (!mounted) return;
+
       _showMessage(failureMessage, isError: true);
+      return false;
+    } catch (e) {
+      if (!mounted) return false;
+
+      _showMessage(
+        '$failureMessage Detalhe: $e',
+        isError: true,
+      );
+      return false;
     }
   }
 
+  /// Mantém o formulário aberto se a gravação falhar.
   void _showAddEditMedicineModal([MedicineModel? medicine]) {
     final state = ref.read(pharmacyDashboardProvider);
 
@@ -92,12 +104,11 @@ class _PharmacyDashboardScreenState
 
     showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => AddEditMedicineDialog(
         medicine: medicine,
-        onSave: (updated) {
-          Navigator.of(dialogContext).pop();
-
-          _runOperation(
+        onSave: (updated) async {
+          final success = await _runOperation(
             () => medicine == null
                 ? ref
                     .read(pharmacyDashboardProvider.notifier)
@@ -107,10 +118,16 @@ class _PharmacyDashboardScreenState
                     .updateMedicine(updated),
             successMessage: medicine == null
                 ? 'Medicamento adicionado com sucesso.'
-                : 'Medicamento atualizado com sucesso.',
+                : 'Medicamento actualizado com sucesso.',
             failureMessage:
                 'Não foi possível guardar o medicamento. Verifica os dados e as permissões.',
           );
+
+          if (!mounted || !dialogContext.mounted) return;
+
+          if (success) {
+            Navigator.of(dialogContext).pop();
+          }
         },
       ),
     );
@@ -528,9 +545,8 @@ class _PharmacyDashboardScreenState
   }
 
   Widget _buildStatsTab(PharmacyDashboardState state) {
-    // Os dados apresentados são os valores carregados pelo serviço.
-    // Não multiplicamos totais para simular períodos que não foram
-    // consultados na base de dados.
+    // Os valores são os carregados pelo serviço; o selector de período
+    // ainda não consulta totais diferentes na base de dados.
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -878,7 +894,8 @@ class _PharmacyDashboardScreenState
                                                   medicine.id,
                                                   medicine.stockQuantity - 1,
                                                 ),
-                                            successMessage: 'Stock actualizado.',
+                                            successMessage:
+                                                'Stock actualizado.',
                                             failureMessage:
                                                 'Não foi possível actualizar o stock.',
                                           );
