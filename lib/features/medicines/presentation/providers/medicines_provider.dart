@@ -1,4 +1,6 @@
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../data/medicines_repository.dart';
 import '../../domain/medicine_model.dart';
 
@@ -50,7 +52,8 @@ class MedicineFilterState {
   }
 }
 
-final medicineFilterProvider = StateNotifierProvider<MedicineFilterNotifier, MedicineFilterState>((ref) {
+final medicineFilterProvider =
+    StateNotifierProvider<MedicineFilterNotifier, MedicineFilterState>((ref) {
   return MedicineFilterNotifier();
 });
 
@@ -62,7 +65,10 @@ class MedicineFilterNotifier extends StateNotifier<MedicineFilterState> {
   }
 
   void setProvince(String p) {
-    state = state.copyWith(selectedProvince: p, selectedDistrict: 'Todos os Municípios');
+    state = state.copyWith(
+      selectedProvince: p,
+      selectedDistrict: 'Todos os Municípios',
+    );
   }
 
   void setDistrict(String d) {
@@ -86,22 +92,22 @@ class MedicineFilterNotifier extends StateNotifier<MedicineFilterState> {
   }
 }
 
-final medicinesListProvider = FutureProvider<List<MedicineModel>>((ref) async {
+final medicinesListProvider =
+    FutureProvider<List<MedicineModel>>((ref) async {
   final repository = ref.watch(medicinesRepositoryProvider);
   final filter = ref.watch(medicineFilterProvider);
 
+  // A base de dados atual ainda não suporta estes filtros.
+  // Não enviar valores fictícios ou filtros não implementados.
   final list = await repository.getMedicines(
-    query: filter.query,
-    province: filter.selectedProvince,
+    query: filter.query.trim(),
+    province: null,
     onlyInStock: filter.onlyInStock,
-    genericsOnly: filter.genericsOnly,
-    only24h: filter.only24h,
+    genericsOnly: false,
+    only24h: false,
   );
 
-  // Filter by selected district/municipality if specified
-  if (filter.selectedDistrict != 'Todos os Municípios' && filter.selectedDistrict.isNotEmpty) {
-    return list.where((m) => m.district.toLowerCase() == filter.selectedDistrict.toLowerCase()).toList();
-  }
-
+  // O município só pode ser filtrado quando houver dados reais
+  // de localização associados aos medicamentos/farmácias.
   return list;
 });
