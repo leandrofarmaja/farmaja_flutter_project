@@ -1,8 +1,9 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_constants.dart';
 import '../providers/medicines_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -23,208 +24,115 @@ class HomeScreen extends ConsumerWidget {
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.local_pharmacy_rounded, color: Colors.white, size: 20),
+              child: const Icon(
+                Icons.local_pharmacy_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 8),
             const Text(
-              'FarmaJá',
-              style: TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary),
+              'FARCLIK',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                color: AppColors.primary,
+              ),
             ),
           ],
         ),
-        actions: [
-          DropdownButton<String>(
-            value: filterState.selectedProvince,
-            underline: const SizedBox(),
-            icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
-            items: AppConstants.angolaProvinces.map((prov) {
-              return DropdownMenuItem(
-                value: prov,
-                child: Text(
-                  '📍 $prov',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                ),
-              );
-            }).toList(),
-            onChanged: (val) {
-              if (val != null) {
-                ref.read(medicineFilterProvider.notifier).setProvince(val);
-              }
-            },
-          ),
-          const SizedBox(width: 12),
-        ],
       ),
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Search Field
                   SearchBar(
-                    hintText: 'Pesquise medicamento ou princípio ativo (ex: Coartem)...',
-                    leading: const Icon(Icons.search, color: AppColors.primary),
-                    onChanged: (val) {
-                      ref.read(medicineFilterProvider.notifier).setQuery(val);
+                    hintText: 'Pesquisar medicamento pelo nome...',
+                    leading: const Icon(
+                      Icons.search,
+                      color: AppColors.primary,
+                    ),
+                    onChanged: (value) {
+                      ref
+                          .read(medicineFilterProvider.notifier)
+                          .setQuery(value);
                     },
                     elevation: const WidgetStatePropertyAll(0),
                     side: const WidgetStatePropertyAll(
                       BorderSide(color: AppColors.borderLight),
                     ),
                     shape: WidgetStatePropertyAll(
-                      RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                   ),
-
-                  const SizedBox(height: 12),
-
-                  // Province and Municipality Filter Row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: filterState.selectedProvince,
-                          decoration: InputDecoration(
-                            labelText: 'Província',
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          items: AppConstants.angolaProvinces.map((prov) {
-                            return DropdownMenuItem(
-                              value: prov,
-                              child: Text('📍 $prov', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              ref.read(medicineFilterProvider.notifier).setProvince(val);
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: AppConstants.angolaMunicipalities[filterState.selectedProvince]?.contains(filterState.selectedDistrict) == true
-                              ? filterState.selectedDistrict
-                              : 'Todos os Municípios',
-                          decoration: InputDecoration(
-                            labelText: 'Município',
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          items: (AppConstants.angolaMunicipalities[filterState.selectedProvince] ?? ['Todos os Municípios']).map((muni) {
-                            return DropdownMenuItem(
-                              value: muni,
-                              child: Text(muni, style: const TextStyle(fontSize: 11)),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              ref.read(medicineFilterProvider.notifier).setDistrict(val);
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-
                   const SizedBox(height: 16),
-
-                  // Emergency 24h Banner
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFDC2626), Color(0xFFEA580C)],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
-                        const Icon(Icons.emergency, color: Colors.white, size: 32),
-                        const SizedBox(width: 12),
+                        Icon(
+                          Icons.location_on_outlined,
+                          color: AppColors.primary,
+                        ),
+                        SizedBox(width: 10),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Precisa de Farmácia 24H urgente?',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              Text(
-                                'Ver farmácias abertas em ${filterState.selectedProvince} agora.',
-                                style: const TextStyle(color: Colors.white70, fontSize: 12),
-                              ),
-                            ],
+                          child: Text(
+                            'A pesquisa por localização será disponibilizada '
+                            'quando os endereços das farmácias estiverem '
+                            'configurados na plataforma.',
+                            style: TextStyle(fontSize: 12),
                           ),
-                        ),
-                        FilledButton(
-                          onPressed: () {
-                            ref.read(medicineFilterProvider.notifier).toggleOnly24h(true);
-                            context.go('/pharmacies');
-                          },
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFFDC2626),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                          child: const Text('Ver 24h', style: TextStyle(fontSize: 12)),
                         ),
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 16),
-
-                  // Filter Chips
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        FilterChip(
-                          label: const Text('Em Stock'),
-                          selected: filterState.onlyInStock,
-                          onSelected: (val) {
-                            ref.read(medicineFilterProvider.notifier).toggleOnlyInStock(val);
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        FilterChip(
-                          label: const Text('Apenas Genéricos'),
-                          selected: filterState.genericsOnly,
-                          onSelected: (val) {
-                            ref.read(medicineFilterProvider.notifier).toggleGenericsOnly(val);
-                          },
-                        ),
-                      ],
-                    ),
+                  FilterChip(
+                    label: const Text('Apenas medicamentos em stock'),
+                    selected: filterState.onlyInStock,
+                    onSelected: (value) {
+                      ref
+                          .read(medicineFilterProvider.notifier)
+                          .toggleOnlyInStock(value);
+                    },
                   ),
-
-                  const SizedBox(height: 20),
-
+                  const SizedBox(height: 16),
                   const Text(
-                    'Medicamentos Disponíveis',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    'Medicamentos disponíveis',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-
           medicinesAsync.when(
             data: (medicines) {
               if (medicines.isEmpty) {
                 return const SliverFillRemaining(
+                  hasScrollBody: false,
                   child: Center(
-                    child: Text('Nenhum medicamento encontrado para esta pesquisa.'),
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'Ainda não existem medicamentos registados '
+                        'para esta pesquisa. Volte a consultar quando '
+                        'as farmácias começarem a publicar os seus catálogos.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   ),
                 );
               }
@@ -235,84 +143,72 @@ class HomeScreen extends ConsumerWidget {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final med = medicines[index];
-                      final distance = med.calculateDistanceFrom(filterState.userLat, filterState.userLng).toStringAsFixed(1);
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         child: ListTile(
                           contentPadding: const EdgeInsets.all(16),
-                          title: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  med.name,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                ),
-                              ),
-                              if (med.requiresPrescription)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.amber.shade100,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: const Text(
-                                    'Receita Obr.',
-                                    style: TextStyle(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                            ],
+                          title: Text(
+                            med.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
                           ),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const SizedBox(height: 4),
-                              Text(med.activeIngredient, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  Text(
-                                    '🏥 ${med.pharmacyName} (${med.district})',
-                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '📍 $distance km',
-                                    style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
+                              if (med.activeIngredient.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  med.activeIngredient,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                              const SizedBox(height: 6),
                               Text(
-                                '${med.priceKz.toInt()} Kz',
+                                med.pharmacyName.isNotEmpty
+                                    ? 'Farmácia: ${med.pharmacyName}'
+                                    : 'Farmácia por identificar',
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  color: AppColors.primary,
-                                  fontSize: 15,
+                                  fontSize: 12,
+                                  color: Colors.grey,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: med.inStock ? AppColors.primaryLight : Colors.red.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  med.inStock ? 'Stock: ${med.stockQuantity}' : 'Esgotado',
+                              if (med.requiresPrescription) ...[
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Sujeito a receita médica',
                                   style: TextStyle(
-                                    fontSize: 10,
-                                    color: med.inStock ? AppColors.primary : Colors.red,
+                                    fontSize: 11,
+                                    color: Colors.deepOrange,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
+                              ],
+                              const SizedBox(height: 6),
+                              Text(
+                                med.inStock && med.stockQuantity > 0
+                                    ? 'Em stock: ${med.stockQuantity}'
+                                    : 'Sem stock disponível',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: med.inStock &&
+                                          med.stockQuantity > 0
+                                      ? AppColors.primary
+                                      : Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
+                          ),
+                          trailing: Text(
+                            '${med.priceKz.toInt()} Kz',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.primary,
+                              fontSize: 14,
+                            ),
                           ),
                           onTap: () {
                             context.push('/medicine/${med.id}');
@@ -328,8 +224,17 @@ class HomeScreen extends ConsumerWidget {
             loading: () => const SliverFillRemaining(
               child: Center(child: CircularProgressIndicator()),
             ),
-            error: (err, stack) => SliverFillRemaining(
-              child: Center(child: Text('Erro ao carregar dados: $err')),
+            error: (error, stack) => SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Não foi possível carregar o catálogo.\n$error',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
             ),
           ),
         ],
