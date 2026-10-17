@@ -1,3 +1,4 @@
+
 import 'dart:math';
 
 class PharmacyModel {
@@ -15,8 +16,8 @@ class PharmacyModel {
   final double latitude;
   final double longitude;
 
-  // Subscription Fields
-  final String subscriptionStatus; // 'trial', 'active', 'expired', 'blocked'
+  // Dados de subscrição: só devem refletir informação confirmada.
+  final String subscriptionStatus;
   final DateTime trialEndsAt;
   final DateTime paymentDueDate;
   final double monthlyFee;
@@ -34,71 +35,106 @@ class PharmacyModel {
     required this.hasDelivery,
     required this.rating,
     required this.logoUrl,
-    this.latitude = -8.8383,
-    this.longitude = 13.2344,
-    this.subscriptionStatus = 'trial',
+    this.latitude = 0.0,
+    this.longitude = 0.0,
+    this.subscriptionStatus = 'unknown',
     DateTime? trialEndsAt,
     DateTime? paymentDueDate,
     this.monthlyFee = 15000.0,
     this.lastPaymentAt,
-  })  : trialEndsAt = trialEndsAt ?? DateTime.now().add(const Duration(days: 90)),
-        paymentDueDate = paymentDueDate ?? DateTime.now().add(const Duration(days: 90));
+  })  : trialEndsAt =
+            trialEndsAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+        paymentDueDate =
+            paymentDueDate ?? DateTime.fromMillisecondsSinceEpoch(0);
 
   bool get isTrialActive =>
-      subscriptionStatus == 'trial' && DateTime.now().isBefore(trialEndsAt);
+      subscriptionStatus == 'trial' &&
+      DateTime.now().isBefore(trialEndsAt);
 
   bool get isSubscriptionActive =>
-      (subscriptionStatus == 'active' && DateTime.now().isBefore(paymentDueDate)) || isTrialActive;
+      (subscriptionStatus == 'active' &&
+          DateTime.now().isBefore(paymentDueDate)) ||
+      isTrialActive;
 
   bool get isBlockedOrExpired =>
       subscriptionStatus == 'blocked' ||
       subscriptionStatus == 'expired' ||
-      (!isTrialActive && subscriptionStatus == 'trial') ||
-      (subscriptionStatus == 'active' && DateTime.now().isAfter(paymentDueDate));
+      (subscriptionStatus == 'trial' && !isTrialActive) ||
+      (subscriptionStatus == 'active' &&
+          !DateTime.now().isBefore(paymentDueDate));
 
   int get daysLeftInTrial {
-    if (subscriptionStatus != 'trial') return 0;
-    final diff = trialEndsAt.difference(DateTime.now()).inDays;
-    return diff < 0 ? 0 : diff;
+    if (subscriptionStatus != 'trial' || !isTrialActive) {
+      return 0;
+    }
+
+    return trialEndsAt.difference(DateTime.now()).inDays;
   }
 
   int get daysUntilPaymentDue {
-    final diff = paymentDueDate.difference(DateTime.now()).inDays;
-    return diff < 0 ? 0 : diff;
+    if (subscriptionStatus != 'active' ||
+        !DateTime.now().isBefore(paymentDueDate)) {
+      return 0;
+    }
+
+    return paymentDueDate.difference(DateTime.now()).inDays;
   }
 
   double calculateDistanceFrom(double userLat, double userLng) {
+    if (latitude == 0.0 && longitude == 0.0) {
+      return double.infinity;
+    }
+
     const p = 0.017453292519943295;
-    final a = 0.5 - cos((latitude - userLat) * p) / 2 +
-        cos(userLat * p) * cos(latitude * p) *
-            (1 - cos((longitude - userLng) * p)) / 2;
-    return 12742 * asin(sqrt(a));
+
+    final a = 0.5 -
+        cos((latitude - userLat) * p) / 2 +
+        cos(userLat * p) *
+            cos(latitude * p) *
+            (1 - cos((longitude - userLng) * p)) /
+            2;
+
+    return 12742 * asin(sqrt(a.clamp(0.0, 1.0)));
   }
 
   factory PharmacyModel.fromJson(Map<String, dynamic> json) {
+    double toDouble(dynamic value) {
+      if (value is num) return value.toDouble();
+      return double.tryParse(value?.toString() ?? '') ?? 0.0;
+    }
+
+    DateTime? parseDate(dynamic value) {
+      if (value == null) return null;
+      return DateTime.tryParse(value.toString());
+    }
+
     return PharmacyModel(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      province: json['province'] ?? 'Luanda',
-      district: json['municipality'] ?? json['district'] ?? 'Talatona',
-      address: json['address'] ?? '',
-      phone: json['phone'] ?? '',
-      openingHours: json['opening_hours'] ?? json['openingHours'] ?? '08:00 - 20:00',
-      isOpen24h: json['is_open_24h'] ?? json['isOpen24h'] ?? false,
-      hasDelivery: json['has_delivery'] ?? json['hasDelivery'] ?? true,
-      rating: (json['rating'] ?? 4.8).toDouble(),
-      logoUrl: json['logo_url'] ?? json['logoUrl'] ?? '',
-      latitude: (json['latitude'] ?? -8.8383).toDouble(),
-      longitude: (json['longitude'] ?? 13.2344).toDouble(),
-      subscriptionStatus: json['subscription_status'] ?? json['subscriptionStatus'] ?? 'trial',
-      trialEndsAt: json['trial_ends_at'] != null
-          ? DateTime.tryParse(json['trial_ends_at']) ?? DateTime.now().add(const Duration(days: 90))
-          : DateTime.now().add(const Duration(days: 90)),
-      paymentDueDate: json['payment_due_date'] != null
-          ? DateTime.tryParse(json['payment_due_date']) ?? DateTime.now().add(const Duration(days: 90))
-          : DateTime.now().add(const Duration(days: 90)),
-      monthlyFee: (json['monthly_fee'] ?? json['monthlyFee'] ?? 15000.0).toDouble(),
-      lastPaymentAt: json['last_payment_at'] != null ? DateTime.tryParse(json['last_payment_at']) : null,
+      id: (json['id'] ?? '').toString(),
+      name: (json['nome'] ?? json['name'] ?? '').toString(),
+      province: (json['province'] ?? '').toString(),
+      district: (json['municipality'] ?? json['district'] ?? '').toString(),
+      address: (json['endereco'] ?? json['address'] ?? '').toString(),
+      phone: (json['telefone'] ?? json['phone'] ?? '').toString(),
+      openingHours:
+          (json['opening_hours'] ?? json['openingHours'] ?? '').toString(),
+      isOpen24h: json['is_open_24h'] == true ||
+          json['isOpen24h'] == true,
+      hasDelivery: json['has_delivery'] == true ||
+          json['hasDelivery'] == true,
+      rating: toDouble(json['avaliacao'] ?? json['rating']),
+      logoUrl: (json['logo_url'] ?? json['logoUrl'] ?? '').toString(),
+      latitude: toDouble(json['latitude']),
+      longitude: toDouble(json['longitude']),
+      subscriptionStatus: (json['subscription_status'] ??
+              json['subscriptionStatus'] ??
+              'unknown')
+          .toString(),
+      trialEndsAt: parseDate(json['trial_ends_at'] ?? json['trialEndsAt']),
+      paymentDueDate:
+          parseDate(json['payment_due_date'] ?? json['paymentDueDate']),
+      monthlyFee: toDouble(json['monthly_fee'] ?? json['monthlyFee'] ?? 15000),
+      lastPaymentAt:
+          parseDate(json['last_payment_at'] ?? json['lastPaymentAt']),
     );
   }
 }
