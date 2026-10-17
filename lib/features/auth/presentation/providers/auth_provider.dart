@@ -1,3 +1,6 @@
+
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/supabase_auth_service.dart';
@@ -14,7 +17,7 @@ class AuthState {
   final bool isLoading;
   final String? error;
 
-  AuthState({
+  const AuthState({
     this.user,
     this.isLoading = false,
     this.error,
@@ -24,9 +27,10 @@ class AuthState {
     UserModel? user,
     bool? isLoading,
     String? error,
+    bool clearUser = false,
   }) {
     return AuthState(
-      user: user ?? this.user,
+      user: clearUser ? null : (user ?? this.user),
       isLoading: isLoading ?? this.isLoading,
       error: error,
     );
@@ -37,113 +41,111 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final SupabaseAuthService _authService;
   final SupabaseDatabaseService _dbService;
 
+  StreamSubscription<dynamic>? _authSubscription;
+
   AuthNotifier(
     this._authService,
     this._dbService,
-  ) : super(AuthState(isLoading: true)) {
+  ) : super(const AuthState(isLoading: true)) {
     _initAuth();
+  }
+
+  UserModel _userFromMetadata(
+    String id,
+    String email,
+    Map<String, dynamic> metadata,
+  ) {
+    return UserModel(
+      id: id,
+      email: email,
+      fullName: (metadata['full_name'] ??
+              metadata['fullName'] ??
+              '')
+          .toString(),
+      phone: (metadata['phone'] ?? '').toString(),
+      province: (metadata['province'] ?? '').toString(),
+      district: (metadata['district'] ?? '').toString(),
+      insuranceProvider:
+          metadata['insurance_provider']?.toString(),
+      // Nunca confiar no papel indicado pelo cliente.
+      role: 'customer',
+      pharmacyName: null,
+    );
+  }
+
+  Future<UserModel> _loadUserProfile(
+    String id,
+    String email,
+    Map<String, dynamic> metadata,
+  ) async {
+    final profile = await _dbService.getUserProfile(id);
+
+    if (profile != null) {
+      return profile;
+    }
+
+    // O trigger do Supabase deve criar o perfil.
+    // Este objecto é apenas uma alternativa em memória:
+    // não grava nem altera permissões na base de dados.
+    return _userFromMetadata(id, email, metadata);
   }
 
   Future<void> _initAuth() async {
     try {
       final currentUser = _authService.currentUser;
 
-      if (currentUser != null) {
-        final profile =
-            await _dbService.getUserProfile(currentUser.id);
-
-        if (profile != null) {
-          state = AuthState(
-            user: profile,
-            isLoading: false,
-          );
-        } else {
-          final meta = currentUser.userMetadata ?? {};
-
-          final user = UserModel(
-            id: currentUser.id,
-            email: currentUser.email ?? '',
-            fullName: meta['full_name'] ??
-                meta['fullName'] ??
-                'Utilizador FARCLIK',
-            phone: meta['phone'] ?? '+244 923 000 000',
-            province: meta['province'] ?? 'Luanda',
-            district: meta['district'] ?? 'Talatona',
-            insuranceProvider:
-                meta['insurance_provider'] ?? 'ENSA Seguros',
-            role: meta['role'] ?? 'customer',
-            pharmacyName: meta['pharmacy_name'],
-          );
-
-          state = AuthState(
-            user: user,
-            isLoading: false,
-          );
-        }
+      if (currentUser == null) {
+        state = const AuthState();
       } else {
-        state = AuthState(
-          user: null,
-          isLoading: false,
+        final profile = await _loadUserProfile(
+          currentUser.id,
+          currentUser.email ?? '',
+          currentUser.userMetadata ?? <String, dynamic>{},
         );
-      }
 
-      _authService.authStateChanges.listen((data) async {
+        state = AuthState(user: profile);
+      }
+    } catch (e) {
+      state = AuthState(
+        isLoading: false,
+        error: 'Não foi possível carregar o perfil: $e',
+      );
+    }
+
+    _authSubscription =
+        _authService.authStateChanges.listen(
+      (data) async {
         try {
           final user = data.session?.user;
 
           if (user == null) {
-            state = AuthState(
-              user: null,
-              isLoading: false,
-            );
+            state = const AuthState();
             return;
           }
 
-          final profile =
-              await _dbService.getUserProfile(user.id);
+          state = state.copyWith(isLoading: true);
 
-          if (profile != null) {
-            state = AuthState(
-              user: profile,
-              isLoading: false,
-            );
-            return;
-          }
-
-          final meta = user.userMetadata ?? {};
-
-          final newUser = UserModel(
-            id: user.id,
-            email: user.email ?? '',
-            fullName: meta['full_name'] ??
-                meta['fullName'] ??
-                'Utilizador FARCLIK',
-            phone: meta['phone'] ?? '+244 923 000 000',
-            province: meta['province'] ?? 'Luanda',
-            district: meta['district'] ?? 'Talatona',
-            insuranceProvider:
-                meta['insurance_provider'] ?? 'ENSA Seguros',
-            role: meta['role'] ?? 'customer',
-            pharmacyName: meta['pharmacy_name'],
+          final profile = await _loadUserProfile(
+            user.id,
+            user.email ?? '',
+            user.userMetadata ?? <String, dynamic>{},
           );
 
-          state = AuthState(
-            user: newUser,
-            isLoading: false,
-          );
+          state = AuthState(user: profile);
         } catch (e) {
-          state = state.copyWith(
+          state = AuthState(
             isLoading: false,
-            error: e.toString(),
+            error: 'Erro ao actualizar a sessão: $e',
           );
         }
-      });
-    } catch (e) {
-      state = AuthState(
-        isLoading: false,
-        error: e.toString(),
-      );
-    }
+      },
+      onError: (Object error) {
+        state = AuthState(
+          isLoading: false,
+          error: 'Erro na autenticação: $error',
+        );
+      },
+    );
   }
 
   Future<bool> login(
@@ -158,54 +160,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final response =
           await _authService.signInWithEmailAndPassword(
-        email: email,
+        email: email.trim(),
         password: password,
       );
 
       final user = response.user;
 
       if (user == null) {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Falha na autenticação Supabase.',
+        state = const AuthState(
+          error: 'O Supabase não devolveu um utilizador autenticado.',
         );
         return false;
       }
 
-      UserModel? profile =
-          await _dbService.getUserProfile(user.id);
-
-      if (profile == null) {
-        final meta = user.userMetadata ?? {};
-
-        profile = UserModel(
-          id: user.id,
-          email: user.email ?? email,
-          fullName: meta['full_name'] ??
-              meta['fullName'] ??
-              'Utilizador FARCLIK',
-          phone: meta['phone'] ?? '+244 923 000 000',
-          province: meta['province'] ?? 'Luanda',
-          district: meta['district'] ?? 'Talatona',
-          insuranceProvider:
-              meta['insurance_provider'] ?? 'ENSA Seguros',
-          role: meta['role'] ?? 'customer',
-          pharmacyName: meta['pharmacy_name'],
-        );
-
-        await _dbService.upsertUserProfile(profile);
-      }
-
-      state = AuthState(
-        user: profile,
-        isLoading: false,
+      final profile = await _loadUserProfile(
+        user.id,
+        user.email ?? email.trim(),
+        user.userMetadata ?? <String, dynamic>{},
       );
 
+      state = AuthState(user: profile);
       return true;
     } catch (e) {
-      state = state.copyWith(
+      state = AuthState(
         isLoading: false,
-        error: e.toString(),
+        error: 'Não foi possível iniciar sessão: $e',
       );
       return false;
     }
@@ -226,57 +205,61 @@ class AuthNotifier extends StateNotifier<AuthState> {
       error: null,
     );
 
+    // O registo público não pode criar contas de farmácia
+    // nem atribuir papéis privilegiados.
+    if (role != 'customer') {
+      state = const AuthState(
+        error:
+            'O registo público de farmácias ainda não está disponível. '
+            'A activação de uma farmácia exige aprovação.',
+      );
+      return false;
+    }
+
     try {
       final response = await _authService.signUp(
-        email: email,
+        email: email.trim(),
         password: password,
         userMetadata: {
-          'full_name': fullName,
-          'phone': phone,
+          'full_name': fullName.trim(),
+          'phone': phone.trim(),
           'province': province,
           'district': district,
-          'role': role,
-          if (pharmacyName != null &&
-              pharmacyName.isNotEmpty)
-            'pharmacy_name': pharmacyName,
         },
       );
 
-      final user = response.user;
-
-      if (user == null) {
-        state = state.copyWith(
-          isLoading: false,
+      if (response.user == null) {
+        state = const AuthState(
           error:
-              'O registo não devolveu um utilizador. Verifica a confirmação de email no Supabase.',
+              'O Supabase não devolveu um utilizador. '
+              'Verifica a configuração do registo e a confirmação do email.',
         );
         return false;
       }
 
-      final newProfile = UserModel(
-        id: user.id,
-        email: email,
-        fullName: fullName,
-        phone: phone,
-        province: province,
-        district: district,
-        insuranceProvider: 'ENSA Seguros',
-        role: role,
-        pharmacyName: pharmacyName,
-      );
+      // O trigger do Supabase cria o perfil.
+      // Não fazer upsert nem atribuir papéis no cliente.
+      if (response.session != null) {
+        final user = response.user!;
 
-      await _dbService.upsertUserProfile(newProfile);
+        final profile = await _loadUserProfile(
+          user.id,
+          user.email ?? email.trim(),
+          user.userMetadata ?? <String, dynamic>{},
+        );
 
-      state = AuthState(
-        user: newProfile,
-        isLoading: false,
-      );
+        state = AuthState(user: profile);
+      } else {
+        // A confirmação do email pode ser necessária
+        // antes de existir uma sessão autenticada.
+        state = const AuthState();
+      }
 
       return true;
     } catch (e) {
-      state = state.copyWith(
+      state = AuthState(
         isLoading: false,
-        error: e.toString(),
+        error: 'Não foi possível concluir o registo: $e',
       );
       return false;
     }
@@ -289,49 +272,44 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
 
     try {
-      await _authService.resetPasswordForEmail(email);
-
-      state = state.copyWith(
-        isLoading: false,
-      );
-
+      await _authService.resetPasswordForEmail(email.trim());
+      state = const AuthState();
       return true;
     } catch (e) {
-      state = state.copyWith(
+      state = AuthState(
         isLoading: false,
-        error: e.toString(),
+        error: 'Não foi possível pedir a recuperação: $e',
       );
       return false;
     }
   }
 
   Future<void> logout() async {
+    state = state.copyWith(isLoading: true, error: null);
+
     try {
       await _authService.signOut();
-
-      state = AuthState(
-        user: null,
-        isLoading: false,
-      );
+      state = const AuthState();
     } catch (e) {
-      state = state.copyWith(
+      state = AuthState(
+        user: state.user,
         isLoading: false,
-        error: e.toString(),
+        error: 'Não foi possível terminar a sessão: $e',
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 }
 
 final authProvider =
     StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  final authService =
-      ref.watch(supabaseAuthServiceProvider);
+  final authService = ref.watch(supabaseAuthServiceProvider);
+  final dbService = ref.watch(supabaseDatabaseServiceProvider);
 
-  final dbService =
-      ref.watch(supabaseDatabaseServiceProvider);
-
-  return AuthNotifier(
-    authService,
-    dbService,
-  );
+  return AuthNotifier(authService, dbService);
 });
