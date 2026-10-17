@@ -1,39 +1,35 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_constants.dart';
 import '../providers/auth_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() =>
+      _RegisterScreenState();
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _pharmacyNameController = TextEditingController();
-  final _districtController = TextEditingController();
 
-  String _selectedProvince = 'Luanda';
-
-  bool _isPharmacyAccount = false;
   bool _obscurePassword = true;
   bool _acceptedPrivacy = false;
+  bool _submitted = false;
 
   static const Color _green = Color(0xFF16A34A);
   static const Color _darkGreen = Color(0xFF15803D);
   static const Color _teal = Color(0xFF0F766E);
   static const Color _navy = Color(0xFF173B57);
-  static const Color _background = Color(0xFFF8FBF9);
+  static const Color _background = Colors.white;
   static const Color _muted = Color(0xFF687984);
 
   @override
@@ -42,8 +38,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
-    _pharmacyNameController.dispose();
-    _districtController.dispose();
     super.dispose();
   }
 
@@ -61,7 +55,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       return 'Introduza o seu e-mail.';
     }
 
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+        .hasMatch(email)) {
       return 'Introduza um endereço de e-mail válido.';
     }
 
@@ -124,19 +119,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       errorStyle: const TextStyle(fontSize: 11),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: Color(0xFFE0EAE4)),
+        borderSide:
+            const BorderSide(color: Color(0xFFE0EAE4)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: Color(0xFFE0EAE4)),
+        borderSide:
+            const BorderSide(color: Color(0xFFE0EAE4)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: _green, width: 1.6),
+        borderSide:
+            const BorderSide(color: _green, width: 1.6),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: Color(0xFFDC2626)),
+        borderSide:
+            const BorderSide(color: Color(0xFFDC2626)),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
@@ -149,17 +148,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _handleRegister() async {
+    if (_submitted) return;
+
     FocusScope.of(context).unfocus();
 
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     if (!_acceptedPrivacy) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Confirme que leu a informação de privacidade para continuar.',
+            'Leia e confirme a informação de privacidade '
+            'para continuar.',
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -167,48 +167,84 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       return;
     }
 
-    final fullName = _fullNameController.text.trim();
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-    final phone = _phoneController.text.trim();
-    final district = _districtController.text.trim();
-    final pharmacyName = _pharmacyNameController.text.trim();
+    setState(() => _submitted = true);
 
-    if (_isPharmacyAccount && pharmacyName.isEmpty) {
+    final success = await ref.read(authProvider.notifier).register(
+          fullName: _fullNameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          phone: _phoneController.text.trim(),
+
+          // Mantém a compatibilidade com o AuthNotifier actual.
+          // A localização será definida na pesquisa.
+          province: '',
+          district: '',
+          role: 'customer',
+        );
+
+    if (!mounted) return;
+
+    setState(() => _submitted = false);
+
+    final authState = ref.read(authProvider);
+
+    if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Introduza o nome oficial da farmácia.'),
+        SnackBar(
+          content: Text(
+            authState.error ??
+                'Não foi possível concluir o registo. '
+                    'Tente novamente.',
+          ),
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 6),
         ),
       );
       return;
     }
 
-    final success = await ref.read(authProvider.notifier).register(
-          fullName: fullName,
-          email: email,
-          password: password,
-          phone: phone,
-          province: _selectedProvince,
-          district: district,
-          role: _isPharmacyAccount ? 'pharmacy' : 'customer',
-          pharmacyName: _isPharmacyAccount ? pharmacyName : null,
+    if (authState.user != null) {
+      context.go('/home');
+      return;
+    }
+
+    // Registo concluído, mas sem sessão: pode exigir
+    // confirmação do endereço de e-mail.
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          icon: const Icon(
+            Icons.mark_email_read_outlined,
+            color: _green,
+            size: 42,
+          ),
+          title: const Text('Verifique o seu e-mail'),
+          content: const Text(
+            'Se a confirmação de e-mail estiver activa, '
+            'abra a mensagem enviada pelo FARCLIK e '
+            'confirme a sua conta antes de iniciar sessão.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(),
+              child: const Text('Continuar'),
+            ),
+          ],
         );
+      },
+    );
 
     if (!mounted) return;
-
-    if (success) {
-      if (_isPharmacyAccount) {
-        // O backend deve controlar a aprovação e as permissões
-        // da farmácia antes de autorizar o acesso ao painel.
-        context.go('/login');
-      } else {
-        context.go('/home');
-      }
-    }
+    context.go('/login');
   }
 
-  Widget _sectionTitle(String title, {String? subtitle}) {
+  Widget _sectionTitle(
+    String title, {
+    String? subtitle,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -238,12 +274,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final isLoading = _submitted || authState.isLoading;
 
     return Scaffold(
       backgroundColor: _background,
       body: SafeArea(
         child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          keyboardDismissBehavior:
+              ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(22, 12, 22, 30),
           child: Form(
             key: _formKey,
@@ -258,7 +296,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     icon: const Icon(Icons.arrow_back_rounded),
                     color: _navy,
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.white,
+                      backgroundColor: const Color(0xFFF5F9F6),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -300,12 +338,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                 const SizedBox(height: 20),
 
-                Text(
-                  _isPharmacyAccount
-                      ? 'Registe a sua farmácia'
-                      : 'Crie a sua conta',
+                const Text(
+                  'Crie a sua conta',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _navy,
                     fontSize: 27,
                     fontWeight: FontWeight.w800,
@@ -315,86 +351,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                 const SizedBox(height: 9),
 
-                Text(
-                  _isPharmacyAccount
-                      ? 'Inicie o processo de adesão à FARCLIK. '
-                          'O registo está sujeito à verificação da documentação.'
-                      : 'Encontre farmácias, consulte medicamentos '
-                          'e faça reservas de forma simples.',
+                const Text(
+                  'Encontre farmácias, compare preços, '
+                  'consulte medicamentos e faça reservas '
+                  'de forma simples.',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _muted,
                     fontSize: 13,
                     height: 1.6,
                   ),
                 ),
 
-                const SizedBox(height: 24),
-
-                Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEAF2ED),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _AccountTypeButton(
-                          label: 'Cliente',
-                          icon: Icons.person_outline_rounded,
-                          selected: !_isPharmacyAccount,
-                          onTap: () {
-                            setState(() => _isPharmacyAccount = false);
-                          },
-                        ),
-                      ),
-                      Expanded(
-                        child: _AccountTypeButton(
-                          label: 'Farmácia',
-                          icon: Icons.storefront_outlined,
-                          selected: _isPharmacyAccount,
-                          onTap: () {
-                            setState(() => _isPharmacyAccount = true);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 26),
-
-                if (_isPharmacyAccount) ...[
-                  _sectionTitle(
-                    'Dados da farmácia',
-                    subtitle: 'Identificação inicial do estabelecimento.',
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _pharmacyNameController,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: _decoration(
-                      label: 'Nome oficial da farmácia *',
-                      hint: 'Nome registado do estabelecimento',
-                      icon: Icons.local_pharmacy_outlined,
-                    ),
-                    validator: (value) {
-                      if (!_isPharmacyAccount) return null;
-                      return _requiredValidator(
-                        value,
-                        'o nome da farmácia',
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 22),
-                ],
+                const SizedBox(height: 28),
 
                 _sectionTitle(
-                  _isPharmacyAccount
-                      ? 'Dados do responsável'
-                      : 'Os seus dados',
-                  subtitle: 'Preencha os campos abaixo para continuar.',
+                  'Os seus dados',
+                  subtitle:
+                      'Preencha os campos para criar a sua conta.',
                 ),
 
                 const SizedBox(height: 14),
@@ -404,9 +378,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                   decoration: _decoration(
-                    label: _isPharmacyAccount
-                        ? 'Nome do responsável *'
-                        : 'Nome completo *',
+                    label: 'Nome completo *',
                     icon: Icons.person_outline_rounded,
                   ),
                   validator: (value) =>
@@ -446,61 +418,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 24),
 
                 _sectionTitle(
-                  'Localização',
-                  subtitle: 'Indique a província e o município.',
-                ),
-
-                const SizedBox(height: 14),
-
-                DropdownButtonFormField<String>(
-                  value: _selectedProvince,
-                  isExpanded: true,
-                  decoration: _decoration(
-                    label: 'Província *',
-                    icon: Icons.location_on_outlined,
-                  ),
-                  items: AppConstants.angolaProvinces.map((province) {
-                    return DropdownMenuItem<String>(
-                      value: province,
-                      child: Text(
-                        province,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _selectedProvince = value);
-                    }
-                  },
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Selecione a província.';
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _districtController,
-                  textCapitalization: TextCapitalization.words,
-                  textInputAction: TextInputAction.next,
-                  decoration: _decoration(
-                    label: 'Município *',
-                    hint: 'Ex.: Talatona',
-                    icon: Icons.location_city_outlined,
-                  ),
-                  validator: (value) =>
-                      _requiredValidator(value, 'o município'),
-                ),
-
-                const SizedBox(height: 24),
-
-                _sectionTitle(
                   'Segurança da conta',
-                  subtitle: 'Escolha uma palavra-passe com pelo menos '
+                  subtitle:
+                      'Utilize uma palavra-passe com pelo menos '
                       '6 caracteres.',
                 ),
 
@@ -534,49 +454,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   validator: _validatePassword,
                   onFieldSubmitted: (_) {
-                    if (!authState.isLoading) {
-                      _handleRegister();
-                    }
+                    if (!isLoading) _handleRegister();
                   },
                 ),
 
                 const SizedBox(height: 22),
-
-                if (authState.error != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(13),
-                    margin: const EdgeInsets.only(bottom: 17),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF1F0),
-                      borderRadius: BorderRadius.circular(13),
-                      border: Border.all(
-                        color: const Color(0xFFF4C7C3),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.error_outline_rounded,
-                          color: Color(0xFFB42318),
-                          size: 20,
-                        ),
-                        const SizedBox(width: 9),
-                        Expanded(
-                          child: Text(
-                            'Não foi possível concluir o registo. '
-                            'Verifique os dados e tente novamente.',
-                            style: const TextStyle(
-                              color: Color(0xFFB42318),
-                              fontSize: 13,
-                              height: 1.45,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
 
                 Container(
                   padding: const EdgeInsets.all(14),
@@ -598,7 +480,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       const SizedBox(width: 11),
                       Expanded(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
                           children: [
                             const Text(
                               'Privacidade e proteção de dados',
@@ -610,10 +493,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ),
                             const SizedBox(height: 5),
                             const Text(
-                              'Utilize dados verdadeiros. As informações '
-                              'da conta devem ser tratadas com '
-                              'confidencialidade e utilizadas para '
-                              'finalidades autorizadas.',
+                              'Utilizamos os dados fornecidos para '
+                              'gerir a sua conta e disponibilizar '
+                              'as funcionalidades autorizadas. '
+                              'A localização será tratada separadamente '
+                              'e dependerá das suas escolhas.',
                               style: TextStyle(
                                 color: Color(0xFF58716A),
                                 fontSize: 12,
@@ -623,16 +507,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             const SizedBox(height: 8),
                             CheckboxListTile(
                               contentPadding: EdgeInsets.zero,
-                              controlAffinity: ListTileControlAffinity.leading,
+                              controlAffinity:
+                                  ListTileControlAffinity.leading,
                               dense: true,
-                              visualDensity: VisualDensity.compact,
+                              visualDensity:
+                                  VisualDensity.compact,
                               activeColor: _green,
                               value: _acceptedPrivacy,
-                              onChanged: (value) {
-                                setState(() {
-                                  _acceptedPrivacy = value ?? false;
-                                });
-                              },
+                              onChanged: isLoading
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _acceptedPrivacy =
+                                            value ?? false;
+                                      });
+                                    },
                               title: const Text(
                                 'Li e compreendi a informação acima.',
                                 style: TextStyle(
@@ -655,17 +544,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   height: 55,
                   child: FilledButton(
                     onPressed:
-                        authState.isLoading ? null : _handleRegister,
+                        isLoading ? null : _handleRegister,
                     style: FilledButton.styleFrom(
                       backgroundColor: _green,
-                      disabledBackgroundColor: const Color(0xFF9BCBA9),
+                      disabledBackgroundColor:
+                          const Color(0xFF9BCBA9),
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    child: authState.isLoading
+                    child: isLoading
                         ? const SizedBox(
                             width: 23,
                             height: 23,
@@ -674,23 +564,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               strokeWidth: 2.3,
                             ),
                           )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                        : const Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.center,
                             children: [
                               Flexible(
                                 child: Text(
-                                  _isPharmacyAccount
-                                      ? 'Enviar pedido de adesão'
-                                      : 'Criar conta FARCLIK',
+                                  'Criar conta FARCLIK',
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 9),
-                              const Icon(
+                              SizedBox(width: 9),
+                              Icon(
                                 Icons.arrow_forward_rounded,
                                 size: 20,
                               ),
@@ -714,7 +603,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () => context.go('/login'),
+                      onPressed: isLoading
+                          ? null
+                          : () => context.go('/login'),
                       child: const Text(
                         'Iniciar sessão',
                         style: TextStyle(
@@ -740,64 +631,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AccountTypeButton extends StatelessWidget {
-  const _AccountTypeButton({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    const green = Color(0xFF16A34A);
-    const navy = Color(0xFF173B57);
-
-    return Material(
-      color: selected ? Colors.white : Colors.transparent,
-      borderRadius: BorderRadius.circular(13),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(13),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            vertical: 13,
-            horizontal: 5,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 19,
-                color: selected ? green : const Color(0xFF687984),
-              ),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: selected ? navy : const Color(0xFF687984),
-                    fontSize: 13,
-                    fontWeight:
-                        selected ? FontWeight.w800 : FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
           ),
         ),
       ),
