@@ -60,7 +60,6 @@ class SupabaseDatabaseService {
       }
 
       final response = await request.order('nome_medicamento');
-
       final rows = List<Map<String, dynamic>>.from(response);
 
       final filteredRows = rows.where((row) {
@@ -205,10 +204,6 @@ class SupabaseDatabaseService {
     return getPharmacies();
   }
 
-  /// Devolve a farmácia associada à conta autenticada.
-  ///
-  /// Devolve null se a conta ainda não tiver uma farmácia associada.
-  /// Se existirem várias, interrompe para evitar escolher uma ao acaso.
   Future<PharmacyModel?> getOwnedPharmacy() async {
     final currentUser = _client.auth.currentUser;
 
@@ -229,9 +224,7 @@ class SupabaseDatabaseService {
 
       final rows = List<Map<String, dynamic>>.from(response);
 
-      if (rows.isEmpty) {
-        return null;
-      }
+      if (rows.isEmpty) return null;
 
       if (rows.length > 1) {
         throw Exception(
@@ -283,9 +276,8 @@ class SupabaseDatabaseService {
       district: '',
       address: (row['endereco'] ?? '').toString(),
       phone: (row['telefone'] ?? '').toString(),
-      openingHours: row['aberta_agora'] == true
-          ? 'Aberta'
-          : 'Fechada',
+      openingHours:
+          row['aberta_agora'] == true ? 'Aberta' : 'Fechada',
       isOpen24h: false,
       hasDelivery: false,
       rating: rating is num ? rating.toDouble() : 0.0,
@@ -339,7 +331,6 @@ class SupabaseDatabaseService {
 
   // ============================================================
   // RESERVAS DA FARMÁCIA
-  // A autorização é validada no Supabase.
   // ============================================================
 
   Future<List<ReservationModel>> getAllReservationsForPharmacy({
@@ -574,8 +565,8 @@ class SupabaseDatabaseService {
       totalPriceKz: price is num ? price.toDouble() : 0.0,
       reservationDate: (row['criado_em'] ?? '').toString(),
       expiryDate: (row['expira_em'] ?? '').toString(),
-      status: (row['status'] ?? 'Aguardando confirmação')
-          .toString(),
+      status:
+          (row['status'] ?? 'Aguardando confirmação').toString(),
       prescriptionUploaded: row['receita_enviada'] == true,
       isReviewed: false,
       reviewRating: null,
@@ -583,7 +574,7 @@ class SupabaseDatabaseService {
   }
 
   // ============================================================
-  // CONFIRMAÇÃO DO LEVANTAMENTO POR IDENTIFICADOR
+  // CONFIRMAÇÃO DO LEVANTAMENTO
   // ============================================================
 
   Future<void> confirmarLevantamento(
@@ -677,10 +668,18 @@ class SupabaseDatabaseService {
   }
 
   // ============================================================
-  // PERFIL DO UTILIZADOR
+  // PERFIL DO UTILIZADOR — CORRECÇÃO 3
   // ============================================================
 
   Future<UserModel?> getUserProfile(String userId) async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null || currentUser.id != userId) {
+      throw Exception(
+        'Só podes consultar o perfil da conta autenticada.',
+      );
+    }
+
     try {
       final response = await _client
           .from('profiles')
@@ -688,7 +687,7 @@ class SupabaseDatabaseService {
             'id, email, full_name, phone, province, district, '
             'insurance_provider, role, pharmacy_name',
           )
-          .eq('id', userId)
+          .eq('id', currentUser.id)
           .maybeSingle();
 
       if (response == null) return null;
@@ -696,9 +695,9 @@ class SupabaseDatabaseService {
       return UserModel.fromJson(
         Map<String, dynamic>.from(response),
       );
-    } catch (e) {
+    } on PostgrestException catch (e) {
       throw Exception(
-        'Não foi possível carregar o perfil: $e',
+        'Não foi possível carregar o perfil: ${e.message}',
       );
     }
   }
@@ -708,19 +707,35 @@ class SupabaseDatabaseService {
 
     if (currentUser == null || currentUser.id != user.id) {
       throw Exception(
-        'Só podes guardar o perfil do utilizador autenticado.',
+        'Só podes actualizar o perfil do utilizador autenticado.',
       );
     }
 
     try {
-      await _client.from('profiles').upsert(
-        user.toJson(),
-        onConflict: 'id',
+      final existingProfile = await _client
+          .from('profiles')
+          .select('id')
+          .eq('id', currentUser.id)
+          .maybeSingle();
+
+      if (existingProfile == null) {
+        throw Exception(
+          'O perfil não existe na base de dados. '
+          'Verifica o trigger de criação de perfis no Supabase.',
+        );
+      }
+
+      await _client
+          .from('profiles')
+          .update(user.toEditableProfileJson())
+          .eq('id', currentUser.id);
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível actualizar o perfil: ${e.message}',
       );
     } catch (e) {
       throw Exception(
-        'Não foi possível guardar o perfil. '
-        'Confirma as políticas RLS da tabela profiles: $e',
+        'Falha ao actualizar o perfil: $e',
       );
     }
   }
