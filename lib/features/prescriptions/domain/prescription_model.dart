@@ -1,10 +1,11 @@
+
 class PrescriptionModel {
   final String id;
   final String userId;
   final String userName;
   final String medicineName;
   final String imageUrl;
-  final String status; // 'pending', 'verified', 'rejected'
+  final String status;
   final String? notes;
   final String createdAt;
 
@@ -21,14 +22,16 @@ class PrescriptionModel {
 
   factory PrescriptionModel.fromJson(Map<String, dynamic> json) {
     return PrescriptionModel(
-      id: json['id'] ?? '',
-      userId: json['user_id'] ?? json['userId'] ?? '',
-      userName: json['user_name'] ?? json['userName'] ?? 'Paciente FarmaJá',
-      medicineName: json['medicine_name'] ?? json['medicineName'] ?? 'Medicamento com Receita',
-      imageUrl: json['image_url'] ?? json['imageUrl'] ?? 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=500',
-      status: json['status'] ?? 'pending',
-      notes: json['notes'],
-      createdAt: json['created_at'] ?? json['createdAt'] ?? '22 Julho 2026',
+      id: (json['id'] ?? '').toString(),
+      userId: (json['user_id'] ?? json['userId'] ?? '').toString(),
+      userName: (json['user_name'] ?? json['userName'] ?? '').toString(),
+      medicineName:
+          (json['medicine_name'] ?? json['medicineName'] ?? '').toString(),
+      imageUrl: (json['image_url'] ?? json['imageUrl'] ?? '').toString(),
+      status: (json['status'] ?? 'pending').toString(),
+      notes: json['notes']?.toString(),
+      createdAt:
+          (json['created_at'] ?? json['createdAt'] ?? '').toString(),
     );
   }
 
