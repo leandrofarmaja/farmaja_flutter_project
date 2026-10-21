@@ -9,6 +9,7 @@ import '../../features/auth/presentation/screens/welcome_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
+import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/medicines/presentation/screens/home_screen.dart';
 import '../../features/pharmacies/presentation/screens/pharmacies_screen.dart';
 import '../../features/reservations/presentation/screens/reservations_screen.dart';
@@ -28,11 +29,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final user = authState.user;
       final location = state.matchedLocation;
 
+      // Durante a recuperação, manter o utilizador
+      // no ecrã de definição da nova palavra-passe.
+      if (authState.isPasswordRecovery) {
+        return location == '/reset-password'
+            ? null
+            : '/reset-password';
+      }
+
       final isAuthRoute = location == '/login' ||
           location == '/register' ||
           location == '/welcome' ||
           location == '/splash' ||
-          location == '/forgot-password';
+          location == '/forgot-password' ||
+          location == '/reset-password';
 
       if (user == null) {
         return isAuthRoute ? null : '/login';
@@ -43,8 +53,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isAdmin = role == 'admin';
       final isCustomer = role == 'customer';
 
-      // Não permitir que contas com papel desconhecido
-      // acedam às áreas privadas da aplicação.
+      // Não permitir acesso com um papel desconhecido.
       if (!isPharmacy && !isAdmin && !isCustomer) {
         return '/login';
       }
@@ -53,6 +62,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // para a área correspondente ao seu papel.
       if (isAuthRoute) {
         if (location == '/forgot-password' ||
+            location == '/reset-password' ||
             location == '/splash') {
           return null;
         }
@@ -96,6 +106,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) =>
+            const ResetPasswordScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) {
