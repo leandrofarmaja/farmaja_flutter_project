@@ -2,6 +2,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/services/supabase_auth_service.dart';
 import '../../../../core/services/supabase_database_service.dart';
@@ -16,11 +17,13 @@ class AuthState {
   final UserModel? user;
   final bool isLoading;
   final String? error;
+  final bool isPasswordRecovery;
 
   const AuthState({
     this.user,
     this.isLoading = false,
     this.error,
+    this.isPasswordRecovery = false,
   });
 
   AuthState copyWith({
@@ -28,11 +31,15 @@ class AuthState {
     bool? isLoading,
     String? error,
     bool clearUser = false,
+    bool clearError = false,
+    bool? isPasswordRecovery,
   }) {
     return AuthState(
       user: clearUser ? null : (user ?? this.user),
       isLoading: isLoading ?? this.isLoading,
-      error: error,
+      error: clearError ? null : (error ?? this.error),
+      isPasswordRecovery:
+          isPasswordRecovery ?? this.isPasswordRecovery,
     );
   }
 }
@@ -41,6 +48,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final SupabaseAuthService _authService;
   final SupabaseDatabaseService _dbService;
 
+  StreamSubscription<AuthState>? _unusedSubscription;
   StreamSubscription<dynamic>? _authSubscription;
 
   AuthNotifier(
@@ -84,9 +92,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return profile;
     }
 
-    // O trigger do Supabase deve criar o perfil.
-    // Este objecto é apenas uma alternativa em memória:
-    // não grava nem altera permissões na base de dados.
+    // Alternativa apenas em memória. Não altera permissões
+    // nem grava um perfil na base de dados.
     return _userFromMetadata(id, email, metadata);
   }
 
@@ -115,15 +122,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _authSubscription =
         _authService.authStateChanges.listen(
       (data) async {
+        final event = data.event;
+        final isRecovery =
+            event == AuthChangeEvent.passwordRecovery;
+
         try {
           final user = data.session?.user;
 
           if (user == null) {
-            state = const AuthState();
+            state = AuthState(
+              isPasswordRecovery: isRecovery,
+            );
             return;
           }
 
-          state = state.copyWith(isLoading: true);
+          state = AuthState(
+            user: state.user,
+            isLoading: true,
+            isPasswordRecovery: isRecovery,
+          );
 
           final profile = await _loadUserProfile(
             user.id,
@@ -131,11 +148,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
             user.userMetadata ?? <String, dynamic>{},
           );
 
-          state = AuthState(user: profile);
+          state = AuthState(
+            user: profile,
+            isPasswordRecovery: isRecovery,
+          );
         } catch (e) {
           state = AuthState(
             isLoading: false,
             error: 'Erro ao actualizar a sessão: $e',
+            isPasswordRecovery: isRecovery,
           );
         }
       },
@@ -154,7 +175,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   ) async {
     state = state.copyWith(
       isLoading: true,
-      error: null,
+      clearError: true,
     );
 
     try {
@@ -168,7 +189,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (user == null) {
         state = const AuthState(
-          error: 'O Supabase não devolveu um utilizador autenticado.',
+          error:
+              'O Supabase não devolveu um utilizador autenticado.',
         );
         return false;
       }
@@ -202,11 +224,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) async {
     state = state.copyWith(
       isLoading: true,
-      error: null,
+      clearError: true,
     );
 
-    // O registo público não pode criar contas de farmácia
-    // nem atribuir papéis privilegiados.
     if (role != 'customer') {
       state = const AuthState(
         error:
@@ -237,8 +257,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return false;
       }
 
-      // O trigger do Supabase cria o perfil.
-      // Não fazer upsert nem atribuir papéis no cliente.
       if (response.session != null) {
         final user = response.user!;
 
@@ -250,8 +268,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
         state = AuthState(user: profile);
       } else {
-        // A confirmação do email pode ser necessária
-        // antes de existir uma sessão autenticada.
         state = const AuthState();
       }
 
@@ -268,7 +284,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> resetPassword(String email) async {
     state = state.copyWith(
       isLoading: true,
-      error: null,
+      clearError: true,
     );
 
     try {
@@ -285,7 +301,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+    );
 
     try {
       await _authService.signOut();
