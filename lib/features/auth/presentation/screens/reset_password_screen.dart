@@ -1,26 +1,30 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../providers/auth_provider.dart';
 
-class ResetPasswordScreen extends StatefulWidget {
+class ResetPasswordScreen extends ConsumerStatefulWidget {
   const ResetPasswordScreen({super.key});
 
   @override
-  State<ResetPasswordScreen> createState() =>
+  ConsumerState<ResetPasswordScreen> createState() =>
       _ResetPasswordScreenState();
 }
 
 class _ResetPasswordScreenState
-    extends State<ResetPasswordScreen> {
+    extends ConsumerState<ResetPasswordScreen> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
 
   bool _loading = false;
+  bool _leaving = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+
   String? _error;
   String? _message;
 
@@ -31,13 +35,43 @@ class _ResetPasswordScreenState
     super.dispose();
   }
 
+  Future<void> _returnToLogin() async {
+    if (_loading || _leaving) return;
+
+    setState(() {
+      _leaving = true;
+      _error = null;
+      _message = null;
+    });
+
+    try {
+      await ref
+          .read(authProvider.notifier)
+          .leavePasswordRecovery();
+
+      if (!mounted) return;
+
+      context.go('/login');
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _leaving = false;
+        _error =
+            'Não foi possível voltar ao início de sessão. '
+            'Verifique a ligação e tente novamente.';
+      });
+    }
+  }
+
   Future<void> _updatePassword() async {
     final password = _passwordController.text;
     final confirm = _confirmController.text;
 
     if (password.length < 8) {
       setState(() {
-        _error = 'A palavra-passe deve ter pelo menos 8 caracteres.';
+        _error =
+            'A palavra-passe deve ter pelo menos 8 caracteres.';
         _message = null;
       });
       return;
@@ -71,14 +105,17 @@ class _ResetPasswordScreenState
         UserAttributes(password: password),
       );
 
-      await client.auth.signOut();
+      await ref
+          .read(authProvider.notifier)
+          .logout();
 
       if (!mounted) return;
 
       setState(() {
         _loading = false;
         _message =
-            'Palavra-passe atualizada. Já pode entrar com a nova palavra-passe.';
+            'Palavra-passe atualizada. Já pode entrar '
+            'com a nova palavra-passe.';
       });
 
       await Future<void>.delayed(
@@ -90,28 +127,33 @@ class _ResetPasswordScreenState
       }
     } on AuthException catch (e) {
       if (!mounted) return;
+
       setState(() {
         _loading = false;
         _error = e.message;
       });
     } catch (e) {
       if (!mounted) return;
+
       setState(() {
         _loading = false;
-        _error = 'Não foi possível atualizar a palavra-passe: $e';
+        _error =
+            'Não foi possível atualizar a palavra-passe: $e';
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final busy = _loading || _leaving;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Nova palavra-passe'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/login'),
+          onPressed: busy ? null : _returnToLogin,
         ),
       ),
       body: SafeArea(
@@ -149,16 +191,19 @@ class _ResetPasswordScreenState
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
-                enabled: !_loading,
+                enabled: !busy,
                 decoration: InputDecoration(
                   labelText: 'Nova palavra-passe',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
+                    onPressed: busy
+                        ? null
+                        : () {
+                            setState(() {
+                              _obscurePassword =
+                                  !_obscurePassword;
+                            });
+                          },
                     icon: Icon(
                       _obscurePassword
                           ? Icons.visibility_outlined
@@ -171,16 +216,19 @@ class _ResetPasswordScreenState
               TextField(
                 controller: _confirmController,
                 obscureText: _obscureConfirm,
-                enabled: !_loading,
+                enabled: !busy,
                 decoration: InputDecoration(
                   labelText: 'Confirmar palavra-passe',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
-                    onPressed: () {
-                      setState(() {
-                        _obscureConfirm = !_obscureConfirm;
-                      });
-                    },
+                    onPressed: busy
+                        ? null
+                        : () {
+                            setState(() {
+                              _obscureConfirm =
+                                  !_obscureConfirm;
+                            });
+                          },
                     icon: Icon(
                       _obscureConfirm
                           ? Icons.visibility_outlined
@@ -208,7 +256,8 @@ class _ResetPasswordScreenState
                   padding: const EdgeInsets.all(12),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryLight.withOpacity(0.2),
+                    color: AppColors.primaryLight
+                        .withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -219,8 +268,8 @@ class _ResetPasswordScreenState
                   ),
                 ),
               FilledButton(
-                onPressed: _loading ? null : _updatePassword,
-                child: _loading
+                onPressed: busy ? null : _updatePassword,
+                child: busy
                     ? const SizedBox(
                         width: 22,
                         height: 22,
@@ -229,14 +278,16 @@ class _ResetPasswordScreenState
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Guardar nova palavra-passe'),
+                    : const Text(
+                        'Guardar nova palavra-passe',
+                      ),
               ),
               const SizedBox(height: 12),
               TextButton(
-                onPressed: _loading
-                    ? null
-                    : () => context.go('/login'),
-                child: const Text('Voltar ao início de sessão'),
+                onPressed: busy ? null : _returnToLogin,
+                child: const Text(
+                  'Voltar ao início de sessão',
+                ),
               ),
             ],
           ),
