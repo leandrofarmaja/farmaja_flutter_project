@@ -48,13 +48,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final SupabaseAuthService _authService;
   final SupabaseDatabaseService _dbService;
 
-  StreamSubscription<AuthState>? _unusedSubscription;
   StreamSubscription<dynamic>? _authSubscription;
 
   AuthNotifier(
     this._authService,
     this._dbService,
   ) : super(const AuthState(isLoading: true)) {
+    // Começar a ouvir os eventos antes de carregar o perfil.
+    _authSubscription =
+        _authService.authStateChanges.listen(
+      _handleAuthEvent,
+      onError: (Object error) {
+        state = AuthState(
+          user: state.user,
+          isLoading: false,
+          error: 'Erro na autenticação: $error',
+          isPasswordRecovery: state.isPasswordRecovery,
+        );
+      },
+    );
+
     _initAuth();
   }
 
@@ -75,7 +88,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       district: (metadata['district'] ?? '').toString(),
       insuranceProvider:
           metadata['insurance_provider']?.toString(),
-      // Nunca confiar no papel indicado pelo cliente.
       role: 'customer',
       pharmacyName: null,
     );
@@ -92,8 +104,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return profile;
     }
 
-    // Alternativa apenas em memória. Não altera permissões
-    // nem grava um perfil na base de dados.
+    // Alternativa em memória; não grava nem altera permissões.
     return _userFromMetadata(id, email, metadata);
   }
 
@@ -102,71 +113,81 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final currentUser = _authService.currentUser;
 
       if (currentUser == null) {
-        state = const AuthState();
-      } else {
-        final profile = await _loadUserProfile(
-          currentUser.id,
-          currentUser.email ?? '',
-          currentUser.userMetadata ?? <String, dynamic>{},
-        );
-
-        state = AuthState(user: profile);
+        if (!state.isPasswordRecovery) {
+          state = const AuthState();
+        }
+        return;
       }
+
+      final profile = await _loadUserProfile(
+        currentUser.id,
+        currentUser.email ?? '',
+        currentUser.userMetadata ?? <String, dynamic>{},
+      );
+
+      // Não substituir um evento de recuperação que tenha
+      // chegado enquanto o perfil estava a ser carregado.
+      state = AuthState(
+        user: profile,
+        isPasswordRecovery: state.isPasswordRecovery,
+      );
     } catch (e) {
       state = AuthState(
         isLoading: false,
         error: 'Não foi possível carregar o perfil: $e',
+        isPasswordRecovery: state.isPasswordRecovery,
+      );
+    }
+  }
+
+  Future<void> _handleAuthEvent(dynamic data) async {
+    final AuthChangeEvent event = data.event;
+    final bool isRecovery =
+        event == AuthChangeEvent.passwordRecovery;
+
+    if (isRecovery) {
+      state = state.copyWith(
+        isPasswordRecovery: true,
+        clearError: true,
       );
     }
 
-    _authSubscription =
-        _authService.authStateChanges.listen(
-      (data) async {
-        final event = data.event;
-        final isRecovery =
-            event == AuthChangeEvent.passwordRecovery;
+    final user = data.session?.user;
 
-        try {
-          final user = data.session?.user;
-
-          if (user == null) {
-            state = AuthState(
-              isPasswordRecovery: isRecovery,
-            );
-            return;
-          }
-
-          state = AuthState(
-            user: state.user,
-            isLoading: true,
-            isPasswordRecovery: isRecovery,
-          );
-
-          final profile = await _loadUserProfile(
-            user.id,
-            user.email ?? '',
-            user.userMetadata ?? <String, dynamic>{},
-          );
-
-          state = AuthState(
-            user: profile,
-            isPasswordRecovery: isRecovery,
-          );
-        } catch (e) {
-          state = AuthState(
-            isLoading: false,
-            error: 'Erro ao actualizar a sessão: $e',
-            isPasswordRecovery: isRecovery,
-          );
-        }
-      },
-      onError: (Object error) {
+    if (user == null) {
+      if (event == AuthChangeEvent.signedOut) {
+        state = const AuthState();
+      } else if (isRecovery) {
+        state = state.copyWith(isLoading: false);
+      } else if (event == AuthChangeEvent.initialSession) {
         state = AuthState(
-          isLoading: false,
-          error: 'Erro na autenticação: $error',
+          isPasswordRecovery: state.isPasswordRecovery,
         );
-      },
-    );
+      }
+      return;
+    }
+
+    try {
+      final profile = await _loadUserProfile(
+        user.id,
+        user.email ?? '',
+        user.userMetadata ?? <String, dynamic>{},
+      );
+
+      state = AuthState(
+        user: profile,
+        isPasswordRecovery:
+            isRecovery || state.isPasswordRecovery,
+      );
+    } catch (e) {
+      state = AuthState(
+        user: state.user,
+        isLoading: false,
+        error: 'Erro ao actualizar a sessão: $e',
+        isPasswordRecovery:
+            isRecovery || state.isPasswordRecovery,
+      );
+    }
   }
 
   Future<bool> login(
@@ -314,6 +335,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         user: state.user,
         isLoading: false,
         error: 'Não foi possível terminar a sessão: $e',
+        isPasswordRecovery: state.isPasswordRecovery,
       );
     }
   }
