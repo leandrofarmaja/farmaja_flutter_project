@@ -54,7 +54,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     this._authService,
     this._dbService,
   ) : super(const AuthState(isLoading: true)) {
-    // Começar a ouvir os eventos antes de carregar o perfil.
     _authSubscription =
         _authService.authStateChanges.listen(
       _handleAuthEvent,
@@ -104,7 +103,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return profile;
     }
 
-    // Alternativa em memória; não grava nem altera permissões.
     return _userFromMetadata(id, email, metadata);
   }
 
@@ -125,8 +123,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         currentUser.userMetadata ?? <String, dynamic>{},
       );
 
-      // Não substituir um evento de recuperação que tenha
-      // chegado enquanto o perfil estava a ser carregado.
       state = AuthState(
         user: profile,
         isPasswordRecovery: state.isPasswordRecovery,
@@ -318,6 +314,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: 'Não foi possível pedir a recuperação: $e',
       );
       return false;
+    }
+  }
+
+  Future<void> leavePasswordRecovery() async {
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+    );
+
+    try {
+      await _authService.signOut();
+      state = const AuthState();
+    } catch (e) {
+      state = AuthState(
+        user: state.user,
+        isLoading: false,
+        error:
+            'Não foi possível voltar ao início de sessão. Tente novamente.',
+        isPasswordRecovery: state.isPasswordRecovery,
+      );
+      rethrow;
     }
   }
 
