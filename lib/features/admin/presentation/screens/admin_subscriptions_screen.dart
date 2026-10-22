@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../core/constants/app_colors.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../pharmacies/domain/pharmacy_model.dart';
 import '../../../pharmacies/domain/pharmacy_payment_model.dart';
 import '../providers/admin_subscription_provider.dart';
@@ -12,13 +15,16 @@ class AdminSubscriptionsScreen extends ConsumerStatefulWidget {
   const AdminSubscriptionsScreen({super.key});
 
   @override
-  ConsumerState<AdminSubscriptionsScreen> createState() => _AdminSubscriptionsScreenState();
+  ConsumerState<AdminSubscriptionsScreen> createState() =>
+      _AdminSubscriptionsScreenState();
 }
 
-class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScreen>
+class _AdminSubscriptionsScreenState
+    extends ConsumerState<AdminSubscriptionsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String _selectedFilter = 'Todos'; // 'Todos', 'trial', 'active', 'expired', 'blocked'
+
+  String _selectedFilter = 'Todos';
   String _searchQuery = '';
 
   @override
@@ -33,13 +39,63 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
     super.dispose();
   }
 
+  // ============================================================
+  // TERMINAR SESSÃO
+  // ============================================================
+
+  Future<void> _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Terminar sessão'),
+        content: const Text(
+          'Queres sair do painel de administração do FARCLIK?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Sair'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    try {
+      await ref.read(authProvider.notifier).logout();
+
+      if (!mounted) return;
+
+      context.go('/login');
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Não foi possível terminar a sessão: $e',
+          ),
+        ),
+      );
+    }
+  }
+
+  // ============================================================
+  // GERIR SUBSCRIÇÃO
+  // ============================================================
+
   void _showChangeStatusDialog(PharmacyModel pharm) {
     String selectedStatus = pharm.subscriptionStatus;
     int extendMonths = 1;
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return AlertDialog(
@@ -48,58 +104,110 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Estado da Subscrição:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Estado da Subscrição:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     value: selectedStatus,
                     items: const [
-                      DropdownMenuItem(value: 'trial', child: Text('Trial Gratuito (3 Meses)')),
-                      DropdownMenuItem(value: 'active', child: Text('Ativo (Mensalidade Paga)')),
-                      DropdownMenuItem(value: 'expired', child: Text('Expirado (Aguarda Pagamento)')),
-                      DropdownMenuItem(value: 'blocked', child: Text('Bloqueado (Acesso Suspenso)')),
+                      DropdownMenuItem(
+                        value: 'trial',
+                        child: Text('Trial Gratuito (3 Meses)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'active',
+                        child: Text('Ativo (Mensalidade Paga)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'expired',
+                        child: Text('Expirado (Aguarda Pagamento)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'blocked',
+                        child: Text('Bloqueado (Acesso Suspenso)'),
+                      ),
                     ],
-                    onChanged: (val) => setModalState(() => selectedStatus = val!),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setModalState(() => selectedStatus = val);
+                      }
+                    },
                   ),
                   const SizedBox(height: 12),
                   if (selectedStatus == 'active') ...[
-                    const Text('Período de Renovação:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Período de Renovação:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     DropdownButtonFormField<int>(
                       value: extendMonths,
                       items: const [
-                        DropdownMenuItem(value: 1, child: Text('1 Mês (15.000 Kz)')),
-                        DropdownMenuItem(value: 3, child: Text('3 Meses (45.000 Kz)')),
-                        DropdownMenuItem(value: 6, child: Text('6 Meses (90.000 Kz)')),
-                        DropdownMenuItem(value: 12, child: Text('12 Meses (180.000 Kz)')),
+                        DropdownMenuItem(
+                          value: 1,
+                          child: Text('1 Mês (15.000 Kz)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 3,
+                          child: Text('3 Meses (45.000 Kz)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 6,
+                          child: Text('6 Meses (90.000 Kz)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 12,
+                          child: Text('12 Meses (180.000 Kz)'),
+                        ),
                       ],
-                      onChanged: (val) => setModalState(() => extendMonths = val!),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() => extendMonths = val);
+                        }
+                      },
                     ),
                   ],
                 ],
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('Cancelar'),
                 ),
                 FilledButton(
                   onPressed: () async {
                     DateTime? newDueDate;
+
                     if (selectedStatus == 'active') {
-                      newDueDate = DateTime.now().add(Duration(days: 30 * extendMonths));
+                      newDueDate = DateTime.now().add(
+                        Duration(days: 30 * extendMonths),
+                      );
                     } else if (selectedStatus == 'trial') {
-                      newDueDate = DateTime.now().add(const Duration(days: 90));
+                      newDueDate = DateTime.now().add(
+                        const Duration(days: 90),
+                      );
                     }
 
                     await ref
                         .read(adminSubscriptionProvider.notifier)
-                        .setPharmacyStatus(pharm.id, selectedStatus, customDueDate: newDueDate);
+                        .setPharmacyStatus(
+                          pharm.id,
+                          selectedStatus,
+                          customDueDate: newDueDate,
+                        );
 
-                    if (mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Subscrição de ${pharm.name} atualizada!')),
-                      );
-                    }
+                    if (!mounted) return;
+
+                    Navigator.pop(dialogContext);
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Subscrição de ${pharm.name} atualizada!',
+                        ),
+                      ),
+                    );
                   },
                   child: const Text('Guardar Alterações'),
                 ),
@@ -111,12 +219,16 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
     );
   }
 
+  // ============================================================
+  // VALIDAR COMPROVATIVO
+  // ============================================================
+
   void _showProofDialog(PharmacyPaymentModel pay) {
     int extendMonths = pay.periodMonths;
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: Text('Validar Comprovativo: ${pay.pharmacyName}'),
           content: SingleChildScrollView(
@@ -124,7 +236,13 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Valor: ${pay.amount.toInt()} Kz', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                Text(
+                  'Valor: ${pay.amount.toInt()} Kz',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
                 Text('Método: ${pay.paymentMethod}'),
                 Text('Referência: ${pay.referenceNumber ?? 'N/A'}'),
                 if (pay.notes != null) Text('Obs: ${pay.notes}'),
@@ -136,11 +254,17 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
                     height: 200,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stack) => Container(
-                      height: 120,
-                      color: Colors.grey.shade200,
-                      child: const Center(child: Text('Comprovativo de transferência em anexo')),
-                    ),
+                    errorBuilder: (context, error, stack) {
+                      return Container(
+                        height: 120,
+                        color: Colors.grey.shade200,
+                        child: const Center(
+                          child: Text(
+                            'Comprovativo de transferência em anexo',
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -151,23 +275,36 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
               onPressed: () async {
                 await ref
                     .read(adminSubscriptionProvider.notifier)
-                    .rejectPayment(pay.id, 'Comprovativo inválido ou valor incorreto');
-                if (mounted) Navigator.pop(context);
+                    .rejectPayment(
+                      pay.id,
+                      'Comprovativo inválido ou valor incorreto',
+                    );
+
+                if (!mounted) return;
+                Navigator.pop(dialogContext);
               },
-              style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
               child: const Text('Rejeitar'),
             ),
             FilledButton(
               onPressed: () async {
-                await ref.read(adminSubscriptionProvider.notifier).approvePayment(
+                await ref
+                    .read(adminSubscriptionProvider.notifier)
+                    .approvePayment(
                       pay.id,
                       pay.pharmacyId,
                       extendMonths,
                     );
-                if (mounted) Navigator.pop(context);
+
+                if (!mounted) return;
+                Navigator.pop(dialogContext);
               },
-              style: FilledButton.styleFrom(backgroundColor: Colors.green),
-              child: const Text('Aprovar (Aprovar 15.000 Kz)'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.green,
+              ),
+              child: const Text('Aprovar (15.000 Kz)'),
             ),
           ],
         );
@@ -175,19 +312,36 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
     );
   }
 
+  // ============================================================
+  // ECRÃ PRINCIPAL
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(adminSubscriptionProvider);
     final reviewsState = ref.watch(adminReviewsProvider);
-    final pendingModCount = reviewsState.pendingModerationReviews.length;
+    final pendingModCount =
+        reviewsState.pendingModerationReviews.length;
 
     return Scaffold(
       appBar: AppBar(
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Painel Geral de Administração', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-            Text('FarmaJá Angola 🇦🇴 • Subscrições & Moderação', style: TextStyle(fontSize: 11, color: AppColors.textSecondaryLight)),
+            Text(
+              'Painel Geral de Administração',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            Text(
+              'FARCLIK Angola 🇦🇴 • Subscrições & Moderação',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondaryLight,
+              ),
+            ),
           ],
         ),
         actions: [
@@ -195,9 +349,19 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Atualizar Dados',
             onPressed: () {
-              ref.read(adminSubscriptionProvider.notifier).loadAdminData();
-              ref.read(adminReviewsProvider.notifier).loadReviewsData();
+              ref
+                  .read(adminSubscriptionProvider.notifier)
+                  .loadAdminData();
+
+              ref
+                  .read(adminReviewsProvider.notifier)
+                  .loadReviewsData();
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Terminar sessão',
+            onPressed: _logout,
           ),
         ],
         bottom: TabBar(
@@ -214,7 +378,9 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
                   const Text('Pagamentos'),
                   if (state.pendingPaymentsCount > 0) ...[
                     const SizedBox(width: 6),
-                    Badge(label: Text('${state.pendingPaymentsCount}')),
+                    Badge(
+                      label: Text('${state.pendingPaymentsCount}'),
+                    ),
                   ],
                 ],
               ),
@@ -251,21 +417,29 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
     );
   }
 
+  // ============================================================
+  // SEPARADOR FARMÁCIAS
+  // ============================================================
+
   Widget _buildPharmaciesTab(AdminSubscriptionState state) {
     final filtered = state.pharmacies.where((p) {
-      if (_selectedFilter != 'Todos' && p.subscriptionStatus != _selectedFilter) {
+      if (_selectedFilter != 'Todos' &&
+          p.subscriptionStatus != _selectedFilter) {
         return false;
       }
+
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
-        return p.name.toLowerCase().contains(q) || p.province.toLowerCase().contains(q);
+
+        return p.name.toLowerCase().contains(q) ||
+            p.province.toLowerCase().contains(q);
       }
+
       return true;
     }).toList();
 
     return Column(
       children: [
-        // KPI Summary Bar
         Container(
           padding: const EdgeInsets.all(12),
           color: Colors.grey.shade50,
@@ -275,30 +449,44 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
               const SizedBox(width: 8),
               _buildKpiChip('Ativos', state.activeCount, Colors.green),
               const SizedBox(width: 8),
-              _buildKpiChip('Expirados', state.expiredCount, Colors.amber.shade800),
+              _buildKpiChip(
+                'Expirados',
+                state.expiredCount,
+                Colors.amber.shade800,
+              ),
               const SizedBox(width: 8),
-              _buildKpiChip('Bloqueados', state.blockedCount, Colors.red),
+              _buildKpiChip(
+                'Bloqueados',
+                state.blockedCount,
+                Colors.red,
+              ),
             ],
           ),
         ),
-
-        // Filter chips and Search
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
           child: Column(
             children: [
               TextField(
                 decoration: InputDecoration(
-                  hintText: 'Pesquisar farmácia por nome ou província...',
+                  hintText:
+                      'Pesquisar farmácia por nome ou província...',
                   prefixIcon: const Icon(Icons.search_rounded),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear),
-                          onPressed: () => setState(() => _searchQuery = ''),
+                          onPressed: () {
+                            setState(() => _searchQuery = '');
+                          },
                         )
                       : null,
                 ),
-                onChanged: (val) => setState(() => _searchQuery = val),
+                onChanged: (val) {
+                  setState(() => _searchQuery = val);
+                },
               ),
               const SizedBox(height: 8),
               SingleChildScrollView(
@@ -308,31 +496,41 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
                     FilterChip(
                       label: const Text('Todos'),
                       selected: _selectedFilter == 'Todos',
-                      onSelected: (_) => setState(() => _selectedFilter = 'Todos'),
+                      onSelected: (_) {
+                        setState(() => _selectedFilter = 'Todos');
+                      },
                     ),
                     const SizedBox(width: 8),
                     FilterChip(
                       label: const Text('Trial Gratuito (3M)'),
                       selected: _selectedFilter == 'trial',
-                      onSelected: (_) => setState(() => _selectedFilter = 'trial'),
+                      onSelected: (_) {
+                        setState(() => _selectedFilter = 'trial');
+                      },
                     ),
                     const SizedBox(width: 8),
                     FilterChip(
                       label: const Text('Ativos (15.000 Kz)'),
                       selected: _selectedFilter == 'active',
-                      onSelected: (_) => setState(() => _selectedFilter = 'active'),
+                      onSelected: (_) {
+                        setState(() => _selectedFilter = 'active');
+                      },
                     ),
                     const SizedBox(width: 8),
                     FilterChip(
                       label: const Text('Expirados'),
                       selected: _selectedFilter == 'expired',
-                      onSelected: (_) => setState(() => _selectedFilter = 'expired'),
+                      onSelected: (_) {
+                        setState(() => _selectedFilter = 'expired');
+                      },
                     ),
                     const SizedBox(width: 8),
                     FilterChip(
                       label: const Text('Bloqueados'),
                       selected: _selectedFilter == 'blocked',
-                      onSelected: (_) => setState(() => _selectedFilter = 'blocked'),
+                      onSelected: (_) {
+                        setState(() => _selectedFilter = 'blocked');
+                      },
                     ),
                   ],
                 ),
@@ -340,47 +538,79 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
             ],
           ),
         ),
-
-        // Pharmacies list
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: filtered.length,
             itemBuilder: (context, index) {
               final pharm = filtered[index];
+
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: _getStatusColor(pharm.subscriptionStatus).withOpacity(0.15),
+                    backgroundColor: _getStatusColor(
+                      pharm.subscriptionStatus,
+                    ).withOpacity(0.15),
                     child: Icon(
                       _getStatusIcon(pharm.subscriptionStatus),
                       color: _getStatusColor(pharm.subscriptionStatus),
                     ),
                   ),
-                  title: Text(pharm.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(
+                    pharm.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('${pharm.province} • ${pharm.district}'),
                       if (pharm.subscriptionStatus == 'trial')
-                        Text('Trial de 3 Meses: Restam ${pharm.daysLeftInTrial} dias',
-                            style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold))
+                        Text(
+                          'Trial de 3 Meses: Restam '
+                          '${pharm.daysLeftInTrial} dias',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
                       else if (pharm.subscriptionStatus == 'active')
-                        Text('Próximo Pagamento: em ${pharm.daysUntilPaymentDue} dias (15.000 Kz/mês)',
-                            style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold))
+                        Text(
+                          'Próximo Pagamento: em '
+                          '${pharm.daysUntilPaymentDue} dias '
+                          '(15.000 Kz/mês)',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
                       else
-                        Text('Subscrição Expirada / Acesso Suspenso',
-                            style: const TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold)),
+                        const Text(
+                          'Subscrição Expirada / Acesso Suspenso',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                     ],
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(pharm.subscriptionStatus).withOpacity(0.15),
+                          color: _getStatusColor(
+                            pharm.subscriptionStatus,
+                          ).withOpacity(0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -388,14 +618,21 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: _getStatusColor(pharm.subscriptionStatus),
+                            color: _getStatusColor(
+                              pharm.subscriptionStatus,
+                            ),
                           ),
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.edit_note_rounded, color: AppColors.primary),
+                        icon: const Icon(
+                          Icons.edit_note_rounded,
+                          color: AppColors.primary,
+                        ),
                         tooltip: 'Gerir Subscrição',
-                        onPressed: () => _showChangeStatusDialog(pharm),
+                        onPressed: () {
+                          _showChangeStatusDialog(pharm);
+                        },
                       ),
                     ],
                   ),
@@ -408,10 +645,16 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
     );
   }
 
+  // ============================================================
+  // SEPARADOR PAGAMENTOS
+  // ============================================================
+
   Widget _buildPaymentsTab(AdminSubscriptionState state) {
     if (state.payments.isEmpty) {
       return const Center(
-        child: Text('Nenhum comprovativo de pagamento registado.'),
+        child: Text(
+          'Nenhum comprovativo de pagamento registado.',
+        ),
       );
     }
 
@@ -433,22 +676,48 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(pay.pharmacyName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(
+                      pay.pharmacyName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                     Chip(
                       label: Text(
-                        isApproved ? 'Aprovado' : (isPending ? 'Pendente' : 'Rejeitado'),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                        isApproved
+                            ? 'Aprovado'
+                            : (isPending ? 'Pendente' : 'Rejeitado'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
                       ),
-                      backgroundColor: isApproved ? Colors.green : (isPending ? Colors.amber.shade900 : Colors.red),
+                      backgroundColor: isApproved
+                          ? Colors.green
+                          : (isPending ? Colors.amber.shade900 : Colors.red),
                     ),
                   ],
                 ),
-                Text('Valor: ${pay.amount.toInt()} Kz (Mensalidade)', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                Text(
+                  'Valor: ${pay.amount.toInt()} Kz (Mensalidade)',
+                  style: const TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 Text('Método: ${pay.paymentMethod}'),
                 Text('Referência: ${pay.referenceNumber ?? 'N/A'}'),
-                if (pay.notes != null) Text('Obs: ${pay.notes}', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+                if (pay.notes != null)
+                  Text(
+                    'Obs: ${pay.notes}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
                 const SizedBox(height: 12),
-
                 if (isPending)
                   Align(
                     alignment: Alignment.centerRight,
@@ -466,19 +735,42 @@ class _AdminSubscriptionsScreenState extends ConsumerState<AdminSubscriptionsScr
     );
   }
 
+  // ============================================================
+  // INDICADORES
+  // ============================================================
+
   Widget _buildKpiChip(String label, int count, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        padding: const EdgeInsets.symmetric(
+          vertical: 8,
+          horizontal: 8,
+        ),
         decoration: BoxDecoration(
           color: color.withOpacity(0.12),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(
+            color: color.withOpacity(0.3),
+          ),
         ),
         child: Column(
           children: [
-            Text('$count', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: color)),
-            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color.withOpacity(0.8))),
+            Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: color.withOpacity(0.8),
+              ),
+            ),
           ],
         ),
       ),
