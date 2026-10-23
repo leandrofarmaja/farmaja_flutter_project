@@ -20,8 +20,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   bool _acceptedPrivacy = false;
   bool _submitted = false;
 
@@ -38,6 +40,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -86,6 +89,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     if (value.length < 6) {
       return 'Utilize pelo menos 6 caracteres.';
+    }
+
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Repita a palavra-passe.';
+    }
+
+    if (value != _passwordController.text) {
+      return 'As palavras-passe não coincidem.';
     }
 
     return null;
@@ -169,76 +184,97 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     setState(() => _submitted = true);
 
-    final success = await ref.read(authProvider.notifier).register(
-          fullName: _fullNameController.text.trim(),
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-          phone: _phoneController.text.trim(),
+    try {
+      final success =
+          await ref.read(authProvider.notifier).register(
+        fullName: _fullNameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        phone: _phoneController.text.trim(),
+        province: '',
+        district: '',
+        role: 'customer',
+      );
 
-          // Mantém a compatibilidade com o AuthNotifier actual.
-          // A localização será definida na pesquisa.
-          province: '',
-          district: '',
-          role: 'customer',
+      if (!mounted) return;
+
+      setState(() => _submitted = false);
+
+      final authState = ref.read(authProvider);
+
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              authState.error ??
+                  'Não foi possível criar a conta. '
+                      'Tente novamente.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 6),
+          ),
         );
+        return;
+      }
 
-    if (!mounted) return;
+      if (authState.user != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Conta criada com sucesso!'),
+            backgroundColor: _green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        context.go('/home');
+        return;
+      }
 
-    setState(() => _submitted = false);
+      // O Supabase pode exigir confirmação do email
+      // antes de permitir o início de sessão.
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return AlertDialog(
+            icon: const Icon(
+              Icons.mark_email_read_outlined,
+              color: _green,
+              size: 42,
+            ),
+            title: const Text('Conta criada com sucesso!'),
+            content: Text(
+              'O registo foi aceite para ${_emailController.text.trim()}. '
+              'Se a confirmação de email estiver activa, '
+              'abra a mensagem recebida e confirme a conta '
+              'antes de iniciar sessão. Verifique também '
+              'a pasta de spam.',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () =>
+                    Navigator.of(dialogContext).pop(),
+                child: const Text('Ir para o início de sessão'),
+              ),
+            ],
+          );
+        },
+      );
 
-    final authState = ref.read(authProvider);
+      if (!mounted) return;
+      context.go('/login');
+    } catch (e) {
+      if (!mounted) return;
 
-    if (!success) {
+      setState(() => _submitted = false);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            authState.error ??
-                'Não foi possível concluir o registo. '
-                    'Tente novamente.',
-          ),
+          content: Text('Erro ao criar conta: $e'),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 6),
         ),
       );
-      return;
     }
-
-    if (authState.user != null) {
-      context.go('/home');
-      return;
-    }
-
-    // Registo concluído, mas sem sessão: pode exigir
-    // confirmação do endereço de e-mail.
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          icon: const Icon(
-            Icons.mark_email_read_outlined,
-            color: _green,
-            size: 42,
-          ),
-          title: const Text('Verifique o seu e-mail'),
-          content: const Text(
-            'Se a confirmação de e-mail estiver activa, '
-            'abra a mensagem enviada pelo FARCLIK e '
-            'confirme a sua conta antes de iniciar sessão.',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(),
-              child: const Text('Continuar'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (!mounted) return;
-    context.go('/login');
   }
 
   Widget _sectionTitle(
@@ -291,7 +327,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
-                    onPressed: () => context.go('/login'),
+                    onPressed: isLoading
+                        ? null
+                        : () => context.go('/login'),
                     tooltip: 'Voltar ao início de sessão',
                     icon: const Icon(Icons.arrow_back_rounded),
                     color: _navy,
@@ -303,9 +341,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 Center(
                   child: Container(
                     width: 94,
@@ -335,9 +371,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 const Text(
                   'Crie a sua conta',
                   textAlign: TextAlign.center,
@@ -348,9 +382,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     letterSpacing: -0.6,
                   ),
                 ),
-
                 const SizedBox(height: 9),
-
                 const Text(
                   'Encontre farmácias, compare preços, '
                   'consulte medicamentos e faça reservas '
@@ -362,21 +394,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     height: 1.6,
                   ),
                 ),
-
                 const SizedBox(height: 28),
-
                 _sectionTitle(
                   'Os seus dados',
                   subtitle:
                       'Preencha os campos para criar a sua conta.',
                 ),
-
                 const SizedBox(height: 14),
-
                 TextFormField(
                   controller: _fullNameController,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
+                  enabled: !isLoading,
                   decoration: _decoration(
                     label: 'Nome completo *',
                     icon: Icons.person_outline_rounded,
@@ -384,15 +413,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   validator: (value) =>
                       _requiredValidator(value, 'o nome completo'),
                 ),
-
                 const SizedBox(height: 16),
-
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                   autocorrect: false,
                   enableSuggestions: false,
+                  enabled: !isLoading,
                   decoration: _decoration(
                     label: 'E-mail *',
                     hint: 'exemplo@email.com',
@@ -400,13 +428,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   validator: _validateEmail,
                 ),
-
                 const SizedBox(height: 16),
-
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.next,
+                  enabled: !isLoading,
                   decoration: _decoration(
                     label: 'Telefone / WhatsApp *',
                     hint: '+244 923 123 456',
@@ -414,24 +441,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   validator: _validatePhone,
                 ),
-
                 const SizedBox(height: 24),
-
                 _sectionTitle(
                   'Segurança da conta',
                   subtitle:
-                      'Utilize uma palavra-passe com pelo menos '
-                      '6 caracteres.',
+                      'Utilize pelo menos 6 caracteres e '
+                      'repita a palavra-passe para confirmar.',
                 ),
-
                 const SizedBox(height: 14),
-
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   enableSuggestions: false,
                   autocorrect: false,
-                  textInputAction: TextInputAction.done,
+                  enabled: !isLoading,
+                  textInputAction: TextInputAction.next,
                   decoration: _decoration(
                     label: 'Palavra-passe *',
                     icon: Icons.lock_outline_rounded,
@@ -439,11 +463,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       tooltip: _obscurePassword
                           ? 'Mostrar palavra-passe'
                           : 'Ocultar palavra-passe',
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
+                      onPressed: isLoading
+                          ? null
+                          : () {
+                              setState(() {
+                                _obscurePassword =
+                                    !_obscurePassword;
+                              });
+                            },
                       icon: Icon(
                         _obscurePassword
                             ? Icons.visibility_outlined
@@ -453,13 +480,44 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ),
                   validator: _validatePassword,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: _obscureConfirmPassword,
+                  enableSuggestions: false,
+                  autocorrect: false,
+                  enabled: !isLoading,
+                  textInputAction: TextInputAction.done,
+                  decoration: _decoration(
+                    label: 'Confirmar palavra-passe *',
+                    icon: Icons.lock_outline_rounded,
+                    suffixIcon: IconButton(
+                      tooltip: _obscureConfirmPassword
+                          ? 'Mostrar confirmação'
+                          : 'Ocultar confirmação',
+                      onPressed: isLoading
+                          ? null
+                          : () {
+                              setState(() {
+                                _obscureConfirmPassword =
+                                    !_obscureConfirmPassword;
+                              });
+                            },
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: _muted,
+                      ),
+                    ),
+                  ),
+                  validator: _validateConfirmPassword,
                   onFieldSubmitted: (_) {
                     if (!isLoading) _handleRegister();
                   },
                 ),
-
                 const SizedBox(height: 22),
-
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -537,9 +595,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 22),
-
                 SizedBox(
                   height: 55,
                   child: FilledButton(
@@ -587,9 +643,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                   ),
                 ),
-
                 const SizedBox(height: 19),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -617,9 +671,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 15),
-
                 const Text(
                   'FARCLIK · Farmácias e Medicamentos em Angola',
                   textAlign: TextAlign.center,
