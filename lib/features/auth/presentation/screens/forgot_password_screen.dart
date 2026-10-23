@@ -1,6 +1,8 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/constants/app_colors.dart';
 import '../providers/auth_provider.dart';
 
@@ -8,24 +10,45 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
+class _ForgotPasswordScreenState
+    extends ConsumerState<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
+
   bool _isLoading = false;
   String? _message;
   String? _error;
 
-  void _handleResetPassword() async {
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  bool _isValidEmail(String email) {
+    return RegExp(
+      r'^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$',
+      caseSensitive: false,
+    ).hasMatch(email);
+  }
+
+  Future<void> _handleResetPassword() async {
+    if (_isLoading) return;
+
     final email = _emailController.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
+
+    if (!_isValidEmail(email)) {
       setState(() {
-        _error = 'Por favor insira um e-mail válido.';
+        _error = 'Introduza um endereço de e-mail válido.';
         _message = null;
       });
       return;
     }
+
+    FocusScope.of(context).unfocus();
 
     setState(() {
       _isLoading = true;
@@ -34,26 +57,41 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     });
 
     try {
-      final success = await ref.read(authProvider.notifier).resetPassword(email);
-      if (mounted) {
-        if (success) {
-          setState(() {
-            _isLoading = false;
-            _message = 'Enviámos as instruções de recuperação para o e-mail $email via Supabase Auth.';
-          });
-        } else {
-          final errState = ref.read(authProvider).error;
-          setState(() {
-            _isLoading = false;
-            _error = errState ?? 'Erro ao solicitar recuperação de palavra-passe.';
-          });
-        }
+      final success = await ref
+          .read(authProvider.notifier)
+          .resetPassword(email);
+
+      if (!mounted) return;
+
+      if (success) {
+        setState(() {
+          _message =
+              'Se existir uma conta associada a $email, '
+              'poderá receber instruções para recuperar '
+              'a palavra-passe. Verifique também a pasta '
+              'de spam ou correio não solicitado.';
+        });
+      } else {
+        final errorMessage = ref.read(authProvider).error;
+
+        setState(() {
+          _error = errorMessage ??
+              'Não foi possível processar o pedido. '
+                  'Tente novamente mais tarde.';
+        });
       }
     } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _error =
+            'Ocorreu um erro ao solicitar a recuperação. '
+            'Verifique a ligação à Internet e tente novamente.';
+      });
+    } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _error = e.toString();
         });
       }
     }
@@ -63,7 +101,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recuperar Palavra-passe'),
+        title: const Text('Recuperar palavra-passe'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/login'),
@@ -71,7 +109,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -82,7 +120,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Esqueceu a Palavra-passe?',
+                'Esqueceu a palavra-passe?',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 24,
@@ -91,7 +129,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Insira o seu e-mail registado para receber a hiperligação de redefinição de palavra-passe do Supabase.',
+                'Introduza o endereço de e-mail associado '
+                'à sua conta para solicitar a recuperação '
+                'da palavra-passe.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.textSecondaryLight,
@@ -99,6 +139,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 ),
               ),
               const SizedBox(height: 32),
+
               if (_message != null)
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -106,11 +147,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.primaryLight.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.primary),
+                    border: Border.all(
+                      color: AppColors.primary,
+                    ),
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.check_circle, color: AppColors.primary),
+                      const Icon(
+                        Icons.info_outline,
+                        color: AppColors.primary,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -125,6 +172,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     ],
                   ),
                 ),
+
               if (_error != null)
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -132,36 +180,74 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   decoration: BoxDecoration(
                     color: Colors.red.shade50,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red.shade200),
+                    border: Border.all(
+                      color: Colors.red.shade200,
+                    ),
                   ),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.red, fontSize: 13),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.red.shade700,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.done,
+                autocorrect: false,
+                enableSuggestions: false,
+                onSubmitted: (_) {
+                  if (!_isLoading) {
+                    _handleResetPassword();
+                  }
+                },
                 decoration: const InputDecoration(
-                  labelText: 'E-mail Registado',
+                  labelText: 'Endereço de e-mail',
+                  hintText: 'exemplo@email.com',
                   prefixIcon: Icon(Icons.email_outlined),
+                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 24),
+
               FilledButton(
-                onPressed: _isLoading ? null : _handleResetPassword,
+                onPressed:
+                    _isLoading ? null : _handleResetPassword,
                 child: _isLoading
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
-                    : const Text('Enviar E-mail de Recuperação'),
+                    : const Text(
+                        'Solicitar recuperação',
+                      ),
               ),
               const SizedBox(height: 16),
+
               TextButton(
-                onPressed: () => context.go('/login'),
-                child: const Text('Voltar ao Login'),
+                onPressed: _isLoading
+                    ? null
+                    : () => context.go('/login'),
+                child: const Text('Voltar ao início de sessão'),
               ),
             ],
           ),
