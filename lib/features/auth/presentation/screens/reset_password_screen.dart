@@ -2,9 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/supabase_auth_service.dart';
 import '../providers/auth_provider.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
@@ -52,19 +52,19 @@ class _ResetPasswordScreenState
       if (!mounted) return;
 
       context.go('/login');
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
 
       setState(() {
         _leaving = false;
-        _error =
-            'Não foi possível voltar ao início de sessão. '
-            'Verifique a ligação e tente novamente.';
+        _error = 'Não foi possível voltar ao início de sessão: $e';
       });
     }
   }
 
   Future<void> _updatePassword() async {
+    if (_loading || _leaving) return;
+
     final password = _passwordController.text;
     final confirm = _confirmController.text;
 
@@ -92,45 +92,25 @@ class _ResetPasswordScreenState
     });
 
     try {
-      final client = Supabase.instance.client;
+      final authService =
+          ref.read(supabaseAuthServiceProvider);
 
-      if (client.auth.currentSession == null) {
-        throw const AuthException(
-          'A sessão de recuperação não está ativa. '
+      if (authService.currentSession == null) {
+        throw Exception(
+          'A sessão de recuperação não está activa. '
           'Solicite um novo e-mail de recuperação.',
         );
       }
 
-      await client.auth.updateUser(
-        UserAttributes(password: password),
-      );
-
-      await ref
-          .read(authProvider.notifier)
-          .logout();
+      await authService.updatePassword(password);
 
       if (!mounted) return;
 
       setState(() {
         _loading = false;
         _message =
-            'Palavra-passe atualizada. Já pode entrar '
-            'com a nova palavra-passe.';
-      });
-
-      await Future<void>.delayed(
-        const Duration(milliseconds: 1200),
-      );
-
-      if (mounted) {
-        context.go('/login');
-      }
-    } on AuthException catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _loading = false;
-        _error = e.message;
+            'Palavra-passe actualizada com sucesso. '
+            'Já pode entrar com a nova palavra-passe.';
       });
     } catch (e) {
       if (!mounted) return;
@@ -138,7 +118,35 @@ class _ResetPasswordScreenState
       setState(() {
         _loading = false;
         _error =
-            'Não foi possível atualizar a palavra-passe: $e';
+            'Não foi possível actualizar a palavra-passe. '
+            'Detalhes: $e';
+      });
+      return;
+    }
+
+    await Future<void>.delayed(
+      const Duration(seconds: 2),
+    );
+
+    if (!mounted) return;
+
+    try {
+      await ref
+          .read(authProvider.notifier)
+          .leavePasswordRecovery();
+
+      if (!mounted) return;
+
+      context.go('/login');
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _error =
+            'A palavra-passe foi actualizada, mas não foi '
+            'possível terminar a sessão automaticamente. '
+            'Pode voltar ao início de sessão manualmente. '
+            'Detalhes: $e';
       });
     }
   }
