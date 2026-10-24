@@ -60,7 +60,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = AuthState(
           user: state.user,
           isLoading: false,
-          error: 'Erro na autenticação: $error',
+          error: 'Ocorreu um erro no estado da autenticação.',
           isPasswordRecovery: state.isPasswordRecovery,
         );
       },
@@ -69,40 +69,54 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _initAuth();
   }
 
-  UserModel _userFromMetadata(
-    String id,
-    String email,
-    Map<String, dynamic> metadata,
-  ) {
-    return UserModel(
-      id: id,
-      email: email,
-      fullName: (metadata['full_name'] ??
-              metadata['fullName'] ??
-              '')
-          .toString(),
-      phone: (metadata['phone'] ?? '').toString(),
-      province: (metadata['province'] ?? '').toString(),
-      district: (metadata['district'] ?? '').toString(),
-      insuranceProvider:
-          metadata['insurance_provider']?.toString(),
-      role: 'customer',
-      pharmacyName: null,
-    );
-  }
+  static const Set<String> _validRoles = {
+    'customer',
+    'pharmacy',
+    'admin',
+  };
 
-  Future<UserModel> _loadUserProfile(
-    String id,
-    String email,
-    Map<String, dynamic> metadata,
-  ) async {
+  /// Carrega exclusivamente o perfil persistido no Supabase.
+  ///
+  /// Não cria um perfil fictício a partir dos metadados
+  /// nem transforma automaticamente uma conta em cliente.
+  Future<UserModel> _loadUserProfile(String id) async {
     final profile = await _dbService.getUserProfile(id);
 
-    if (profile != null) {
-      return profile;
+    if (profile == null) {
+      throw StateError(
+        'O perfil desta conta não existe em public.profiles.',
+      );
     }
 
-    return _userFromMetadata(id, email, metadata);
+    if (profile.id != id) {
+      throw StateError(
+        'O perfil devolvido não corresponde à conta autenticada.',
+      );
+    }
+
+    final role = profile.role.trim().toLowerCase();
+
+    if (!_validRoles.contains(role)) {
+      throw StateError(
+        'O perfil não tem uma função válida autorizada.',
+      );
+    }
+
+    if (role != profile.role) {
+      return UserModel(
+        id: profile.id,
+        email: profile.email,
+        fullName: profile.fullName,
+        phone: profile.phone,
+        province: profile.province,
+        district: profile.district,
+        insuranceProvider: profile.insuranceProvider,
+        role: role,
+        pharmacyName: profile.pharmacyName,
+      );
+    }
+
+    return profile;
   }
 
   Future<void> _initAuth() async {
@@ -116,21 +130,32 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return;
       }
 
-      final profile = await _loadUserProfile(
-        currentUser.id,
-        currentUser.email ?? '',
-        currentUser.userMetadata ?? <String, dynamic>{},
-      );
+      final profile = await _loadUserProfile(currentUser.id);
 
       state = AuthState(
         user: profile,
         isPasswordRecovery: state.isPasswordRecovery,
       );
     } catch (e) {
+      final recovery = state.isPasswordRecovery;
+
+      // Nunca terminar uma sessão de recuperação da palavra-passe
+      // apenas porque o perfil não pôde ser carregado.
+      if (!recovery && _authService.currentUser != null) {
+        try {
+          await _authService.signOut();
+        } catch (_) {
+          // O acesso continua bloqueado pelo estado sem utilizador.
+        }
+      }
+
       state = AuthState(
         isLoading: false,
-        error: 'Não foi possível carregar o perfil: $e',
-        isPasswordRecovery: state.isPasswordRecovery,
+        error: recovery
+            ? null
+            : 'Não foi possível validar o perfil desta conta. '
+                'Contacte o suporte FARCLIK.',
+        isPasswordRecovery: recovery,
       );
     }
   }
@@ -163,11 +188,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
 
     try {
-      final profile = await _loadUserProfile(
-        user.id,
-        user.email ?? '',
-        user.userMetadata ?? <String, dynamic>{},
-      );
+      final profile = await _loadUserProfile(user.id);
 
       state = AuthState(
         user: profile,
@@ -175,10 +196,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
             isRecovery || state.isPasswordRecovery,
       );
     } catch (e) {
+      // Preserva o fluxo de recuperação, sem conceder acesso
+      // a áreas de cliente, farmácia ou administração.
       state = AuthState(
-        user: state.user,
         isLoading: false,
-        error: 'Erro ao actualizar a sessão: $e',
+        error: (isRecovery || state.isPasswordRecovery)
+            ? null
+            : 'Não foi possível validar o perfil desta conta. '
+                'Contacte o suporte FARCLIK.',
         isPasswordRecovery:
             isRecovery || state.isPasswordRecovery,
       );
@@ -205,25 +230,32 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (user == null) {
         state = const AuthState(
-          error:
-              'O Supabase não devolveu um utilizador autenticado.',
+          error: 'Não foi possível confirmar a conta autenticada.',
         );
         return false;
       }
 
-      final profile = await _loadUserProfile(
-        user.id,
-        user.email ?? email.trim(),
-        user.userMetadata ?? <String, dynamic>{},
-      );
+      final profile = await _loadUserProfile(user.id);
 
       state = AuthState(user: profile);
       return true;
     } catch (e) {
-      state = AuthState(
-        isLoading: false,
-        error: 'Não foi possível iniciar sessão: $e',
+      // Uma conta sem perfil válido não deve permanecer
+      // autenticada na aplicação como se fosse um cliente.
+      try {
+        if (_authService.currentUser != null) {
+          await _authService.signOut();
+        }
+      } catch (_) {
+        // O estado abaixo continua sem conceder acesso.
+      }
+
+      state = const AuthState(
+        error: 'Não foi possível validar a conta. '
+            'Confirma se o perfil está correctamente configurado '
+            'e tenta novamente.',
       );
+
       return false;
     }
   }
@@ -245,9 +277,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     if (role != 'customer') {
       state = const AuthState(
-        error:
-            'O registo público de farmácias ainda não está disponível. '
-            'A activação de uma farmácia exige aprovação.',
+        error: 'O registo público de farmácias ainda não está '
+            'disponível. A activação de uma farmácia exige aprovação.',
       );
       return false;
     }
@@ -266,9 +297,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (response.user == null) {
         state = const AuthState(
-          error:
-              'O Supabase não devolveu um utilizador. '
-              'Verifica a configuração do registo e a confirmação do email.',
+          error: 'O Supabase não devolveu um utilizador. '
+              'Verifica a configuração do registo e a confirmação '
+              'do email.',
         );
         return false;
       }
@@ -276,22 +307,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (response.session != null) {
         final user = response.user!;
 
-        final profile = await _loadUserProfile(
-          user.id,
-          user.email ?? email.trim(),
-          user.userMetadata ?? <String, dynamic>{},
-        );
+        try {
+          final profile = await _loadUserProfile(user.id);
+          state = AuthState(user: profile);
+        } catch (_) {
+          try {
+            await _authService.signOut();
+          } catch (_) {
+            // Não atribuir um papel fictício ao utilizador.
+          }
 
-        state = AuthState(user: profile);
+          state = const AuthState(
+            error: 'A conta foi criada, mas o perfil ainda não '
+                'está disponível. Confirma a criação do perfil '
+                'no Supabase antes de iniciar sessão.',
+          );
+
+          return false;
+        }
       } else {
         state = const AuthState();
       }
 
       return true;
     } catch (e) {
-      state = AuthState(
-        isLoading: false,
-        error: 'Não foi possível concluir o registo: $e',
+      state = const AuthState(
+        error: 'Não foi possível concluir o registo. '
+            'Verifica os dados e tenta novamente.',
       );
       return false;
     }
@@ -306,9 +348,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await _authService.resetPasswordForEmail(email.trim());
 
-      // O envio do email não altera a sessão autenticada.
-      // Mantém o estado actual sem provocar um redireccionamento
-      // desnecessário no router.
       state = state.copyWith(
         isLoading: false,
         clearError: true,
@@ -318,7 +357,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Não foi possível pedir a recuperação: $e',
+        error: 'Não foi possível pedir a recuperação. '
+            'Tenta novamente.',
       );
       return false;
     }
@@ -337,8 +377,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(
         user: state.user,
         isLoading: false,
-        error:
-            'Não foi possível voltar ao início de sessão. Tente novamente.',
+        error: 'Não foi possível voltar ao início de sessão. '
+            'Tenta novamente.',
         isPasswordRecovery: state.isPasswordRecovery,
       );
       rethrow;
@@ -358,7 +398,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(
         user: state.user,
         isLoading: false,
-        error: 'Não foi possível terminar a sessão: $e',
+        error: 'Não foi possível terminar a sessão. '
+            'Tenta novamente.',
         isPasswordRecovery: state.isPasswordRecovery,
       );
     }
