@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,6 +21,7 @@ class _ResetPasswordScreenState
 
   bool _loading = false;
   bool _leaving = false;
+  bool _passwordUpdated = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
@@ -41,7 +41,6 @@ class _ResetPasswordScreenState
     setState(() {
       _leaving = true;
       _error = null;
-      _message = null;
     });
 
     try {
@@ -52,18 +51,20 @@ class _ResetPasswordScreenState
       if (!mounted) return;
 
       context.go('/login');
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
         _leaving = false;
-        _error = 'Não foi possível voltar ao início de sessão: $e';
+        _error =
+            'Não foi possível voltar ao início de sessão. '
+            'Tente novamente.';
       });
     }
   }
 
   Future<void> _updatePassword() async {
-    if (_loading || _leaving) return;
+    if (_loading || _leaving || _passwordUpdated) return;
 
     final password = _passwordController.text;
     final confirm = _confirmController.text;
@@ -108,9 +109,12 @@ class _ResetPasswordScreenState
 
       setState(() {
         _loading = false;
+        _passwordUpdated = true;
         _message =
-            'Palavra-passe actualizada com sucesso. '
-            'Já pode entrar com a nova palavra-passe.';
+            'Palavra-passe alterada com sucesso! '
+            'Já pode regressar ao início de sessão '
+            'e entrar com a nova palavra-passe.';
+        _error = null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -119,33 +123,7 @@ class _ResetPasswordScreenState
         _loading = false;
         _error =
             'Não foi possível actualizar a palavra-passe. '
-            'Detalhes: $e';
-      });
-      return;
-    }
-
-    await Future<void>.delayed(
-      const Duration(seconds: 2),
-    );
-
-    if (!mounted) return;
-
-    try {
-      await ref
-          .read(authProvider.notifier)
-          .leavePasswordRecovery();
-
-      if (!mounted) return;
-
-      context.go('/login');
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _error =
-            'A palavra-passe foi actualizada, mas não foi '
-            'possível terminar a sessão automaticamente. '
-            'Pode voltar ao início de sessão manualmente. '
+            'Verifique a ligação e tente novamente. '
             'Detalhes: $e';
       });
     }
@@ -154,6 +132,7 @@ class _ResetPasswordScreenState
   @override
   Widget build(BuildContext context) {
     final busy = _loading || _leaving;
+    final fieldsEnabled = !busy && !_passwordUpdated;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -171,81 +150,96 @@ class _ResetPasswordScreenState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 24),
-              const Icon(
-                Icons.lock_reset_rounded,
+              Icon(
+                _passwordUpdated
+                    ? Icons.check_circle_outline
+                    : Icons.lock_reset_rounded,
                 size: 64,
-                color: AppColors.primary,
+                color: _passwordUpdated
+                    ? AppColors.primary
+                    : AppColors.primary,
               ),
               const SizedBox(height: 20),
-              const Text(
-                'Defina uma nova palavra-passe',
+              Text(
+                _passwordUpdated
+                    ? 'Palavra-passe actualizada'
+                    : 'Defina uma nova palavra-passe',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Introduza a nova palavra-passe e confirme-a '
-                'para recuperar o acesso à sua conta FARCLIK.',
+              Text(
+                _passwordUpdated
+                    ? 'A sua palavra-passe foi actualizada. '
+                        'Pode agora regressar ao início '
+                        'de sessão.'
+                    : 'Introduza a nova palavra-passe e '
+                        'confirme-a para recuperar o acesso '
+                        'à sua conta FARCLIK.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppColors.textSecondaryLight,
                   height: 1.5,
                 ),
               ),
               const SizedBox(height: 32),
-              TextField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                enabled: !busy,
-                decoration: InputDecoration(
-                  labelText: 'Nova palavra-passe',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    onPressed: busy
-                        ? null
-                        : () {
-                            setState(() {
-                              _obscurePassword =
-                                  !_obscurePassword;
-                            });
-                          },
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
+              if (!_passwordUpdated) ...[
+                TextField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  enabled: fieldsEnabled,
+                  decoration: InputDecoration(
+                    labelText: 'Nova palavra-passe',
+                    prefixIcon:
+                        const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      onPressed: fieldsEnabled
+                          ? () {
+                              setState(() {
+                                _obscurePassword =
+                                    !_obscurePassword;
+                              });
+                            }
+                          : null,
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _confirmController,
-                obscureText: _obscureConfirm,
-                enabled: !busy,
-                decoration: InputDecoration(
-                  labelText: 'Confirmar palavra-passe',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    onPressed: busy
-                        ? null
-                        : () {
-                            setState(() {
-                              _obscureConfirm =
-                                  !_obscureConfirm;
-                            });
-                          },
-                    icon: Icon(
-                      _obscureConfirm
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _confirmController,
+                  obscureText: _obscureConfirm,
+                  enabled: fieldsEnabled,
+                  decoration: InputDecoration(
+                    labelText: 'Confirmar palavra-passe',
+                    prefixIcon:
+                        const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      onPressed: fieldsEnabled
+                          ? () {
+                              setState(() {
+                                _obscureConfirm =
+                                    !_obscureConfirm;
+                              });
+                            }
+                          : null,
+                      icon: Icon(
+                        _obscureConfirm
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 24),
+              ],
               if (_error != null)
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -256,7 +250,9 @@ class _ResetPasswordScreenState
                   ),
                   child: Text(
                     _error!,
-                    style: const TextStyle(color: Colors.red),
+                    style: const TextStyle(
+                      color: Colors.red,
+                    ),
                   ),
                 ),
               if (_message != null)
@@ -272,11 +268,16 @@ class _ResetPasswordScreenState
                     _message!,
                     style: const TextStyle(
                       color: AppColors.primaryDark,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               FilledButton(
-                onPressed: busy ? null : _updatePassword,
+                onPressed: busy
+                    ? null
+                    : _passwordUpdated
+                        ? _returnToLogin
+                        : _updatePassword,
                 child: busy
                     ? const SizedBox(
                         width: 22,
@@ -286,17 +287,20 @@ class _ResetPasswordScreenState
                           color: Colors.white,
                         ),
                       )
-                    : const Text(
-                        'Guardar nova palavra-passe',
+                    : Text(
+                        _passwordUpdated
+                            ? 'Ir para início de sessão'
+                            : 'Guardar nova palavra-passe',
                       ),
               ),
               const SizedBox(height: 12),
-              TextButton(
-                onPressed: busy ? null : _returnToLogin,
-                child: const Text(
-                  'Voltar ao início de sessão',
+              if (!_passwordUpdated)
+                TextButton(
+                  onPressed: busy ? null : _returnToLogin,
+                  child: const Text(
+                    'Voltar ao início de sessão',
+                  ),
                 ),
-              ),
             ],
           ),
         ),
