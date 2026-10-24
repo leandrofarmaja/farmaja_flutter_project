@@ -1,94 +1,374 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../features/auth/presentation/screens/splash_screen.dart';
+import '../../features/auth/presentation/screens/welcome_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/auth/presentation/screens/forgot_password_screen.dart';
+import '../../features/auth/presentation/screens/reset_password_screen.dart';
+import '../../features/medicines/presentation/screens/home_screen.dart';
+import '../../features/pharmacies/presentation/screens/pharmacies_screen.dart';
+import '../../features/reservations/presentation/screens/reservations_screen.dart';
+import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/medicines/presentation/screens/medicine_detail_screen.dart';
+import '../../features/pharmacy_dashboard/presentation/screens/pharmacy_dashboard_screen.dart';
+import '../../features/admin/presentation/screens/admin_subscriptions_screen.dart';
 
-// Mantém aqui os imports das restantes telas já existentes
-// no teu projecto, caso sejam necessários pelo código original.
+/// Notifica o GoRouter quando o estado da autenticação muda.
+class _RouterRefreshNotifier extends ChangeNotifier {
+  void refresh() {
+    notifyListeners();
+  }
+}
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final refreshNotifier = _RouterRefreshNotifier();
 
-  return GoRouter(
+  ref.listen(authProvider, (previous, next) {
+    refreshNotifier.refresh();
+  });
+
+  final router = GoRouter(
     initialLocation: '/login',
-    refreshListenable: _RouterRefreshNotifier(ref),
+    refreshListenable: refreshNotifier,
+
     redirect: (context, state) {
+      final authState = ref.read(authProvider);
       final location = state.matchedLocation;
 
-      // A recuperação da palavra-passe deve continuar acessível.
+      // Durante a recuperação, manter o ecrã próprio.
       if (authState.isPasswordRecovery) {
+        return location == '/reset-password'
+            ? null
+            : '/reset-password';
+      }
+
+      // Aguardar a validação inicial da sessão.
+      if (authState.isLoading) {
         return null;
       }
 
       final user = authState.user;
-      final isLoading = authState.isLoading;
 
-      // Enquanto o Supabase valida a sessão, não redireccionar
-      // prematuramente para uma área de utilizador.
-      if (isLoading) {
-        return null;
-      }
-
-      final isLogin = location == '/login' ||
+      final isAuthRoute =
+          location == '/login' ||
           location == '/register' ||
-          location == '/forgot-password';
+          location == '/welcome' ||
+          location == '/splash' ||
+          location == '/forgot-password' ||
+          location == '/reset-password';
 
+      // Sem perfil validado, não permitir acesso às áreas privadas.
       if (user == null) {
-        return isLogin ? null : '/login';
+        return isAuthRoute ? null : '/login';
       }
 
-      switch (user.role) {
-        case 'customer':
-          if (location == '/login' ||
-              location == '/register' ||
-              location == '/forgot-password' ||
-              location.startsWith('/pharmacy-dashboard') ||
-              location.startsWith('/admin')) {
-            return '/home';
-          }
-          break;
+      final role = user.role.trim().toLowerCase();
 
-        case 'pharmacy':
-          if (location == '/login' ||
-              location == '/register' ||
-              location == '/forgot-password' ||
-              location == '/home' ||
-              location.startsWith('/admin')) {
-            return '/pharmacy-dashboard';
-          }
-          break;
+      final isCustomer = role == 'customer';
+      final isPharmacy = role == 'pharmacy';
+      final isAdmin = role == 'admin';
 
-        case 'admin':
-          if (location == '/login' ||
-              location == '/register' ||
-              location == '/forgot-password' ||
-              location == '/home' ||
-              location.startsWith('/pharmacy-dashboard')) {
+      // Não atribuir permissões a funções desconhecidas.
+      if (!isCustomer && !isPharmacy && !isAdmin) {
+        return '/login';
+      }
+
+      // Encaminhar contas autenticadas para a área correcta.
+      if (isAuthRoute) {
+        if (location == '/forgot-password' ||
+            location == '/reset-password') {
+          return null;
+        }
+
+        if (isPharmacy) {
+          return '/pharmacy-dashboard';
+        }
+
+        if (isAdmin) {
+          return '/admin/subscriptions';
+        }
+
+        return '/home';
+      }
+
+      // Proteger o painel da farmácia.
+      if (location == '/pharmacy-dashboard' ||
+          location.startsWith('/pharmacy-dashboard/')) {
+        if (!isPharmacy) {
+          if (isAdmin) {
             return '/admin/subscriptions';
           }
-          break;
 
-        default:
-          return '/login';
+          return '/home';
+        }
+      }
+
+      // Proteger a área administrativa.
+      if (location == '/admin' ||
+          location.startsWith('/admin/')) {
+        if (!isAdmin) {
+          if (isPharmacy) {
+            return '/pharmacy-dashboard';
+          }
+
+          return '/home';
+        }
+      }
+
+      // Impedir que contas de farmácia ou administração
+      // entrem nas rotas destinadas ao cliente.
+      final isCustomerRoute =
+          location == '/home' ||
+          location.startsWith('/home/') ||
+          location == '/pharmacies' ||
+          location.startsWith('/pharmacies/') ||
+          location == '/reservations' ||
+          location.startsWith('/reservations/') ||
+          location == '/profile' ||
+          location.startsWith('/profile/') ||
+          location == '/medicine' ||
+          location.startsWith('/medicine/');
+
+      if (isCustomerRoute && !isCustomer) {
+        if (isAdmin) {
+          return '/admin/subscriptions';
+        }
+
+        return '/pharmacy-dashboard';
       }
 
       return null;
     },
+
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: '/welcome',
+        builder: (context, state) => const WelcomeScreen(),
+      ),
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
       ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) =>
+            const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) =>
+            const ResetPasswordScreen(),
+      ),
+
+      ShellRoute(
+        builder: (context, state, child) {
+          return MainNavigationShell(child: child);
+        },
+        routes: [
+          GoRoute(
+            path: '/home',
+            builder: (context, state) => const HomeScreen(),
+          ),
+          GoRoute(
+            path: '/pharmacies',
+            builder: (context, state) =>
+                const PharmaciesScreen(),
+          ),
+          GoRoute(
+            path: '/reservations',
+            builder: (context, state) =>
+                const ReservationsScreen(),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const ProfileScreen(),
+          ),
+        ],
+      ),
+
+      GoRoute(
+        path: '/medicine/:id',
+        builder: (context, state) {
+          final medicineId =
+              state.pathParameters['id'] ?? '';
+
+          return MedicineDetailScreen(
+            medicineId: medicineId,
+          );
+        },
+      ),
+
+      GoRoute(
+        path: '/pharmacy-dashboard',
+        builder: (context, state) =>
+            const PharmacyDashboardScreen(),
+      ),
+
+      GoRoute(
+        path: '/admin/subscriptions',
+        builder: (context, state) =>
+            const AdminSubscriptionsScreen(),
+      ),
     ],
   );
+
+  ref.onDispose(() {
+    router.dispose();
+    refreshNotifier.dispose();
+  });
+
+  return router;
 });
 
-class _RouterRefreshNotifier extends ChangeNotifier {
-  _RouterRefreshNotifier(Ref ref) {
-    ref.listen(authProvider, (previous, next) {
-      notifyListeners();
-    });
+class MainNavigationShell extends StatelessWidget {
+  final Widget child;
+
+  const MainNavigationShell({
+    super.key,
+    required this.child,
+  });
+
+  static const Color _darkGreen = Color(0xFF15803D);
+  static const Color _softGreen = Color(0xFFE8F7ED);
+  static const Color _muted = Color(0xFF7B8794);
+
+  @override
+  Widget build(BuildContext context) {
+    final location = GoRouterState.of(context).uri.path;
+
+    int selectedIndex = 0;
+
+    if (location.startsWith('/pharmacies')) {
+      selectedIndex = 1;
+    } else if (location.startsWith('/reservations')) {
+      selectedIndex = 2;
+    } else if (location.startsWith('/profile')) {
+      selectedIndex = 3;
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: child,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: const Border(
+            top: BorderSide(
+              color: Color(0xFFF0F3F1),
+              width: 1,
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.035),
+              blurRadius: 18,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: NavigationBarTheme(
+            data: NavigationBarThemeData(
+              height: 72,
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              indicatorColor: _softGreen,
+              indicatorShape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 0,
+              labelBehavior:
+                  NavigationDestinationLabelBehavior.alwaysShow,
+              labelTextStyle:
+                  WidgetStateProperty.resolveWith<TextStyle>(
+                (states) {
+                  final selected =
+                      states.contains(WidgetState.selected);
+
+                  return TextStyle(
+                    fontSize: 11,
+                    height: 1.2,
+                    fontWeight: selected
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    letterSpacing: 0.1,
+                    color: selected ? _darkGreen : _muted,
+                  );
+                },
+              ),
+              iconTheme:
+                  WidgetStateProperty.resolveWith<IconThemeData>(
+                (states) {
+                  final selected =
+                      states.contains(WidgetState.selected);
+
+                  return IconThemeData(
+                    size: selected ? 24 : 22,
+                    color: selected ? _darkGreen : _muted,
+                  );
+                },
+              ),
+            ),
+            child: NavigationBar(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: (index) {
+                switch (index) {
+                  case 0:
+                    context.go('/home');
+                    break;
+                  case 1:
+                    context.go('/pharmacies');
+                    break;
+                  case 2:
+                    context.go('/reservations');
+                    break;
+                  case 3:
+                    context.go('/profile');
+                    break;
+                }
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded),
+                  label: 'Início',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.local_pharmacy_outlined),
+                  selectedIcon:
+                      Icon(Icons.local_pharmacy_rounded),
+                  label: 'Farmácias',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.confirmation_number_outlined),
+                  selectedIcon:
+                      Icon(Icons.confirmation_number_rounded),
+                  label: 'Reservas',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline_rounded),
+                  selectedIcon: Icon(Icons.person_rounded),
+                  label: 'Perfil',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
