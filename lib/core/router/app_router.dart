@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,19 +17,34 @@ import '../../features/medicines/presentation/screens/medicine_detail_screen.dar
 import '../../features/pharmacy_dashboard/presentation/screens/pharmacy_dashboard_screen.dart';
 import '../../features/admin/presentation/screens/admin_subscriptions_screen.dart';
 
-final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+/// Permite actualizar os redireccionamentos sem recriar o GoRouter.
+class _RouterRefreshNotifier extends ChangeNotifier {
+  void refresh() {
+    notifyListeners();
+  }
+}
 
-  return GoRouter(
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final refreshNotifier = _RouterRefreshNotifier();
+
+  // O router mantém-se estável quando a autenticação muda.
+  ref.listen(authProvider, (previous, next) {
+    refreshNotifier.refresh();
+  });
+
+  final router = GoRouter(
     initialLocation: '/login',
+    refreshListenable: refreshNotifier,
     redirect: (context, state) {
+      // Consultar sempre o estado mais recente.
+      final authState = ref.read(authProvider);
+
       if (authState.isLoading) return null;
 
       final user = authState.user;
       final location = state.matchedLocation;
 
-      // Durante a recuperação, manter o utilizador
-      // no ecrã de definição da nova palavra-passe.
+      // Durante a recuperação, manter o ecrã próprio.
       if (authState.isPasswordRecovery) {
         return location == '/reset-password'
             ? null
@@ -53,13 +67,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isAdmin = role == 'admin';
       final isCustomer = role == 'customer';
 
-      // Não permitir acesso com um papel desconhecido.
+      // Impedir acesso com um perfil desconhecido.
       if (!isPharmacy && !isAdmin && !isCustomer) {
         return '/login';
       }
 
-      // Redireccionar utilizadores autenticados
-      // para a área correspondente ao seu papel.
+      // Redireccionar utilizadores autenticados.
       if (isAuthRoute) {
         if (location == '/forgot-password' ||
             location == '/reset-password' ||
@@ -69,6 +82,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
         if (isPharmacy) return '/pharmacy-dashboard';
         if (isAdmin) return '/admin/subscriptions';
+
         return '/home';
       }
 
@@ -105,7 +119,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/forgot-password',
-        builder: (context, state) => const ForgotPasswordScreen(),
+        builder: (context, state) =>
+            const ForgotPasswordScreen(),
       ),
       GoRoute(
         path: '/reset-password',
@@ -123,11 +138,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/pharmacies',
-            builder: (context, state) => const PharmaciesScreen(),
+            builder: (context, state) =>
+                const PharmaciesScreen(),
           ),
           GoRoute(
             path: '/reservations',
-            builder: (context, state) => const ReservationsScreen(),
+            builder: (context, state) =>
+                const ReservationsScreen(),
           ),
           GoRoute(
             path: '/profile',
@@ -138,20 +155,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/medicine/:id',
         builder: (context, state) {
-          final medicineId = state.pathParameters['id'] ?? '';
-          return MedicineDetailScreen(medicineId: medicineId);
+          final medicineId =
+              state.pathParameters['id'] ?? '';
+
+          return MedicineDetailScreen(
+            medicineId: medicineId,
+          );
         },
       ),
       GoRoute(
         path: '/pharmacy-dashboard',
-        builder: (context, state) => const PharmacyDashboardScreen(),
+        builder: (context, state) =>
+            const PharmacyDashboardScreen(),
       ),
       GoRoute(
         path: '/admin/subscriptions',
-        builder: (context, state) => const AdminSubscriptionsScreen(),
+        builder: (context, state) =>
+            const AdminSubscriptionsScreen(),
       ),
     ],
   );
+
+  ref.onDispose(() {
+    router.dispose();
+    refreshNotifier.dispose();
+  });
+
+  return router;
 });
 
 class MainNavigationShell extends StatelessWidget {
@@ -168,7 +198,7 @@ class MainNavigationShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String location = GoRouterState.of(context).uri.path;
+    final location = GoRouterState.of(context).uri.path;
 
     int selectedIndex = 0;
 
@@ -223,8 +253,9 @@ class MainNavigationShell extends StatelessWidget {
                   return TextStyle(
                     fontSize: 11,
                     height: 1.2,
-                    fontWeight:
-                        selected ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: selected
+                        ? FontWeight.w700
+                        : FontWeight.w500,
                     letterSpacing: 0.1,
                     color: selected ? _darkGreen : _muted,
                   );
@@ -274,7 +305,8 @@ class MainNavigationShell extends StatelessWidget {
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.confirmation_number_outlined),
-                  selectedIcon: Icon(Icons.confirmation_number_rounded),
+                  selectedIcon:
+                      Icon(Icons.confirmation_number_rounded),
                   label: 'Reservas',
                 ),
                 NavigationDestination(
