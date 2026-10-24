@@ -1,8 +1,8 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/constants/app_colors.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -16,7 +16,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  bool _isPharmacyAccount = false;
   bool _obscurePassword = true;
 
   static const Color _green = Color(0xFF16A34A);
@@ -56,6 +55,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return 'Confirme o seu e-mail antes de iniciar sessão.';
     }
 
+    if (message.contains('perfil') ||
+        message.contains('role') ||
+        message.contains('função') ||
+        message.contains('funcao')) {
+      return 'Não foi possível validar o perfil desta conta. '
+          'Contacte o suporte FARCLIK.';
+    }
+
     return 'Não foi possível iniciar sessão. '
         'Verifique os seus dados e tente novamente.';
   }
@@ -76,19 +83,56 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return;
     }
 
-    final success =
-        await ref.read(authProvider.notifier).login(email, password);
+    final success = await ref
+        .read(authProvider.notifier)
+        .login(email, password);
 
     if (!mounted) return;
 
-    if (success) {
-      final user = ref.read(authProvider).user;
+    if (!success) {
+      return;
+    }
 
-      if (user?.role == 'pharmacy') {
-        context.go('/pharmacy-dashboard');
-      } else {
+    final authState = ref.read(authProvider);
+    final user = authState.user;
+
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'A conta foi autenticada, mas o perfil não foi validado. '
+            'Contacte o suporte FARCLIK.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    switch (user.role.trim().toLowerCase()) {
+      case 'customer':
         context.go('/home');
-      }
+        break;
+
+      case 'pharmacy':
+        context.go('/pharmacy-dashboard');
+        break;
+
+      case 'admin':
+        context.go('/admin/subscriptions');
+        break;
+
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Esta conta não tem uma função válida. '
+              'Contacte o suporte FARCLIK.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        break;
     }
   }
 
@@ -113,15 +157,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFFE0EAE4)),
+        borderSide: const BorderSide(
+          color: Color(0xFFE0EAE4),
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFFE0EAE4)),
+        borderSide: const BorderSide(
+          color: Color(0xFFE0EAE4),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: _green, width: 1.7),
+        borderSide: const BorderSide(
+          color: _green,
+          width: 1.7,
+        ),
       ),
     );
   }
@@ -134,12 +185,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       backgroundColor: _background,
       body: SafeArea(
         child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          keyboardDismissBehavior:
+              ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Navegação superior
               Align(
                 alignment: Alignment.centerLeft,
                 child: IconButton(
@@ -157,7 +208,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               const SizedBox(height: 12),
 
-              // Logótipo oficial
+              // Logótipo oficial FARCLIK.
               Center(
                 child: Container(
                   width: 116,
@@ -190,12 +241,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               const SizedBox(height: 22),
 
-              Text(
-                _isPharmacyAccount
-                    ? 'Bem-vindo à FARCLIK!'
-                    : 'Seja bem-vindo!',
+              const Text(
+                'Seja bem-vindo!',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: _navy,
                   fontSize: 29,
                   fontWeight: FontWeight.w800,
@@ -205,56 +254,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               const SizedBox(height: 10),
 
-              Text(
-                _isPharmacyAccount
-                    ? 'Aceda à gestão da sua farmácia, '
-                        'ao stock e às reservas.'
-                    : 'Encontre medicamentos nas farmácias '
-                        'perto de si, de forma simples e rápida.',
+              const Text(
+                'Encontre medicamentos nas farmácias '
+                'perto de si, de forma simples e rápida.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Color(0xFF687984),
                   fontSize: 14,
                   height: 1.65,
                 ),
               ),
 
-              const SizedBox(height: 26),
-
-              // Selecção do tipo de conta
-              Container(
-                padding: const EdgeInsets.all(5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF2ED),
-                  borderRadius: BorderRadius.circular(17),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _AccountTypeButton(
-                        label: 'Cliente',
-                        icon: Icons.person_outline_rounded,
-                        selected: !_isPharmacyAccount,
-                        onTap: () {
-                          setState(() => _isPharmacyAccount = false);
-                        },
-                      ),
-                    ),
-                    Expanded(
-                      child: _AccountTypeButton(
-                        label: 'Farmácia',
-                        icon: Icons.storefront_outlined,
-                        selected: _isPharmacyAccount,
-                        onTap: () {
-                          setState(() => _isPharmacyAccount = true);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 25),
+              const SizedBox(height: 30),
 
               const Text(
                 'E-mail',
@@ -297,7 +308,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 obscureText: _obscurePassword,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) {
-                  if (!authState.isLoading) _handleLogin();
+                  if (!authState.isLoading) {
+                    _handleLogin();
+                  }
                 },
                 decoration: _inputDecoration(
                   label: 'Introduza a sua palavra-passe',
@@ -336,7 +349,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
 
-              // Erros apresentados sem expor detalhes técnicos internos
               if (authState.error != null) ...[
                 const SizedBox(height: 5),
                 Container(
@@ -381,7 +393,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       authState.isLoading ? null : _handleLogin,
                   style: FilledButton.styleFrom(
                     backgroundColor: _green,
-                    disabledBackgroundColor: const Color(0xFF9BCBA9),
+                    disabledBackgroundColor:
+                        const Color(0xFF9BCBA9),
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -408,7 +421,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             ),
                             SizedBox(width: 9),
-                            Icon(Icons.arrow_forward_rounded, size: 20),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 20,
+                            ),
                           ],
                         ),
                 ),
@@ -444,7 +460,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               const SizedBox(height: 19),
 
-              // Informação de privacidade
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -519,61 +534,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                 ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AccountTypeButton extends StatelessWidget {
-  const _AccountTypeButton({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    const green = Color(0xFF16A34A);
-    const navy = Color(0xFF173B57);
-
-    return Material(
-      color: selected ? Colors.white : Colors.transparent,
-      borderRadius: BorderRadius.circular(13),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(13),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 5),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 19,
-                color: selected ? green : const Color(0xFF687984),
-              ),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: selected ? navy : const Color(0xFF687984),
-                    fontSize: 13,
-                    fontWeight:
-                        selected ? FontWeight.w800 : FontWeight.w600,
-                  ),
-                ),
               ),
             ],
           ),
