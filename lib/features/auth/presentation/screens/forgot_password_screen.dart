@@ -66,10 +66,11 @@ class _ForgotPasswordScreenState
       if (success) {
         setState(() {
           _message =
-              'Se existir uma conta associada a $email, '
-              'poderá receber instruções para recuperar '
-              'a palavra-passe. Verifique também a pasta '
-              'de spam ou correio não solicitado.';
+              'Pedido processado. Se existir uma conta associada '
+              'a este endereço, receberá instruções por e-mail. '
+              'Verifique também a pasta de spam. '
+              'Não feche esta página antes de confirmar a mensagem.';
+          _error = null;
         });
       } else {
         final errorMessage = ref.read(authProvider).error;
@@ -78,15 +79,17 @@ class _ForgotPasswordScreenState
           _error = errorMessage ??
               'Não foi possível processar o pedido. '
                   'Tente novamente mais tarde.';
+          _message = null;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
         _error =
             'Ocorreu um erro ao solicitar a recuperação. '
             'Verifique a ligação à Internet e tente novamente.';
+        _message = null;
       });
     } finally {
       if (mounted) {
@@ -139,7 +142,6 @@ class _ForgotPasswordScreenState
                 ),
               ),
               const SizedBox(height: 32),
-
               if (_message != null)
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -155,7 +157,7 @@ class _ForgotPasswordScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Icon(
-                        Icons.info_outline,
+                        Icons.check_circle_outline,
                         color: AppColors.primary,
                       ),
                       const SizedBox(width: 12),
@@ -172,7 +174,6 @@ class _ForgotPasswordScreenState
                     ],
                   ),
                 ),
-
               if (_error != null)
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -204,13 +205,20 @@ class _ForgotPasswordScreenState
                     ],
                   ),
                 ),
-
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.done,
                 autocorrect: false,
                 enableSuggestions: false,
+                onChanged: (_) {
+                  if (_error != null || _message != null) {
+                    setState(() {
+                      _error = null;
+                      _message = null;
+                    });
+                  }
+                },
                 onSubmitted: (_) {
                   if (!_isLoading) {
                     _handleResetPassword();
@@ -224,7 +232,6 @@ class _ForgotPasswordScreenState
                 ),
               ),
               const SizedBox(height: 24),
-
               FilledButton(
                 onPressed:
                     _isLoading ? null : _handleResetPassword,
@@ -237,12 +244,9 @@ class _ForgotPasswordScreenState
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text(
-                        'Solicitar recuperação',
-                      ),
+                    : const Text('Solicitar recuperação'),
               ),
               const SizedBox(height: 16),
-
               TextButton(
                 onPressed: _isLoading
                     ? null
