@@ -54,8 +54,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     this._authService,
     this._dbService,
   ) : super(const AuthState(isLoading: true)) {
-    _authSubscription =
-        _authService.authStateChanges.listen(
+    _authSubscription = _authService.authStateChanges.listen(
       _handleAuthEvent,
       onError: (Object error) {
         state = AuthState(
@@ -306,10 +305,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     try {
       await _authService.resetPasswordForEmail(email.trim());
-      state = const AuthState();
+
+      // O envio do email não altera a sessão autenticada.
+      // Mantém o estado actual sem provocar um redireccionamento
+      // desnecessário no router.
+      state = state.copyWith(
+        isLoading: false,
+        clearError: true,
+      );
+
       return true;
     } catch (e) {
-      state = AuthState(
+      state = state.copyWith(
         isLoading: false,
         error: 'Não foi possível pedir a recuperação: $e',
       );
