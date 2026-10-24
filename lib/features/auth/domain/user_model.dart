@@ -18,7 +18,7 @@ class UserModel {
     required this.province,
     required this.district,
     this.insuranceProvider,
-    this.role = 'customer',
+    this.role = '',
     this.pharmacyName,
   });
 
@@ -36,7 +36,10 @@ class UserModel {
       district: (json['district'] ?? '').toString(),
       insuranceProvider:
           json['insurance_provider']?.toString(),
-      role: (json['role'] ?? 'customer').toString(),
+      role: (json['role'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase(),
       pharmacyName:
           (json['pharmacy_name'] ?? json['pharmacyName'])
               ?.toString(),
