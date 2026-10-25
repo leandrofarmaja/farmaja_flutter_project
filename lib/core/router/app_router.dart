@@ -12,6 +12,7 @@ import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/medicines/presentation/screens/home_screen.dart';
 import '../../features/pharmacies/presentation/screens/pharmacies_screen.dart';
+import '../../features/pharmacies/presentation/screens/pharmacy_application_screen.dart';
 import '../../features/reservations/presentation/screens/reservations_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/medicines/presentation/screens/medicine_detail_screen.dart';
@@ -96,6 +97,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/home';
       }
 
+      // Apenas clientes podem submeter candidaturas de farmácia.
+      if (location == '/pharmacy-application' ||
+          location.startsWith('/pharmacy-application/')) {
+        if (!isCustomer) {
+          if (isAdmin) {
+            return '/admin/subscriptions';
+          }
+
+          return '/pharmacy-dashboard';
+        }
+      }
+
       // Proteger o painel da farmácia.
       if (location == '/pharmacy-dashboard' ||
           location.startsWith('/pharmacy-dashboard/')) {
@@ -171,6 +184,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/reset-password',
         builder: (context, state) =>
             const ResetPasswordScreen(),
+      ),
+
+      // Registo de farmácia, separado do registo de clientes.
+      GoRoute(
+        path: '/pharmacy-application',
+        builder: (context, state) =>
+            const PharmacyApplicationScreen(),
       ),
 
       ShellRoute(
