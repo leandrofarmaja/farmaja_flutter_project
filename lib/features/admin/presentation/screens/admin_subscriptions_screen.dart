@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -345,6 +346,13 @@ class _AdminSubscriptionsScreenState
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.local_pharmacy_outlined),
+            tooltip: 'Candidaturas de Farmácias',
+            onPressed: () {
+              context.push('/admin/pharmacy-applications');
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Atualizar Dados',
