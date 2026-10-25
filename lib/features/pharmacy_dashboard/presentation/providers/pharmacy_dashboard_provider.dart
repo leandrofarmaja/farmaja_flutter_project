@@ -1,4 +1,6 @@
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/supabase_database_service.dart';
@@ -104,6 +106,8 @@ class PharmacyDashboardNotifier
     extends StateNotifier<PharmacyDashboardState> {
   final SupabaseDatabaseService _dbService;
 
+  static const Duration _saveTimeout = Duration(seconds: 25);
+
   PharmacyDashboardNotifier(this._dbService)
       : super(PharmacyDashboardState(isLoading: true)) {
     loadDashboardData();
@@ -116,7 +120,6 @@ class PharmacyDashboardNotifier
     );
 
     try {
-      // 1. Identificar a farmácia pertencente à conta autenticada.
       final currentPharmacy =
           await _dbService.getOwnedPharmacy();
 
@@ -130,8 +133,6 @@ class PharmacyDashboardNotifier
         return;
       }
 
-      // 2. Carregar cada área separadamente.
-      // Uma área opcional não deve impedir o carregamento das restantes.
       List<MedicineModel> medicines = [];
       List<ReservationModel> reservations = [];
       List<PrescriptionModel> prescriptions = [];
@@ -140,7 +141,6 @@ class PharmacyDashboardNotifier
       String? loadingError;
 
       try {
-        // Só carregar medicamentos desta farmácia.
         medicines = await _dbService.getMedicines(
           pharmacyId: currentPharmacy.id,
         );
@@ -150,8 +150,6 @@ class PharmacyDashboardNotifier
       }
 
       try {
-        // O RPC do Supabase deve filtrar as reservas
-        // pelas farmácias pertencentes ao utilizador autenticado.
         reservations =
             await _dbService.getAllReservationsForPharmacy();
       } catch (e) {
@@ -160,7 +158,6 @@ class PharmacyDashboardNotifier
             'Não foi possível carregar as reservas: $e';
       }
 
-      // 3. Receitas: manter a falha isolada até à implementação.
       try {
         prescriptions =
             await _dbService.getPrescriptionsForPharmacy();
@@ -172,7 +169,6 @@ class PharmacyDashboardNotifier
             'Não foi possível carregar as receitas: $e';
       }
 
-      // 4. Pagamentos: manter a falha isolada até à implementação.
       try {
         payments = await _dbService.getAllPharmacyPayments();
       } on UnsupportedError {
@@ -183,7 +179,8 @@ class PharmacyDashboardNotifier
             'Não foi possível carregar os pagamentos: $e';
       }
 
-      // 5. Apresentar exclusivamente a farmácia associada à conta.
+      if (!mounted) return;
+
       state = state.copyWith(
         pharmacyDetails: currentPharmacy,
         activePharmacyName: currentPharmacy.name,
@@ -195,6 +192,8 @@ class PharmacyDashboardNotifier
         error: loadingError,
       );
     } catch (e) {
+      if (!mounted) return;
+
       state = state.copyWith(
         isLoading: false,
         error: 'Erro ao carregar o painel da farmácia: $e',
@@ -202,8 +201,37 @@ class PharmacyDashboardNotifier
     }
   }
 
-  // O painel não pode trocar para uma farmácia arbitrária do catálogo.
-  // A associação real é sempre confirmada pelo serviço Supabase.
+  Future<void> _refreshMedicinesAfterMutation() async {
+    try {
+      final pharmacy = await _dbService
+          .getOwnedPharmacy()
+          .timeout(_saveTimeout);
+
+      if (!mounted || pharmacy == null) return;
+
+      final medicines = await _dbService
+          .getMedicines(pharmacyId: pharmacy.id)
+          .timeout(_saveTimeout);
+
+      if (!mounted) return;
+
+      state = state.copyWith(
+        pharmacyDetails: pharmacy,
+        activePharmacyName: pharmacy.name,
+        medicines: medicines,
+        error: null,
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      state = state.copyWith(
+        error:
+            'O medicamento foi guardado, mas não foi possível '
+            'actualizar a lista. Detalhe: $e',
+      );
+    }
+  }
+
   Future<void> switchPharmacy(
     PharmacyModel targetPharmacy,
   ) async {
@@ -282,16 +310,34 @@ class PharmacyDashboardNotifier
     }
 
     try {
-      await _dbService.addMedicine(newMedicine);
-      await loadDashboardData();
+      await _dbService
+          .addMedicine(newMedicine)
+          .timeout(_saveTimeout);
+
+      if (!mounted) return false;
+
+      unawaited(_refreshMedicinesAfterMutation());
       return true;
+    } on TimeoutException {
+      if (!mounted) return false;
+
+      state = state.copyWith(
+        error:
+            'A gravação excedeu 25 segundos. Verifica a ligação '
+            'e o estado do Supabase antes de tentares novamente.',
+      );
+      return false;
     } on UnsupportedError {
+      if (!mounted) return false;
+
       state = state.copyWith(
         error:
             'A criação de medicamentos ainda não está implementada no serviço.',
       );
       return false;
     } catch (e) {
+      if (!mounted) return false;
+
       state = state.copyWith(
         error: 'Não foi possível adicionar o medicamento: $e',
       );
@@ -314,16 +360,34 @@ class PharmacyDashboardNotifier
     }
 
     try {
-      await _dbService.updateMedicine(updatedMedicine);
-      await loadDashboardData();
+      await _dbService
+          .updateMedicine(updatedMedicine)
+          .timeout(_saveTimeout);
+
+      if (!mounted) return false;
+
+      unawaited(_refreshMedicinesAfterMutation());
       return true;
+    } on TimeoutException {
+      if (!mounted) return false;
+
+      state = state.copyWith(
+        error:
+            'A actualização excedeu 25 segundos. Verifica a ligação '
+            'e o estado do Supabase antes de tentares novamente.',
+      );
+      return false;
     } on UnsupportedError {
+      if (!mounted) return false;
+
       state = state.copyWith(
         error:
             'A edição de medicamentos ainda não está implementada no serviço.',
       );
       return false;
     } catch (e) {
+      if (!mounted) return false;
+
       state = state.copyWith(
         error: 'Não foi possível actualizar o medicamento: $e',
       );
