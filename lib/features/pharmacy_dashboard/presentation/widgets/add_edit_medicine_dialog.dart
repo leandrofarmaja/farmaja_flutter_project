@@ -107,8 +107,6 @@ class _AddEditMedicineDialogState
     final existingMedicine = widget.medicine;
 
     final medicine = MedicineModel(
-      // Conserva o UUID real quando se edita.
-      // Na criação, o Supabase gera o UUID.
       id: existingMedicine?.id ?? '',
       pharmacyId: existingMedicine?.pharmacyId ?? '',
       name: _nameController.text.trim(),
@@ -129,10 +127,6 @@ class _AddEditMedicineDialogState
       genericAlternative:
           existingMedicine?.genericAlternative,
       description: existingMedicine?.description ?? '',
-
-      // O modelo exige double não anulável.
-      // Estes valores são apenas alternativas técnicas,
-      // não representam coordenadas reais da farmácia.
       pharmacyLatitude:
           existingMedicine?.pharmacyLatitude ?? 0.0,
       pharmacyLongitude:
@@ -145,17 +139,14 @@ class _AddEditMedicineDialogState
 
     try {
       await widget.onSave(medicine);
-
-      // O ecrã que abriu o diálogo fecha-o quando
-      // confirmar que a operação foi concluída.
     } catch (_) {
+      rethrow;
+    } finally {
       if (mounted) {
         setState(() {
           _isSaving = false;
         });
       }
-
-      rethrow;
     }
   }
 
@@ -200,10 +191,8 @@ class _AddEditMedicineDialogState
                       ),
                     ],
                   ),
-
                   const Divider(),
                   const SizedBox(height: 16),
-
                   TextFormField(
                     controller: _nameController,
                     enabled: !_isSaving,
@@ -216,9 +205,7 @@ class _AddEditMedicineDialogState
                     ),
                     validator: _validateName,
                   ),
-
                   const SizedBox(height: 16),
-
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -254,9 +241,7 @@ class _AddEditMedicineDialogState
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 12),
-
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text(
@@ -280,9 +265,7 @@ class _AddEditMedicineDialogState
                             });
                           },
                   ),
-
                   const SizedBox(height: 20),
-
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
