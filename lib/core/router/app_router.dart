@@ -18,6 +18,7 @@ import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/medicines/presentation/screens/medicine_detail_screen.dart';
 import '../../features/pharmacy_dashboard/presentation/screens/pharmacy_dashboard_screen.dart';
 import '../../features/admin/presentation/screens/admin_subscriptions_screen.dart';
+import '../../features/admin/presentation/screens/admin_pharmacy_applications_screen.dart';
 
 /// Notifica o GoRouter quando o estado da autenticação muda.
 class _RouterRefreshNotifier extends ChangeNotifier {
@@ -36,25 +37,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     initialLocation: '/login',
     refreshListenable: refreshNotifier,
-
     redirect: (context, state) {
       final authState = ref.read(authProvider);
       final location = state.matchedLocation;
 
-      // Durante a recuperação, manter o ecrã próprio.
       if (authState.isPasswordRecovery) {
         return location == '/reset-password'
             ? null
             : '/reset-password';
       }
 
-      // Aguardar a validação inicial da sessão.
       if (authState.isLoading) {
         return null;
       }
 
       final user = authState.user;
-
       final isAuthRoute =
           location == '/login' ||
           location == '/register' ||
@@ -63,23 +60,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           location == '/forgot-password' ||
           location == '/reset-password';
 
-      // Sem perfil validado, não permitir acesso às áreas privadas.
       if (user == null) {
         return isAuthRoute ? null : '/login';
       }
 
       final role = user.role.trim().toLowerCase();
-
       final isCustomer = role == 'customer';
       final isPharmacy = role == 'pharmacy';
       final isAdmin = role == 'admin';
 
-      // Não atribuir permissões a funções desconhecidas.
       if (!isCustomer && !isPharmacy && !isAdmin) {
         return '/login';
       }
 
-      // Encaminhar contas autenticadas para a área correcta.
       if (isAuthRoute) {
         if (location == '/forgot-password' ||
             location == '/reset-password') {
@@ -97,44 +90,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/home';
       }
 
-      // Apenas clientes podem submeter candidaturas de farmácia.
       if (location == '/pharmacy-application' ||
           location.startsWith('/pharmacy-application/')) {
         if (!isCustomer) {
           if (isAdmin) {
             return '/admin/subscriptions';
           }
-
           return '/pharmacy-dashboard';
         }
       }
 
-      // Proteger o painel da farmácia.
       if (location == '/pharmacy-dashboard' ||
           location.startsWith('/pharmacy-dashboard/')) {
         if (!isPharmacy) {
           if (isAdmin) {
             return '/admin/subscriptions';
           }
-
           return '/home';
         }
       }
 
-      // Proteger a área administrativa.
       if (location == '/admin' ||
           location.startsWith('/admin/')) {
         if (!isAdmin) {
           if (isPharmacy) {
             return '/pharmacy-dashboard';
           }
-
           return '/home';
         }
       }
 
-      // Impedir que contas de farmácia ou administração
-      // entrem nas rotas destinadas ao cliente.
       final isCustomerRoute =
           location == '/home' ||
           location.startsWith('/home/') ||
@@ -151,13 +136,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (isAdmin) {
           return '/admin/subscriptions';
         }
-
         return '/pharmacy-dashboard';
       }
 
       return null;
     },
-
     routes: [
       GoRoute(
         path: '/splash',
@@ -185,14 +168,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             const ResetPasswordScreen(),
       ),
-
-      // Registo de farmácia, separado do registo de clientes.
       GoRoute(
         path: '/pharmacy-application',
         builder: (context, state) =>
             const PharmacyApplicationScreen(),
       ),
-
       ShellRoute(
         builder: (context, state, child) {
           return MainNavigationShell(child: child);
@@ -204,8 +184,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/pharmacies',
-            builder: (context, state) =>
-                const PharmaciesScreen(),
+            builder: (context, state) => const PharmaciesScreen(),
           ),
           GoRoute(
             path: '/reservations',
@@ -218,29 +197,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-
       GoRoute(
         path: '/medicine/:id',
         builder: (context, state) {
-          final medicineId =
-              state.pathParameters['id'] ?? '';
-
-          return MedicineDetailScreen(
-            medicineId: medicineId,
-          );
+          final medicineId = state.pathParameters['id'] ?? '';
+          return MedicineDetailScreen(medicineId: medicineId);
         },
       ),
-
       GoRoute(
         path: '/pharmacy-dashboard',
         builder: (context, state) =>
             const PharmacyDashboardScreen(),
       ),
-
       GoRoute(
         path: '/admin/subscriptions',
         builder: (context, state) =>
             const AdminSubscriptionsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/pharmacy-applications',
+        builder: (context, state) =>
+            const AdminPharmacyApplicationsScreen(),
       ),
     ],
   );
@@ -268,7 +245,6 @@ class MainNavigationShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
-
     int selectedIndex = 0;
 
     if (location.startsWith('/pharmacies')) {
@@ -318,7 +294,6 @@ class MainNavigationShell extends StatelessWidget {
                 (states) {
                   final selected =
                       states.contains(WidgetState.selected);
-
                   return TextStyle(
                     fontSize: 11,
                     height: 1.2,
@@ -335,7 +310,6 @@ class MainNavigationShell extends StatelessWidget {
                 (states) {
                   final selected =
                       states.contains(WidgetState.selected);
-
                   return IconThemeData(
                     size: selected ? 24 : 22,
                     color: selected ? _darkGreen : _muted,
@@ -369,8 +343,7 @@ class MainNavigationShell extends StatelessWidget {
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.local_pharmacy_outlined),
-                  selectedIcon:
-                      Icon(Icons.local_pharmacy_rounded),
+                  selectedIcon: Icon(Icons.local_pharmacy_rounded),
                   label: 'Farmácias',
                 ),
                 NavigationDestination(
