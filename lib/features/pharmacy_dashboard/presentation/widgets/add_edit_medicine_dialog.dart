@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -66,19 +65,21 @@ class _AddEditMedicineDialogState
 
   String? _validateName(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Insira o nome do medicamento';
+      return 'Insira o nome do medicamento.';
     }
 
     return null;
   }
 
   String? _validatePrice(String? value) {
-    final price = double.tryParse(
-      (value ?? '').trim().replaceAll(',', '.'),
-    );
+    final normalized = (value ?? '').trim().replaceAll(',', '.');
+    final price = double.tryParse(normalized);
 
-    if (price == null || !price.isFinite || price < 0) {
-      return 'Insira um preço válido';
+    if (normalized.isEmpty ||
+        price == null ||
+        !price.isFinite ||
+        price < 0) {
+      return 'Insira um preço válido, igual ou superior a zero.';
     }
 
     return null;
@@ -88,7 +89,7 @@ class _AddEditMedicineDialogState
     final stock = int.tryParse((value ?? '').trim());
 
     if (stock == null || stock < 0) {
-      return 'Insira uma quantidade inteira igual ou superior a zero';
+      return 'Insira um número inteiro igual ou superior a zero.';
     }
 
     return null;
@@ -97,13 +98,25 @@ class _AddEditMedicineDialogState
   Future<void> _submit() async {
     if (_isSaving) return;
 
-    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
 
-    final price = double.parse(
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) return;
+
+    final price = double.tryParse(
       _priceController.text.trim().replaceAll(',', '.'),
     );
 
-    final stock = int.parse(_stockController.text.trim());
+    final stock = int.tryParse(_stockController.text.trim());
+
+    if (price == null ||
+        !price.isFinite ||
+        price < 0 ||
+        stock == null ||
+        stock < 0) {
+      return;
+    }
+
     final existingMedicine = widget.medicine;
 
     final medicine = MedicineModel(
@@ -139,8 +152,27 @@ class _AddEditMedicineDialogState
 
     try {
       await widget.onSave(medicine);
-    } catch (_) {
-      rethrow;
+
+      // O callback do ecrã pai decide se fecha o formulário.
+      // Se a gravação falhar, o formulário permanece aberto.
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Erro ao guardar medicamento no formulário: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Ocorreu um erro ao guardar. '
+                'Verifica a mensagem apresentada no painel.',
+              ),
+            ),
+          );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -174,8 +206,8 @@ class _AddEditMedicineDialogState
                       Expanded(
                         child: Text(
                           isEditing
-                              ? 'Editar Medicamento'
-                              : 'Novo Medicamento',
+                              ? 'Editar medicamento'
+                              : 'Novo medicamento',
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w900,
@@ -198,10 +230,12 @@ class _AddEditMedicineDialogState
                     enabled: !_isSaving,
                     textCapitalization:
                         TextCapitalization.sentences,
+                    textInputAction: TextInputAction.next,
+                    maxLength: 150,
                     decoration: const InputDecoration(
                       labelText: 'Nome do medicamento *',
-                      prefixIcon:
-                          Icon(Icons.medication_rounded),
+                      prefixIcon: Icon(Icons.medication_rounded),
+                      counterText: '',
                     ),
                     validator: _validateName,
                   ),
@@ -217,10 +251,10 @@ class _AddEditMedicineDialogState
                               const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
+                          textInputAction: TextInputAction.next,
                           decoration: const InputDecoration(
                             labelText: 'Preço (Kz) *',
-                            prefixIcon:
-                                Icon(Icons.payments_rounded),
+                            prefixIcon: Icon(Icons.payments_rounded),
                           ),
                           validator: _validatePrice,
                         ),
@@ -231,12 +265,18 @@ class _AddEditMedicineDialogState
                           controller: _stockController,
                           enabled: !_isSaving,
                           keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.done,
                           decoration: const InputDecoration(
                             labelText: 'Quantidade em stock *',
                             prefixIcon:
                                 Icon(Icons.inventory_2_rounded),
                           ),
                           validator: _validateStock,
+                          onFieldSubmitted: (_) {
+                            if (!_isSaving) {
+                              _submit();
+                            }
+                          },
                         ),
                       ),
                     ],
@@ -275,6 +315,7 @@ class _AddEditMedicineDialogState
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
+                                color: Colors.white,
                               ),
                             )
                           : const Icon(Icons.save_rounded),
