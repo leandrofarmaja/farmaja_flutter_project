@@ -114,16 +114,13 @@ class PharmacyDashboardNotifier
   }
 
   Future<void> loadDashboardData() async {
-    state = state.copyWith(
-      isLoading: true,
-      error: null,
-    );
+    state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final currentPharmacy =
-          await _dbService.getOwnedPharmacy();
+      final pharmacy = await _dbService.getOwnedPharmacy();
 
-      if (currentPharmacy == null) {
+      if (pharmacy == null) {
+        if (!mounted) return;
         state = PharmacyDashboardState(
           isLoading: false,
           error:
@@ -137,21 +134,18 @@ class PharmacyDashboardNotifier
       List<ReservationModel> reservations = [];
       List<PrescriptionModel> prescriptions = [];
       List<PharmacyPaymentModel> payments = [];
-
       String? loadingError;
 
       try {
         medicines = await _dbService.getMedicines(
-          pharmacyId: currentPharmacy.id,
+          pharmacyId: pharmacy.id,
         );
       } catch (e) {
-        loadingError =
-            'Não foi possível carregar os medicamentos: $e';
+        loadingError = 'Não foi possível carregar os medicamentos: $e';
       }
 
       try {
-        reservations =
-            await _dbService.getAllReservationsForPharmacy();
+        reservations = await _dbService.getAllReservationsForPharmacy();
       } catch (e) {
         loadingError =
             '${loadingError == null ? '' : '$loadingError\n'}'
@@ -159,8 +153,7 @@ class PharmacyDashboardNotifier
       }
 
       try {
-        prescriptions =
-            await _dbService.getPrescriptionsForPharmacy();
+        prescriptions = await _dbService.getPrescriptionsForPharmacy();
       } on UnsupportedError {
         prescriptions = [];
       } catch (e) {
@@ -182,8 +175,8 @@ class PharmacyDashboardNotifier
       if (!mounted) return;
 
       state = state.copyWith(
-        pharmacyDetails: currentPharmacy,
-        activePharmacyName: currentPharmacy.name,
+        pharmacyDetails: pharmacy,
+        activePharmacyName: pharmacy.name,
         medicines: medicines,
         reservations: reservations,
         prescriptions: prescriptions,
@@ -193,7 +186,6 @@ class PharmacyDashboardNotifier
       );
     } catch (e) {
       if (!mounted) return;
-
       state = state.copyWith(
         isLoading: false,
         error: 'Erro ao carregar o painel da farmácia: $e',
@@ -223,23 +215,19 @@ class PharmacyDashboardNotifier
       );
     } catch (e) {
       if (!mounted) return;
-
       state = state.copyWith(
         error:
-            'O medicamento foi guardado, mas não foi possível '
-            'actualizar a lista. Detalhe: $e',
+            'A operação foi concluída, mas não foi possível '
+            'actualizar a lista de medicamentos. Detalhe: $e',
       );
     }
   }
 
-  Future<void> switchPharmacy(
-    PharmacyModel targetPharmacy,
-  ) async {
-    final ownedPharmacy =
-        await _dbService.getOwnedPharmacy();
+  Future<void> switchPharmacy(PharmacyModel targetPharmacy) async {
+    final pharmacy = await _dbService.getOwnedPharmacy();
 
-    if (ownedPharmacy == null ||
-        ownedPharmacy.id != targetPharmacy.id) {
+    if (pharmacy == null || pharmacy.id != targetPharmacy.id) {
+      if (!mounted) return;
       state = state.copyWith(
         error:
             'Não podes abrir o painel de uma farmácia '
@@ -266,7 +254,7 @@ class PharmacyDashboardNotifier
       return false;
     }
 
-    final newPayment = PharmacyPaymentModel(
+    final payment = PharmacyPaymentModel(
       id: 'pay-${DateTime.now().millisecondsSinceEpoch}',
       pharmacyId: pharmacy.id,
       pharmacyName: pharmacy.name,
@@ -281,16 +269,18 @@ class PharmacyDashboardNotifier
     );
 
     try {
-      await _dbService.submitPharmacyPayment(newPayment);
+      await _dbService.submitPharmacyPayment(payment);
       await loadDashboardData();
       return true;
     } on UnsupportedError {
+      if (!mounted) return false;
       state = state.copyWith(
         error:
             'O envio de comprovativos ainda não está implementado no serviço.',
       );
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         error: 'Não foi possível enviar o comprovativo: $e',
       );
@@ -298,10 +288,21 @@ class PharmacyDashboardNotifier
     }
   }
 
-  Future<bool> addMedicine(MedicineModel newMedicine) async {
+  Future<bool> addMedicine(MedicineModel medicine) async {
     final pharmacy = state.pharmacyDetails;
 
-    if (pharmacy == null || newMedicine.pharmacyId != pharmacy.id) {
+    if (pharmacy == null) {
+      state = state.copyWith(
+        error: 'Não foi possível identificar a farmácia da conta.',
+      );
+      return false;
+    }
+
+    // Um ID vazio pode ser preenchido pelo serviço, que identifica
+    // a farmácia através do utilizador autenticado.
+    // Um ID diferente continua a ser rejeitado.
+    if (medicine.pharmacyId.isNotEmpty &&
+        medicine.pharmacyId != pharmacy.id) {
       state = state.copyWith(
         error:
             'O medicamento tem de pertencer à farmácia associada à conta.',
@@ -310,9 +311,7 @@ class PharmacyDashboardNotifier
     }
 
     try {
-      await _dbService
-          .addMedicine(newMedicine)
-          .timeout(_saveTimeout);
+      await _dbService.addMedicine(medicine).timeout(_saveTimeout);
 
       if (!mounted) return false;
 
@@ -320,7 +319,6 @@ class PharmacyDashboardNotifier
       return true;
     } on TimeoutException {
       if (!mounted) return false;
-
       state = state.copyWith(
         error:
             'A gravação excedeu 25 segundos. Verifica a ligação '
@@ -329,7 +327,6 @@ class PharmacyDashboardNotifier
       return false;
     } on UnsupportedError {
       if (!mounted) return false;
-
       state = state.copyWith(
         error:
             'A criação de medicamentos ainda não está implementada no serviço.',
@@ -337,7 +334,6 @@ class PharmacyDashboardNotifier
       return false;
     } catch (e) {
       if (!mounted) return false;
-
       state = state.copyWith(
         error: 'Não foi possível adicionar o medicamento: $e',
       );
@@ -345,13 +341,18 @@ class PharmacyDashboardNotifier
     }
   }
 
-  Future<bool> updateMedicine(
-    MedicineModel updatedMedicine,
-  ) async {
+  Future<bool> updateMedicine(MedicineModel medicine) async {
     final pharmacy = state.pharmacyDetails;
 
-    if (pharmacy == null ||
-        updatedMedicine.pharmacyId != pharmacy.id) {
+    if (pharmacy == null) {
+      state = state.copyWith(
+        error: 'Não foi possível identificar a farmácia da conta.',
+      );
+      return false;
+    }
+
+    if (medicine.pharmacyId.isNotEmpty &&
+        medicine.pharmacyId != pharmacy.id) {
       state = state.copyWith(
         error:
             'Só podes editar medicamentos da farmácia associada à conta.',
@@ -360,9 +361,7 @@ class PharmacyDashboardNotifier
     }
 
     try {
-      await _dbService
-          .updateMedicine(updatedMedicine)
-          .timeout(_saveTimeout);
+      await _dbService.updateMedicine(medicine).timeout(_saveTimeout);
 
       if (!mounted) return false;
 
@@ -370,7 +369,6 @@ class PharmacyDashboardNotifier
       return true;
     } on TimeoutException {
       if (!mounted) return false;
-
       state = state.copyWith(
         error:
             'A actualização excedeu 25 segundos. Verifica a ligação '
@@ -379,7 +377,6 @@ class PharmacyDashboardNotifier
       return false;
     } on UnsupportedError {
       if (!mounted) return false;
-
       state = state.copyWith(
         error:
             'A edição de medicamentos ainda não está implementada no serviço.',
@@ -387,7 +384,6 @@ class PharmacyDashboardNotifier
       return false;
     } catch (e) {
       if (!mounted) return false;
-
       state = state.copyWith(
         error: 'Não foi possível actualizar o medicamento: $e',
       );
@@ -395,14 +391,9 @@ class PharmacyDashboardNotifier
     }
   }
 
-  Future<bool> updateStock(
-    String medicineId,
-    int newStock,
-  ) async {
+  Future<bool> updateStock(String medicineId, int newStock) async {
     if (newStock < 0) {
-      state = state.copyWith(
-        error: 'O stock não pode ser negativo.',
-      );
+      state = state.copyWith(error: 'O stock não pode ser negativo.');
       return false;
     }
 
@@ -412,16 +403,17 @@ class PharmacyDashboardNotifier
         newStock,
         newStock > 0,
       );
-
       await loadDashboardData();
       return true;
     } on UnsupportedError {
+      if (!mounted) return false;
       state = state.copyWith(
         error:
             'A actualização do stock ainda não está implementada no serviço.',
       );
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         error: 'Não foi possível actualizar o stock: $e',
       );
@@ -429,32 +421,25 @@ class PharmacyDashboardNotifier
     }
   }
 
-  Future<bool> updatePrice(
-    String medicineId,
-    double newPrice,
-  ) async {
-    if (newPrice < 0) {
-      state = state.copyWith(
-        error: 'O preço não pode ser negativo.',
-      );
+  Future<bool> updatePrice(String medicineId, double newPrice) async {
+    if (!newPrice.isFinite || newPrice < 0) {
+      state = state.copyWith(error: 'O preço não pode ser negativo.');
       return false;
     }
 
     try {
-      await _dbService.updateMedicinePrice(
-        medicineId,
-        newPrice,
-      );
-
+      await _dbService.updateMedicinePrice(medicineId, newPrice);
       await loadDashboardData();
       return true;
     } on UnsupportedError {
+      if (!mounted) return false;
       state = state.copyWith(
         error:
             'A alteração de preços ainda não está implementada no serviço.',
       );
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         error: 'Não foi possível actualizar o preço: $e',
       );
@@ -468,12 +453,14 @@ class PharmacyDashboardNotifier
       await loadDashboardData();
       return true;
     } on UnsupportedError {
+      if (!mounted) return false;
       state = state.copyWith(
         error:
             'A eliminação de medicamentos ainda não está implementada no serviço.',
       );
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         error: 'Não foi possível eliminar o medicamento: $e',
       );
@@ -481,9 +468,7 @@ class PharmacyDashboardNotifier
     }
   }
 
-  Future<ReservationModel?> validateQrCode(
-    String code,
-  ) async {
+  Future<ReservationModel?> validateQrCode(String code) async {
     try {
       final reservation =
           await _dbService.validateReservationByQrCode(code);
@@ -494,12 +479,14 @@ class PharmacyDashboardNotifier
 
       return reservation;
     } on UnsupportedError {
+      if (!mounted) return null;
       state = state.copyWith(
         error:
             'A validação de códigos ainda não está implementada no serviço.',
       );
       return null;
     } catch (e) {
+      if (!mounted) return null;
       state = state.copyWith(
         error: 'Não foi possível validar o código: $e',
       );
@@ -513,21 +500,18 @@ class PharmacyDashboardNotifier
     String? notes,
   ) async {
     try {
-      await _dbService.updatePrescriptionStatus(
-        id,
-        status,
-        notes,
-      );
-
+      await _dbService.updatePrescriptionStatus(id, status, notes);
       await loadDashboardData();
       return true;
     } on UnsupportedError {
+      if (!mounted) return false;
       state = state.copyWith(
         error:
             'A actualização de receitas ainda não está implementada no serviço.',
       );
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         error: 'Não foi possível actualizar a receita: $e',
       );
@@ -538,9 +522,6 @@ class PharmacyDashboardNotifier
 
 final pharmacyDashboardProvider = StateNotifierProvider<
     PharmacyDashboardNotifier, PharmacyDashboardState>((ref) {
-  final dbService = ref.watch(
-    supabaseDatabaseServiceProvider,
-  );
-
+  final dbService = ref.watch(supabaseDatabaseServiceProvider);
   return PharmacyDashboardNotifier(dbService);
 });
