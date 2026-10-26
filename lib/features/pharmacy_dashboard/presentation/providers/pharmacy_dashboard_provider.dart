@@ -141,11 +141,13 @@ class PharmacyDashboardNotifier
           pharmacyId: pharmacy.id,
         );
       } catch (e) {
-        loadingError = 'Não foi possível carregar os medicamentos: $e';
+        loadingError =
+            'Não foi possível carregar os medicamentos: $e';
       }
 
       try {
-        reservations = await _dbService.getAllReservationsForPharmacy();
+        reservations =
+            await _dbService.getAllReservationsForPharmacy();
       } catch (e) {
         loadingError =
             '${loadingError == null ? '' : '$loadingError\n'}'
@@ -153,7 +155,8 @@ class PharmacyDashboardNotifier
       }
 
       try {
-        prescriptions = await _dbService.getPrescriptionsForPharmacy();
+        prescriptions =
+            await _dbService.getPrescriptionsForPharmacy();
       } on UnsupportedError {
         prescriptions = [];
       } catch (e) {
@@ -291,27 +294,60 @@ class PharmacyDashboardNotifier
   Future<bool> addMedicine(MedicineModel medicine) async {
     final pharmacy = state.pharmacyDetails;
 
-    if (pharmacy == null) {
-      state = state.copyWith(
-        error: 'Não foi possível identificar a farmácia da conta.',
-      );
-      return false;
-    }
-
-    // Um ID vazio pode ser preenchido pelo serviço, que identifica
-    // a farmácia através do utilizador autenticado.
-    // Um ID diferente continua a ser rejeitado.
-    if (medicine.pharmacyId.isNotEmpty &&
-        medicine.pharmacyId != pharmacy.id) {
+    if (pharmacy == null || pharmacy.id.trim().isEmpty) {
       state = state.copyWith(
         error:
-            'O medicamento tem de pertencer à farmácia associada à conta.',
+            'Não foi possível identificar a farmácia da conta. '
+            'Actualiza o painel e tenta novamente.',
       );
       return false;
     }
 
+    if (medicine.name.trim().isEmpty) {
+      state = state.copyWith(
+        error: 'O nome do medicamento é obrigatório.',
+      );
+      return false;
+    }
+
+    if (!medicine.priceKz.isFinite ||
+        medicine.priceKz < 0 ||
+        medicine.stockQuantity < 0) {
+      state = state.copyWith(
+        error: 'O preço e o stock devem ser valores válidos e não negativos.',
+      );
+      return false;
+    }
+
+    // A criação usa sempre a farmácia identificada pelo painel.
+    // O serviço e a função SQL continuam responsáveis por validar
+    // a associação com o utilizador autenticado.
+    final medicineForPharmacy = MedicineModel(
+      id: medicine.id,
+      pharmacyId: pharmacy.id,
+      name: medicine.name.trim(),
+      activeIngredient: medicine.activeIngredient,
+      category: medicine.category,
+      dosage: medicine.dosage,
+      priceKz: medicine.priceKz,
+      pharmacyName: pharmacy.name,
+      province: medicine.province,
+      district: medicine.district,
+      inStock: medicine.inStock,
+      stockQuantity: medicine.stockQuantity,
+      requiresPrescription: medicine.requiresPrescription,
+      isGeneric: medicine.isGeneric,
+      genericAlternative: medicine.genericAlternative,
+      description: medicine.description,
+      dosageInstructions: medicine.dosageInstructions,
+      pharmacyLatitude: medicine.pharmacyLatitude,
+      pharmacyLongitude: medicine.pharmacyLongitude,
+    );
+
     try {
-      await _dbService.addMedicine(medicine).timeout(_saveTimeout);
+      await _dbService
+          .addMedicine(medicineForPharmacy)
+          .timeout(_saveTimeout);
 
       if (!mounted) return false;
 
