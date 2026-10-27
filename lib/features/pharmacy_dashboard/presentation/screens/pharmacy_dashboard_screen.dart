@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../medicines/domain/medicine_model.dart';
 import '../providers/pharmacy_dashboard_provider.dart';
 import '../widgets/add_edit_medicine_dialog.dart';
@@ -25,6 +26,7 @@ class _PharmacyDashboardScreenState
   late TabController _tabController;
   String _searchQuery = '';
   String _selectedStatsPeriod = 'Dia';
+  bool _isSigningOut = false;
 
   @override
   void initState() {
@@ -59,6 +61,65 @@ class _PharmacyDashboardScreenState
               isError ? Colors.red.shade700 : AppColors.primary,
         ),
       );
+  }
+
+  Future<void> _confirmAndSignOut() async {
+    if (_isSigningOut) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.logout_rounded),
+        title: const Text('Terminar sessão?'),
+        content: const Text(
+          'Queres sair da conta desta farmácia neste dispositivo?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.logout_rounded),
+            label: const Text('Terminar sessão'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isSigningOut = true);
+
+    try {
+      await ref.read(authProvider.notifier).logout();
+
+      if (!mounted) return;
+
+      final authState = ref.read(authProvider);
+
+      if (authState.user == null) {
+        context.go('/login');
+      } else {
+        _showMessage(
+          authState.error ??
+              'Não foi possível terminar a sessão. Tenta novamente.',
+          isError: true,
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMessage(
+          'Não foi possível terminar a sessão. Tenta novamente.',
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSigningOut = false);
+      }
+    }
   }
 
   /// Aceita resultados booleanos e UUIDs devolvidos pela base de dados.
@@ -195,11 +256,8 @@ class _PharmacyDashboardScreenState
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              context.push('/admin/subscriptions');
-            },
-            child: const Text('Painel Admin'),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Fechar'),
           ),
           FilledButton.icon(
             icon: const Icon(Icons.upload_file_rounded),
@@ -242,12 +300,18 @@ class _PharmacyDashboardScreenState
         ),
         actions: [
           IconButton(
-            icon: const Icon(
-              Icons.admin_panel_settings_rounded,
-              color: AppColors.primary,
-            ),
-            tooltip: 'Painel Admin Subscrições',
-            onPressed: () => context.push('/admin/subscriptions'),
+            icon: _isSigningOut
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(
+                    Icons.logout_rounded,
+                    color: AppColors.primary,
+                  ),
+            tooltip: 'Terminar sessão',
+            onPressed: _isSigningOut ? null : _confirmAndSignOut,
           ),
           IconButton(
             icon: const Icon(
@@ -499,22 +563,10 @@ class _PharmacyDashboardScreenState
               ),
             ),
             const SizedBox(height: 24),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                FilledButton.icon(
-                  icon: const Icon(Icons.upload_file_rounded),
-                  label: const Text('Enviar comprovativo'),
-                  onPressed: _showPaymentModal,
-                ),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.admin_panel_settings_rounded),
-                  label: const Text('Painel Admin'),
-                  onPressed: () => context.push('/admin/subscriptions'),
-                ),
-              ],
+            FilledButton.icon(
+              icon: const Icon(Icons.upload_file_rounded),
+              label: const Text('Enviar comprovativo'),
+              onPressed: _showPaymentModal,
             ),
           ],
         ),
