@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -171,12 +170,6 @@ class SupabaseDatabaseService {
     String? province,
     bool? only24h,
   }) async {
-    if (province != null && province.trim().isNotEmpty) {
-      throw UnsupportedError(
-        'A tabela farmacias ainda não possui uma coluna de província.',
-      );
-    }
-
     if (only24h == true) {
       throw UnsupportedError(
         'A tabela farmacias ainda não possui informação sobre funcionamento 24 horas.',
@@ -184,13 +177,17 @@ class SupabaseDatabaseService {
     }
 
     try {
-      final response = await _client
-          .from('farmacias')
-          .select(
-            'id, nome, avaliacao, endereco, telefone, '
-            'aberta_agora, owner_user_id',
-          )
-          .order('nome');
+      var request = _client.from('farmacias').select(
+        'id, nome, avaliacao, endereco, telefone, aberta_agora, '
+        'owner_user_id, foto_url, provincia, municipio, bairro, '
+        'latitude, longitude',
+      );
+
+      if (province != null && province.trim().isNotEmpty) {
+        request = request.ilike('provincia', province.trim());
+      }
+
+      final response = await request.order('nome');
 
       return List<Map<String, dynamic>>.from(response)
           .map(_pharmacyFromDatabase)
@@ -219,8 +216,9 @@ class SupabaseDatabaseService {
       final response = await _client
           .from('farmacias')
           .select(
-            'id, nome, avaliacao, endereco, telefone, '
-            'aberta_agora, owner_user_id',
+            'id, nome, avaliacao, endereco, telefone, aberta_agora, '
+            'owner_user_id, foto_url, provincia, municipio, bairro, '
+            'latitude, longitude',
           )
           .eq('owner_user_id', currentUser.id);
 
@@ -248,8 +246,9 @@ class SupabaseDatabaseService {
       final response = await _client
           .from('farmacias')
           .select(
-            'id, nome, avaliacao, endereco, telefone, '
-            'aberta_agora, owner_user_id',
+            'id, nome, avaliacao, endereco, telefone, aberta_agora, '
+            'owner_user_id, foto_url, provincia, municipio, bairro, '
+            'latitude, longitude',
           )
           .eq('id', id)
           .maybeSingle();
@@ -269,13 +268,19 @@ class SupabaseDatabaseService {
   PharmacyModel _pharmacyFromDatabase(
     Map<String, dynamic> row,
   ) {
+    double toDouble(dynamic value) {
+      if (value is num) return value.toDouble();
+      return double.tryParse(value?.toString() ?? '') ?? 0.0;
+    }
+
     final rating = row['avaliacao'];
 
     return PharmacyModel(
       id: (row['id'] ?? '').toString(),
       name: (row['nome'] ?? '').toString(),
-      province: '',
-      district: '',
+      province: (row['provincia'] ?? '').toString(),
+      district: (row['municipio'] ?? '').toString(),
+      neighborhood: (row['bairro'] ?? '').toString(),
       address: (row['endereco'] ?? '').toString(),
       phone: (row['telefone'] ?? '').toString(),
       openingHours:
@@ -283,9 +288,9 @@ class SupabaseDatabaseService {
       isOpen24h: false,
       hasDelivery: false,
       rating: rating is num ? rating.toDouble() : 0.0,
-      logoUrl: '',
-      latitude: 0.0,
-      longitude: 0.0,
+      logoUrl: (row['foto_url'] ?? '').toString(),
+      latitude: toDouble(row['latitude']),
+      longitude: toDouble(row['longitude']),
       subscriptionStatus: 'unknown',
       trialEndsAt: null,
       paymentDueDate: null,
