@@ -6,6 +6,7 @@ class PharmacyModel {
   final String name;
   final String province;
   final String district;
+  final String neighborhood;
   final String address;
   final String phone;
   final String openingHours;
@@ -16,7 +17,7 @@ class PharmacyModel {
   final double latitude;
   final double longitude;
 
-  // Dados de subscrição: só devem refletir informação confirmada.
+  // Dados de subscrição: só devem reflectir informação confirmada.
   final String subscriptionStatus;
   final DateTime trialEndsAt;
   final DateTime paymentDueDate;
@@ -28,6 +29,7 @@ class PharmacyModel {
     required this.name,
     required this.province,
     required this.district,
+    this.neighborhood = '',
     required this.address,
     required this.phone,
     required this.openingHours,
@@ -81,7 +83,8 @@ class PharmacyModel {
   }
 
   double calculateDistanceFrom(double userLat, double userLng) {
-    if (latitude == 0.0 && longitude == 0.0) {
+    if ((latitude == 0.0 && longitude == 0.0) ||
+        (userLat == 0.0 && userLng == 0.0)) {
       return double.infinity;
     }
 
@@ -111,28 +114,46 @@ class PharmacyModel {
     return PharmacyModel(
       id: (json['id'] ?? '').toString(),
       name: (json['nome'] ?? json['name'] ?? '').toString(),
-      province: (json['province'] ?? '').toString(),
-      district: (json['municipality'] ?? json['district'] ?? '').toString(),
+      province: (json['provincia'] ?? json['province'] ?? '').toString(),
+      district: (json['municipio'] ??
+              json['municipality'] ??
+              json['district'] ??
+              '')
+          .toString(),
+      neighborhood:
+          (json['bairro'] ?? json['neighborhood'] ?? '').toString(),
       address: (json['endereco'] ?? json['address'] ?? '').toString(),
       phone: (json['telefone'] ?? json['phone'] ?? '').toString(),
-      openingHours:
-          (json['opening_hours'] ?? json['openingHours'] ?? '').toString(),
-      isOpen24h: json['is_open_24h'] == true ||
-          json['isOpen24h'] == true,
-      hasDelivery: json['has_delivery'] == true ||
-          json['hasDelivery'] == true,
+      openingHours: (json['opening_hours'] ??
+              json['openingHours'] ??
+              (json['aberta_agora'] == true
+                  ? 'Aberta'
+                  : json['aberta_agora'] == false
+                      ? 'Fechada'
+                      : ''))
+          .toString(),
+      isOpen24h:
+          json['is_open_24h'] == true || json['isOpen24h'] == true,
+      hasDelivery:
+          json['has_delivery'] == true || json['hasDelivery'] == true,
       rating: toDouble(json['avaliacao'] ?? json['rating']),
-      logoUrl: (json['logo_url'] ?? json['logoUrl'] ?? '').toString(),
+      logoUrl: (json['foto_url'] ??
+              json['logo_url'] ??
+              json['logoUrl'] ??
+              '')
+          .toString(),
       latitude: toDouble(json['latitude']),
       longitude: toDouble(json['longitude']),
       subscriptionStatus: (json['subscription_status'] ??
               json['subscriptionStatus'] ??
               'unknown')
           .toString(),
-      trialEndsAt: parseDate(json['trial_ends_at'] ?? json['trialEndsAt']),
+      trialEndsAt:
+          parseDate(json['trial_ends_at'] ?? json['trialEndsAt']),
       paymentDueDate:
           parseDate(json['payment_due_date'] ?? json['paymentDueDate']),
-      monthlyFee: toDouble(json['monthly_fee'] ?? json['monthlyFee'] ?? 15000),
+      monthlyFee:
+          toDouble(json['monthly_fee'] ?? json['monthlyFee'] ?? 15000),
       lastPaymentAt:
           parseDate(json['last_payment_at'] ?? json['lastPaymentAt']),
     );
