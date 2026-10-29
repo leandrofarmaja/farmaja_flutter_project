@@ -1,3 +1,4 @@
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/supabase_database_service.dart';
@@ -65,22 +66,47 @@ class AdminSubscriptionNotifier
       clearError: true,
     );
 
+    String? pharmacyError;
+    String? paymentError;
+
+    // Carrega as farmácias independentemente dos pagamentos.
     try {
       final pharmList = await _dbService.getPharmacies();
-      final payList = await _dbService.getAllPharmacyPayments();
 
       state = state.copyWith(
         pharmacies: pharmList,
-        payments: payList,
-        isLoading: false,
         clearError: true,
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Não foi possível carregar os dados: $e',
-      );
+      pharmacyError =
+          'Não foi possível carregar as farmácias: $e';
     }
+
+    // Uma falha nos pagamentos não deve apagar a lista de farmácias.
+    try {
+      final payList = await _dbService.getAllPharmacyPayments();
+
+      state = state.copyWith(
+        payments: payList,
+      );
+    } catch (e) {
+      paymentError =
+          'Os pagamentos não estão disponíveis neste momento: $e';
+    }
+
+    String? finalError;
+
+    if (pharmacyError != null && paymentError != null) {
+      finalError = '$pharmacyError\n$paymentError';
+    } else {
+      finalError = pharmacyError ?? paymentError;
+    }
+
+    state = state.copyWith(
+      isLoading: false,
+      error: finalError,
+      clearError: finalError == null,
+    );
   }
 
   /// Aprovação de pagamentos.
@@ -101,7 +127,8 @@ class AdminSubscriptionNotifier
       return true;
     } on UnsupportedError catch (e) {
       state = state.copyWith(
-        error: 'A aprovação de pagamentos ainda não está disponível: $e',
+        error:
+            'A aprovação de pagamentos ainda não está disponível: $e',
       );
       return false;
     } catch (e) {
@@ -118,13 +145,17 @@ class AdminSubscriptionNotifier
     String? reason,
   ) async {
     try {
-      await _dbService.rejectPharmacyPayment(paymentId, reason);
+      await _dbService.rejectPharmacyPayment(
+        paymentId,
+        reason,
+      );
 
       await loadAdminData();
       return true;
     } on UnsupportedError catch (e) {
       state = state.copyWith(
-        error: 'A rejeição de pagamentos ainda não está disponível: $e',
+        error:
+            'A rejeição de pagamentos ainda não está disponível: $e',
       );
       return false;
     } catch (e) {
@@ -152,7 +183,8 @@ class AdminSubscriptionNotifier
       return true;
     } on UnsupportedError catch (e) {
       state = state.copyWith(
-        error: 'A alteração de subscrições ainda não está disponível: $e',
+        error:
+            'A alteração de subscrições ainda não está disponível: $e',
       );
       return false;
     } catch (e) {
