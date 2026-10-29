@@ -1,4 +1,3 @@
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/pharmacies_repository.dart';
@@ -10,20 +9,26 @@ final pharmaciesRepositoryProvider =
   return PharmaciesRepository();
 });
 
+// Pesquisa exclusiva da lista de farmácias.
+final pharmaciesSearchQueryProvider =
+    StateProvider<String>((ref) => '');
+
+// Lista de farmácias obtida através do Supabase.
 final pharmaciesListProvider =
     FutureProvider<List<PharmacyModel>>((ref) async {
   final repository = ref.watch(pharmaciesRepositoryProvider);
   final filter = ref.watch(medicineFilterProvider);
+  final searchQuery = ref.watch(pharmaciesSearchQueryProvider);
 
-  final selectedMunicipality =
-      filter.selectedDistrict.trim();
+  final selectedProvince = filter.selectedProvince.trim();
+  final selectedMunicipality = filter.selectedDistrict.trim();
 
   return repository.getPharmacies(
-    province: filter.selectedProvince.trim().isEmpty
+    province: selectedProvince.isEmpty
         ? null
-        : filter.selectedProvince.trim(),
+        : selectedProvince,
     only24h: filter.only24h,
-    searchQuery: filter.query.trim(),
+    searchQuery: searchQuery.trim(),
     municipality:
         selectedMunicipality.isEmpty ||
                 selectedMunicipality == 'Todos os Municípios'
