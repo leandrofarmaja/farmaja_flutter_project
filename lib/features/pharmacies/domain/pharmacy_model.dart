@@ -1,161 +1,92 @@
+import '../../../core/services/supabase_database_service.dart';
+import '../domain/pharmacy_model.dart';
 
-import 'dart:math';
+class PharmaciesRepository {
+  final SupabaseDatabaseService _dbService =
+      SupabaseDatabaseService();
 
-class PharmacyModel {
-  final String id;
-  final String name;
-  final String province;
-  final String district;
-  final String neighborhood;
-  final String address;
-  final String phone;
-  final String openingHours;
-  final bool isOpen24h;
-  final bool hasDelivery;
-  final double rating;
-  final String logoUrl;
-  final double latitude;
-  final double longitude;
-
-  // Dados de subscrição: só devem reflectir informação confirmada.
-  final String subscriptionStatus;
-  final DateTime trialEndsAt;
-  final DateTime paymentDueDate;
-  final double monthlyFee;
-  final DateTime? lastPaymentAt;
-
-  PharmacyModel({
-    required this.id,
-    required this.name,
-    required this.province,
-    required this.district,
-    this.neighborhood = '',
-    required this.address,
-    required this.phone,
-    required this.openingHours,
-    required this.isOpen24h,
-    required this.hasDelivery,
-    required this.rating,
-    required this.logoUrl,
-    this.latitude = 0.0,
-    this.longitude = 0.0,
-    this.subscriptionStatus = 'unknown',
-    DateTime? trialEndsAt,
-    DateTime? paymentDueDate,
-    this.monthlyFee = 15000.0,
-    this.lastPaymentAt,
-  })  : trialEndsAt =
-            trialEndsAt ?? DateTime.fromMillisecondsSinceEpoch(0),
-        paymentDueDate =
-            paymentDueDate ?? DateTime.fromMillisecondsSinceEpoch(0);
-
-  bool get isTrialActive =>
-      subscriptionStatus == 'trial' &&
-      DateTime.now().isBefore(trialEndsAt);
-
-  bool get isSubscriptionActive =>
-      (subscriptionStatus == 'active' &&
-          DateTime.now().isBefore(paymentDueDate)) ||
-      isTrialActive;
-
-  bool get isBlockedOrExpired =>
-      subscriptionStatus == 'blocked' ||
-      subscriptionStatus == 'expired' ||
-      (subscriptionStatus == 'trial' && !isTrialActive) ||
-      (subscriptionStatus == 'active' &&
-          !DateTime.now().isBefore(paymentDueDate));
-
-  int get daysLeftInTrial {
-    if (subscriptionStatus != 'trial' || !isTrialActive) {
-      return 0;
-    }
-
-    return trialEndsAt.difference(DateTime.now()).inDays;
-  }
-
-  int get daysUntilPaymentDue {
-    if (subscriptionStatus != 'active' ||
-        !DateTime.now().isBefore(paymentDueDate)) {
-      return 0;
-    }
-
-    return paymentDueDate.difference(DateTime.now()).inDays;
-  }
-
-  double calculateDistanceFrom(double userLat, double userLng) {
-    if ((latitude == 0.0 && longitude == 0.0) ||
-        (userLat == 0.0 && userLng == 0.0)) {
-      return double.infinity;
-    }
-
-    const p = 0.017453292519943295;
-
-    final a = 0.5 -
-        cos((latitude - userLat) * p) / 2 +
-        cos(userLat * p) *
-            cos(latitude * p) *
-            (1 - cos((longitude - userLng) * p)) /
-            2;
-
-    return 12742 * asin(sqrt(a.clamp(0.0, 1.0)));
-  }
-
-  factory PharmacyModel.fromJson(Map<String, dynamic> json) {
-    double toDouble(dynamic value) {
-      if (value is num) return value.toDouble();
-      return double.tryParse(value?.toString() ?? '') ?? 0.0;
-    }
-
-    DateTime? parseDate(dynamic value) {
-      if (value == null) return null;
-      return DateTime.tryParse(value.toString());
-    }
-
-    return PharmacyModel(
-      id: (json['id'] ?? '').toString(),
-      name: (json['nome'] ?? json['name'] ?? '').toString(),
-      province: (json['provincia'] ?? json['province'] ?? '').toString(),
-      district: (json['municipio'] ??
-              json['municipality'] ??
-              json['district'] ??
-              '')
-          .toString(),
-      neighborhood:
-          (json['bairro'] ?? json['neighborhood'] ?? '').toString(),
-      address: (json['endereco'] ?? json['address'] ?? '').toString(),
-      phone: (json['telefone'] ?? json['phone'] ?? '').toString(),
-      openingHours: (json['opening_hours'] ??
-              json['openingHours'] ??
-              (json['aberta_agora'] == true
-                  ? 'Aberta'
-                  : json['aberta_agora'] == false
-                      ? 'Fechada'
-                      : ''))
-          .toString(),
-      isOpen24h:
-          json['is_open_24h'] == true || json['isOpen24h'] == true,
-      hasDelivery:
-          json['has_delivery'] == true || json['hasDelivery'] == true,
-      rating: toDouble(json['avaliacao'] ?? json['rating']),
-      logoUrl: (json['foto_url'] ??
-              json['logo_url'] ??
-              json['logoUrl'] ??
-              '')
-          .toString(),
-      latitude: toDouble(json['latitude']),
-      longitude: toDouble(json['longitude']),
-      subscriptionStatus: (json['subscription_status'] ??
-              json['subscriptionStatus'] ??
-              'unknown')
-          .toString(),
-      trialEndsAt:
-          parseDate(json['trial_ends_at'] ?? json['trialEndsAt']),
-      paymentDueDate:
-          parseDate(json['payment_due_date'] ?? json['paymentDueDate']),
-      monthlyFee:
-          toDouble(json['monthly_fee'] ?? json['monthlyFee'] ?? 15000),
-      lastPaymentAt:
-          parseDate(json['last_payment_at'] ?? json['lastPaymentAt']),
+  Future<List<PharmacyModel>> getPharmacies({
+    String? province,
+    bool? only24h,
+    String? searchQuery,
+    String? municipality,
+    String? neighborhood,
+    double? userLatitude,
+    double? userLongitude,
+    bool nearestFirst = false,
+  }) async {
+    // Obter os dados reais através do Supabase.
+    final pharmacies = await _dbService.getPharmacies(
+      province: province,
+      only24h: only24h,
     );
+
+    final normalizedQuery = _normalize(searchQuery);
+    final normalizedMunicipality = _normalize(municipality);
+    final normalizedNeighborhood = _normalize(neighborhood);
+
+    // Aplicar a pesquisa sem distinguir maiúsculas de minúsculas
+    // e ignorando acentos.
+    final filteredPharmacies = pharmacies.where((pharmacy) {
+      final matchesQuery = normalizedQuery.isEmpty ||
+          _normalize(pharmacy.name).contains(normalizedQuery) ||
+          _normalize(pharmacy.district).contains(normalizedQuery) ||
+          _normalize(pharmacy.neighborhood).contains(normalizedQuery);
+
+      final matchesMunicipality =
+          normalizedMunicipality.isEmpty ||
+          _normalize(pharmacy.district)
+              .contains(normalizedMunicipality);
+
+      final matchesNeighborhood =
+          normalizedNeighborhood.isEmpty ||
+          _normalize(pharmacy.neighborhood)
+              .contains(normalizedNeighborhood);
+
+      return matchesQuery &&
+          matchesMunicipality &&
+          matchesNeighborhood;
+    }).toList();
+
+    // Ordenar pela distância apenas quando as coordenadas reais
+    // do utilizador forem fornecidas.
+    final hasUserCoordinates =
+        userLatitude != null &&
+        userLongitude != null &&
+        userLatitude != 0.0 &&
+        userLongitude != 0.0;
+
+    if (nearestFirst && hasUserCoordinates) {
+      filteredPharmacies.sort((a, b) {
+        final distanceA = a.calculateDistanceFrom(
+          userLatitude,
+          userLongitude,
+        );
+        final distanceB = b.calculateDistanceFrom(
+          userLatitude,
+          userLongitude,
+        );
+
+        return distanceA.compareTo(distanceB);
+      });
+    }
+
+    return filteredPharmacies;
+  }
+
+  String _normalize(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return '';
+    }
+
+    return value
+        .toLowerCase()
+        .trim()
+        .replaceAll(RegExp(r'[áàâãä]'), 'a')
+        .replaceAll(RegExp(r'[éèêë]'), 'e')
+        .replaceAll(RegExp(r'[íìîï]'), 'i')
+        .replaceAll(RegExp(r'[óòôõö]'), 'o')
+        .replaceAll(RegExp(r'[úùûü]'), 'u')
+        .replaceAll('ç', 'c');
   }
 }
