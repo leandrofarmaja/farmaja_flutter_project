@@ -9,6 +9,42 @@ import '../providers/pharmacies_provider.dart';
 class PharmaciesScreen extends ConsumerWidget {
   const PharmaciesScreen({super.key});
 
+  Widget _pharmacyImage(
+    String imageUrl, {
+    double size = 64,
+  }) {
+    final url = imageUrl.trim();
+
+    Widget fallback() {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(
+          Icons.local_pharmacy_rounded,
+          color: AppColors.primary,
+          size: 32,
+        ),
+      );
+    }
+
+    if (url.isEmpty) return fallback();
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.network(
+        url,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => fallback(),
+      ),
+    );
+  }
+
   void _showPharmacyReviewsModal(
     BuildContext context,
     PharmacyModel pharm,
@@ -44,12 +80,8 @@ class PharmaciesScreen extends ConsumerWidget {
               ),
               Row(
                 children: [
-                  const Icon(
-                    Icons.local_pharmacy_rounded,
-                    color: AppColors.primary,
-                    size: 28,
-                  ),
-                  const SizedBox(width: 8),
+                  _pharmacyImage(pharm.logoUrl),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       pharm.name,
@@ -62,7 +94,7 @@ class PharmaciesScreen extends ConsumerWidget {
                 ],
               ),
               if (pharm.address.trim().isNotEmpty) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(
                   pharm.address,
                   style: const TextStyle(
@@ -214,6 +246,7 @@ class PharmaciesScreen extends ConsumerWidget {
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
+                      clipBehavior: Clip.antiAlias,
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -222,61 +255,67 @@ class PharmaciesScreen extends ConsumerWidget {
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(
-                                  Icons.local_pharmacy_rounded,
-                                  color: AppColors.primary,
-                                  size: 28,
-                                ),
-                                const SizedBox(width: 10),
+                                _pharmacyImage(pharm.logoUrl),
+                                const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
-                                    pharm.name,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                if (pharm.rating > 0)
-                                  InkWell(
-                                    onTap: () =>
-                                        _showPharmacyReviewsModal(
-                                      context,
-                                      pharm,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.star,
-                                          color: Colors.amber,
-                                          size: 16,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        pharm.name,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
                                         ),
-                                        const SizedBox(width: 4),
+                                      ),
+                                      if (locationParts.isNotEmpty) ...[
+                                        const SizedBox(height: 6),
                                         Text(
-                                          pharm.rating.toStringAsFixed(1),
+                                          locationParts.join(', '),
                                           style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
+                                            fontSize: 12,
+                                            color:
+                                                AppColors.textSecondaryLight,
                                           ),
                                         ),
                                       ],
-                                    ),
+                                      if (pharm.rating > 0) ...[
+                                        const SizedBox(height: 6),
+                                        InkWell(
+                                          onTap: () =>
+                                              _showPharmacyReviewsModal(
+                                            context,
+                                            pharm,
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(
+                                                Icons.star,
+                                                color: Colors.amber,
+                                                size: 16,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                pharm.rating
+                                                    .toStringAsFixed(1),
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
+                                ),
                               ],
                             ),
-                            if (locationParts.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                '📍 ${locationParts.join(', ')}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textSecondaryLight,
-                                ),
-                              ),
-                            ],
                             if (hasAddress) ...[
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 10),
                               Text(
                                 pharm.address,
                                 style: const TextStyle(fontSize: 12),
@@ -285,14 +324,14 @@ class PharmaciesScreen extends ConsumerWidget {
                             if (hasPhone) ...[
                               const SizedBox(height: 4),
                               Text(
-                                '📞 ${pharm.phone}',
+                                'Telefone: ${pharm.phone}',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: AppColors.textSecondaryLight,
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 10),
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
@@ -355,11 +394,12 @@ class PharmaciesScreen extends ConsumerWidget {
               loading: () => const Center(
                 child: CircularProgressIndicator(),
               ),
-              error: (err, stack) => Center(
+              error: (err, stack) => const Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
                   child: Text(
-                    'Não foi possível carregar as farmácias.\n$err',
+                    'Não foi possível carregar as farmácias. '
+                    'Verifica a ligação e tenta novamente.',
                     textAlign: TextAlign.center,
                   ),
                 ),
