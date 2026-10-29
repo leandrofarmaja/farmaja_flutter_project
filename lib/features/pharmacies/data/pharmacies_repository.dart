@@ -90,5 +90,4 @@ class PharmaciesRepository {
         .replaceAll(RegExp(r'[úùûü]'), 'u')
         .replaceAll('ç', 'c');
   }
-}
-Não 
+} 
