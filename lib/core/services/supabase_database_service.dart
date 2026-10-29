@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -180,7 +181,8 @@ class SupabaseDatabaseService {
       var request = _client.from('farmacias').select(
         'id, nome, avaliacao, endereco, telefone, aberta_agora, '
         'owner_user_id, foto_url, provincia, municipio, bairro, '
-        'latitude, longitude',
+        'latitude, longitude, subscription_status, trial_ends_at, '
+        'payment_due_date, monthly_fee, last_payment_at',
       );
 
       if (province != null && province.trim().isNotEmpty) {
@@ -218,7 +220,8 @@ class SupabaseDatabaseService {
           .select(
             'id, nome, avaliacao, endereco, telefone, aberta_agora, '
             'owner_user_id, foto_url, provincia, municipio, bairro, '
-            'latitude, longitude',
+            'latitude, longitude, subscription_status, trial_ends_at, '
+            'payment_due_date, monthly_fee, last_payment_at',
           )
           .eq('owner_user_id', currentUser.id);
 
@@ -248,7 +251,8 @@ class SupabaseDatabaseService {
           .select(
             'id, nome, avaliacao, endereco, telefone, aberta_agora, '
             'owner_user_id, foto_url, provincia, municipio, bairro, '
-            'latitude, longitude',
+            'latitude, longitude, subscription_status, trial_ends_at, '
+            'payment_due_date, monthly_fee, last_payment_at',
           )
           .eq('id', id)
           .maybeSingle();
@@ -273,7 +277,35 @@ class SupabaseDatabaseService {
       return double.tryParse(value?.toString() ?? '') ?? 0.0;
     }
 
+    DateTime? toDateTime(dynamic value) {
+      if (value == null) return null;
+      if (value is DateTime) return value;
+
+      final text = value.toString().trim();
+      if (text.isEmpty) return null;
+
+      return DateTime.tryParse(text);
+    }
+
     final rating = row['avaliacao'];
+    final monthlyFee = row['monthly_fee'];
+
+    final rawStatus =
+        (row['subscription_status'] ?? 'trial')
+            .toString()
+            .trim()
+            .toLowerCase();
+
+    const validStatuses = <String>{
+      'trial',
+      'active',
+      'expired',
+      'blocked',
+    };
+
+    final subscriptionStatus = validStatuses.contains(rawStatus)
+        ? rawStatus
+        : 'unknown';
 
     return PharmacyModel(
       id: (row['id'] ?? '').toString(),
@@ -291,11 +323,13 @@ class SupabaseDatabaseService {
       logoUrl: (row['foto_url'] ?? '').toString(),
       latitude: toDouble(row['latitude']),
       longitude: toDouble(row['longitude']),
-      subscriptionStatus: 'unknown',
-      trialEndsAt: null,
-      paymentDueDate: null,
-      monthlyFee: 0.0,
-      lastPaymentAt: null,
+      subscriptionStatus: subscriptionStatus,
+      trialEndsAt: toDateTime(row['trial_ends_at']),
+      paymentDueDate: toDateTime(row['payment_due_date']),
+      monthlyFee: monthlyFee is num
+          ? monthlyFee.toDouble()
+          : 15000.0,
+      lastPaymentAt: toDateTime(row['last_payment_at']),
     );
   }
 
