@@ -574,18 +574,33 @@ class _PharmacyDashboardScreenState
     );
   }
 
+  // CORRECÇÃO: estados desconhecidos já não são apresentados
+  // como se a subscrição estivesse efectivamente bloqueada.
   String _getSubscriptionStatusBadge(
     PharmacyDashboardState state,
   ) {
-    final status =
-        state.pharmacyDetails?.subscriptionStatus ?? 'trial';
+    final status = state.pharmacyDetails?.subscriptionStatus
+            .trim()
+            .toLowerCase() ??
+        'unknown';
 
     if (status == 'trial') {
       return 'Período experimental (${state.daysLeftInTrial}d)';
     }
-    if (status == 'active') return 'Activa';
-    if (status == 'expired') return 'Expirada';
-    return 'Bloqueada';
+
+    if (status == 'active') {
+      return 'Activa';
+    }
+
+    if (status == 'expired') {
+      return 'Expirada';
+    }
+
+    if (status == 'blocked') {
+      return 'Bloqueada';
+    }
+
+    return 'Estado não confirmado';
   }
 
   bool _isCompleted(String status) {
