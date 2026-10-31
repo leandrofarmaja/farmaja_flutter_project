@@ -574,7 +574,7 @@ class _PharmacyDashboardScreenState
     );
   }
 
-  // CORRECÇÃO: estados desconhecidos já não são apresentados
+  // CORRECÇÃO: estados desconhecidos não são apresentados
   // como se a subscrição estivesse efectivamente bloqueada.
   String _getSubscriptionStatusBadge(
     PharmacyDashboardState state,
@@ -603,12 +603,28 @@ class _PharmacyDashboardScreenState
     return 'Estado não confirmado';
   }
 
-  bool _isCompleted(String status) {
+  // Classifica os estados reais das reservas.
+  String _getReservationStatusLabel(String status) {
     final normalized = status.trim().toLowerCase();
-    return normalized == 'completed' ||
-        normalized == 'levantada' ||
-        normalized == 'resgatado' ||
-        normalized == 'entregue';
+
+    switch (normalized) {
+      case 'levantada':
+      case 'completed':
+      case 'resgatado':
+      case 'entregue':
+        return 'Levantada';
+
+      case 'expirada':
+      case 'expired':
+        return 'Expirada';
+
+      default:
+        return 'Pendente';
+    }
+  }
+
+  bool _isCompleted(String status) {
+    return _getReservationStatusLabel(status) == 'Levantada';
   }
 
   Widget _buildStatsTab(PharmacyDashboardState state) {
@@ -749,17 +765,30 @@ class _PharmacyDashboardScreenState
             )
           else
             ...state.reservations.take(3).map((reservation) {
-              final completed = _isCompleted(reservation.status);
+              final statusLabel =
+                  _getReservationStatusLabel(reservation.status);
+              final completed = statusLabel == 'Levantada';
+              final expired = statusLabel == 'Expirada';
 
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
                     backgroundColor: completed
                         ? Colors.green.shade100
-                        : Colors.blue.shade100,
+                        : expired
+                            ? Colors.red.shade100
+                            : Colors.blue.shade100,
                     child: Icon(
-                      completed ? Icons.check : Icons.bookmark,
-                      color: completed ? Colors.green : AppColors.primary,
+                      completed
+                          ? Icons.check
+                          : expired
+                              ? Icons.timer_off
+                              : Icons.bookmark,
+                      color: completed
+                          ? Colors.green
+                          : expired
+                              ? Colors.red
+                              : AppColors.primary,
                     ),
                   ),
                   title: Text(
@@ -771,10 +800,14 @@ class _PharmacyDashboardScreenState
                     '${reservation.totalPriceKz.toInt()} Kz',
                   ),
                   trailing: Text(
-                    completed ? 'Concluída' : 'Pendente',
+                    statusLabel,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: completed ? Colors.green : AppColors.primary,
+                      color: completed
+                          ? Colors.green
+                          : expired
+                              ? Colors.red
+                              : AppColors.primary,
                     ),
                   ),
                 ),
@@ -1112,7 +1145,10 @@ class _PharmacyDashboardScreenState
                   itemCount: state.reservations.length,
                   itemBuilder: (context, index) {
                     final reservation = state.reservations[index];
-                    final completed = _isCompleted(reservation.status);
+                    final statusLabel =
+                        _getReservationStatusLabel(reservation.status);
+                    final completed = statusLabel == 'Levantada';
+                    final expired = statusLabel == 'Expirada';
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
@@ -1141,17 +1177,21 @@ class _PharmacyDashboardScreenState
                           decoration: BoxDecoration(
                             color: completed
                                 ? Colors.green.shade100
-                                : Colors.amber.shade100,
+                                : expired
+                                    ? Colors.red.shade100
+                                    : Colors.amber.shade100,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            completed ? 'Levantada' : 'Pendente',
+                            statusLabel,
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
                               color: completed
                                   ? Colors.green.shade800
-                                  : Colors.amber.shade900,
+                                  : expired
+                                      ? Colors.red.shade800
+                                      : Colors.amber.shade900,
                             ),
                           ),
                         ),
