@@ -1,15 +1,12 @@
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/services/supabase_storage_service.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/medicines_provider.dart';
 import '../../../reservations/presentation/providers/reservations_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 class MedicineDetailScreen extends ConsumerStatefulWidget {
   final String medicineId;
@@ -26,111 +23,7 @@ class MedicineDetailScreen extends ConsumerStatefulWidget {
 
 class _MedicineDetailScreenState
     extends ConsumerState<MedicineDetailScreen> {
-  bool _prescriptionUploaded = false;
-  bool _isUploadingPrescription = false;
   bool _isCreatingReservation = false;
-
-  String? _prescriptionPath;
-
-  final ImagePicker _imagePicker = ImagePicker();
-
-  Future<void> _handleUploadPrescription() async {
-    final user = ref.read(authProvider).user;
-
-    if (user == null) {
-      _showMessage(
-        'Inicia sessão para anexar a receita médica.',
-      );
-      return;
-    }
-
-    if (_isUploadingPrescription || _isCreatingReservation) {
-      return;
-    }
-
-    try {
-      final XFile? selectedFile = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
-
-      if (selectedFile == null) return;
-
-      final Uint8List bytes = await selectedFile.readAsBytes();
-
-      if (bytes.isEmpty) {
-        _showMessage(
-          'O ficheiro seleccionado está vazio.',
-        );
-        return;
-      }
-
-      if (bytes.length > 10 * 1024 * 1024) {
-        _showMessage(
-          'O ficheiro excede o limite de 10 MB.',
-        );
-        return;
-      }
-
-      final extension = selectedFile.name.contains('.')
-          ? selectedFile.name.split('.').last.toLowerCase()
-          : 'jpg';
-
-      final contentType = switch (extension) {
-        'png' => 'image/png',
-        'jpg' || 'jpeg' => 'image/jpeg',
-        _ => '',
-      };
-
-      if (contentType.isEmpty) {
-        _showMessage(
-          'Formato não suportado. Selecciona uma imagem JPG ou PNG.',
-        );
-        return;
-      }
-
-      if (!mounted) return;
-
-      setState(() {
-        _isUploadingPrescription = true;
-        _prescriptionUploaded = false;
-        _prescriptionPath = null;
-      });
-
-      final storageService = SupabaseStorageService();
-
-      final path = await storageService.uploadPrescription(
-        userId: user.id,
-        fileBytes: bytes,
-        fileName: selectedFile.name,
-        contentType: contentType,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _prescriptionUploaded = true;
-        _prescriptionPath = path;
-        _isUploadingPrescription = false;
-      });
-
-      _showMessage(
-        'Receita carregada com sucesso.',
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _prescriptionUploaded = false;
-        _prescriptionPath = null;
-        _isUploadingPrescription = false;
-      });
-
-      _showMessage(
-        'Não foi possível carregar a receita: $e',
-      );
-    }
-  }
 
   Future<void> _handleCreateReservation({
     required bool requiresPrescription,
@@ -138,7 +31,7 @@ class _MedicineDetailScreenState
     required String medicineId,
     required String pharmacyId,
   }) async {
-    if (_isCreatingReservation || _isUploadingPrescription) {
+    if (_isCreatingReservation) {
       return;
     }
 
@@ -166,16 +59,6 @@ class _MedicineDetailScreenState
       return;
     }
 
-    if (requiresPrescription &&
-        (!_prescriptionUploaded ||
-            _prescriptionPath == null ||
-            _prescriptionPath!.trim().isEmpty)) {
-      _showMessage(
-        'Anexa a receita médica antes de efectuar a reserva.',
-      );
-      return;
-    }
-
     setState(() {
       _isCreatingReservation = true;
     });
@@ -184,9 +67,8 @@ class _MedicineDetailScreenState
       await ref.read(reservationsProvider.notifier).addReservation(
             medicineId: medicineId,
             pharmacyId: pharmacyId,
-            prescriptionUploaded: requiresPrescription,
-            prescriptionPath:
-                requiresPrescription ? _prescriptionPath : null,
+            prescriptionUploaded: false,
+            prescriptionPath: null,
           );
 
       if (!mounted) return;
@@ -497,64 +379,39 @@ class _MedicineDetailScreenState
                         color: Colors.amber.shade300,
                       ),
                     ),
-                    child: Column(
+                    child: const Row(
                       crossAxisAlignment:
                           CrossAxisAlignment.start,
                       children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.assignment_late_rounded,
-                              color: Colors.amber,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Receita médica obrigatória',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                        Icon(
+                          Icons.assignment_late_rounded,
+                          color: Colors.amber,
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Receita médica obrigatória',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Selecciona uma imagem JPG ou PNG da receita. '
-                          'O ficheiro será guardado no armazenamento privado.',
-                          style: TextStyle(
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            icon: _isUploadingPrescription
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child:
-                                        CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Icon(
-                                    _prescriptionUploaded
-                                        ? Icons.check_circle
-                                        : Icons.camera_alt_outlined,
-                                  ),
-                            label: Text(
-                              _isUploadingPrescription
-                                  ? 'A carregar...'
-                                  : _prescriptionUploaded
-                                      ? 'Receita anexada'
-                                      : 'Seleccionar receita',
-                            ),
-                            onPressed:
-                                _isUploadingPrescription ||
-                                        _isCreatingReservation
-                                    ? null
-                                    : _handleUploadPrescription,
+                              SizedBox(height: 8),
+                              Text(
+                                'Envio de receitas indisponível. '
+                                'Por enquanto, apresente a receita médica '
+                                'directamente na farmácia para verificação '
+                                'pelo farmacêutico.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -584,7 +441,6 @@ class _MedicineDetailScreenState
                               : 'Medicamento indisponível',
                     ),
                     onPressed: _isCreatingReservation ||
-                            _isUploadingPrescription ||
                             !med.inStock
                         ? null
                         : () => _handleCreateReservation(
