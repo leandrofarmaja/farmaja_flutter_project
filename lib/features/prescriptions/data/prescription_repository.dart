@@ -1,4 +1,3 @@
-
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -11,49 +10,24 @@ class PrescriptionRepository {
 
   static const String _bucket = 'receitas-medicas';
 
-  /// Envia a imagem da receita para o armazenamento privado.
-  /// Devolve o caminho do ficheiro, não uma URL pública.
+  /// O envio de receitas está temporariamente indisponível.
+  /// A receita deve ser apresentada presencialmente na farmácia.
   Future<String> uploadPrescription({
     required Uint8List bytes,
     required String fileName,
     String? contentType,
   }) async {
-    final user = _client.auth.currentUser;
-
-    if (user == null) {
-      throw const AuthException(
-        'Inicia sessão para enviar uma receita médica.',
-      );
-    }
-
-    if (bytes.isEmpty) {
-      throw ArgumentError('O ficheiro da receita está vazio.');
-    }
-
-    if (fileName.trim().isEmpty) {
-      throw ArgumentError('O nome do ficheiro é obrigatório.');
-    }
-
-    final extension = _extension(fileName);
-    final safeExtension = extension.isEmpty ? 'jpg' : extension;
-    final objectPath =
-        '${user.id}/${DateTime.now().microsecondsSinceEpoch}.$safeExtension';
-
-    await _client.storage.from(_bucket).uploadBinary(
-          objectPath,
-          bytes,
-          fileOptions: FileOptions(
-            contentType: contentType ?? _contentType(safeExtension),
-            upsert: false,
-          ),
-        );
-
-    return objectPath;
+    throw StateError(
+      'O envio de receitas médicas está indisponível. '
+      'Apresente a receita directamente na farmácia, quando exigida.',
+    );
   }
 
-  /// Cria a reserva através da função SQL já existente.
-  /// Se a receita for obrigatória, o caminho deve ser o devolvido
-  /// por uploadPrescription().
+  /// Cria a reserva através da função SQL existente.
+  ///
+  /// Nesta fase, as reservas são criadas sem envio de receita.
+  /// O parâmetro prescriptionPath é mantido para compatibilidade,
+  /// mas não deve ser utilizado para novos envios.
   Future<Map<String, dynamic>> createReservation({
     required String medicineId,
     required String pharmacyId,
