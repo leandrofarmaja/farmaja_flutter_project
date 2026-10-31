@@ -257,13 +257,9 @@ class _ReservationCard extends StatelessWidget {
             ),
 
             _InfoRow(
-              icon: reservation.prescriptionUploaded
-                  ? Icons.description_rounded
-                  : Icons.description_outlined,
+              icon: Icons.description_outlined,
               label: 'Receita',
-              value: reservation.prescriptionUploaded
-                  ? 'Enviada'
-                  : 'Não enviada',
+              value: 'Apresentação presencial na farmácia, quando exigida',
             ),
 
             if (reservation.reviewRating != null)
