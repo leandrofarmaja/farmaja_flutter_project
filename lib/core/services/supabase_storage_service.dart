@@ -12,46 +12,22 @@ class SupabaseStorageService {
   static const String avatarsBucket = 'avatars';
   static const String pharmacyLogosBucket = 'pharmacies';
 
-  /// Envia a receita médica para o bucket privado do utilizador.
+  /// O envio de receitas médicas está temporariamente indisponível.
   ///
-  /// O caminho começa pelo ID autenticado, conforme as políticas
-  /// de armazenamento configuradas no Supabase.
-  /// Se o envio falhar, a excepção é propagada.
+  /// Nesta fase, o cliente deve apresentar a receita presencialmente
+  /// na farmácia, quando esta for exigida.
+  ///
+  /// O método é mantido para compatibilidade com chamadas existentes.
   Future<String> uploadPrescription({
     required String userId,
     required Uint8List fileBytes,
     required String fileName,
     String contentType = 'image/jpeg',
   }) async {
-    _validateAuthenticatedUser(userId);
-
-    if (fileBytes.isEmpty) {
-      throw ArgumentError('O ficheiro da receita está vazio.');
-    }
-
-    if (fileBytes.length > 10 * 1024 * 1024) {
-      throw ArgumentError(
-        'A receita não pode exceder 10 MB.',
-      );
-    }
-
-    final safeFileName = _sanitizeFileName(fileName);
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final path = '$userId/${timestamp}_$safeFileName';
-
-    await _client.storage.from(prescriptionsBucket).uploadBinary(
-          path,
-          fileBytes,
-          fileOptions: FileOptions(
-            cacheControl: '3600',
-            upsert: false,
-            contentType: contentType,
-          ),
-        );
-
-    // O bucket é privado: não gerar nem guardar URLs públicos.
-    // O caminho identifica o objecto e será guardado na reserva.
-    return path;
+    throw StateError(
+      'O envio de receitas médicas está indisponível. '
+      'Apresente a receita directamente na farmácia, quando exigida.',
+    );
   }
 
   /// Envia a fotografia do perfil.
