@@ -18,6 +18,19 @@ class SupabaseDatabaseService {
 
   SupabaseClient get client => _client;
 
+  static const String _prescriptionUnavailableMessage =
+      'Envio de receitas indisponível. Por enquanto, apresente '
+      'a receita médica directamente na farmácia, quando necessário.';
+
+  static const String _reservationSelect =
+      'id, medicamento_id, farmacia_id, status, '
+      'codigo_reserva, url_foto_receita, criado_em, '
+      'user_id, preco_kwanza, expira_em, receita_enviada, '
+      'metodo_pagamento, cliente_confirmou_pagamento_em, '
+      'farmacia_confirmou_pagamento_em, receita_autorizada, '
+      'receita_verificada_em, '
+      'medicamentos(nome_medicamento), farmacias(nome)';
+
   // ============================================================
   // MEDICAMENTOS
   // ============================================================
@@ -351,12 +364,7 @@ class SupabaseDatabaseService {
     try {
       final response = await _client
           .from('reservas')
-          .select(
-            'id, medicamento_id, farmacia_id, status, '
-            'codigo_reserva, url_foto_receita, criado_em, '
-            'user_id, preco_kwanza, expira_em, receita_enviada, '
-            'medicamentos(nome_medicamento), farmacias(nome)',
-          )
+          .select(_reservationSelect)
           .eq('user_id', currentUser.id)
           .order('criado_em', ascending: false);
 
@@ -516,11 +524,11 @@ class SupabaseDatabaseService {
       );
     }
 
-    if (prescriptionUploaded &&
-        (prescriptionPath == null ||
-            prescriptionPath.trim().isEmpty)) {
-      throw ArgumentError(
-        'A receita foi indicada como enviada, mas o caminho do ficheiro está vazio.',
+    if (prescriptionUploaded ||
+        (prescriptionPath != null &&
+            prescriptionPath.trim().isNotEmpty)) {
+      throw UnsupportedError(
+        _prescriptionUnavailableMessage,
       );
     }
 
@@ -528,26 +536,15 @@ class SupabaseDatabaseService {
       final rpcResult = await _client.rpc(
         'criar_reserva',
         params: {
-          'p_medicamento_id': medicineId,
-          'p_farmacia_id': pharmacyId,
-          'p_receita_enviada': prescriptionUploaded,
-          'p_url_foto_receita': prescriptionUploaded
-              ? prescriptionPath!.trim()
-              : null,
+          'p_medicamento_id': medicineId.trim(),
+          'p_farmacia_id': pharmacyId.trim(),
+          'p_receita_enviada': false,
+          'p_url_foto_receita': null,
         },
       );
 
-      Map<String, dynamic>? createdReservation;
-
-      if (rpcResult is Map) {
-        createdReservation =
-            Map<String, dynamic>.from(rpcResult);
-      } else if (rpcResult is List &&
-          rpcResult.isNotEmpty &&
-          rpcResult.first is Map) {
-        createdReservation =
-            Map<String, dynamic>.from(rpcResult.first as Map);
-      }
+      final createdReservation =
+          _mapFromRpcResult(rpcResult);
 
       final reservationId =
           createdReservation?['id']?.toString();
@@ -560,12 +557,7 @@ class SupabaseDatabaseService {
 
       final response = await _client
           .from('reservas')
-          .select(
-            'id, medicamento_id, farmacia_id, status, '
-            'codigo_reserva, url_foto_receita, criado_em, '
-            'user_id, preco_kwanza, expira_em, receita_enviada, '
-            'medicamentos(nome_medicamento), farmacias(nome)',
-          )
+          .select(_reservationSelect)
           .eq('id', reservationId)
           .eq('user_id', currentUser.id)
           .single();
@@ -578,6 +570,30 @@ class SupabaseDatabaseService {
         'Não foi possível criar a reserva: $e',
       );
     }
+  }
+
+  Map<String, dynamic>? _mapFromRpcResult(dynamic result) {
+    if (result is Map) {
+      return Map<String, dynamic>.from(result);
+    }
+
+    if (result is List &&
+        result.isNotEmpty &&
+        result.first is Map) {
+      return Map<String, dynamic>.from(result.first as Map);
+    }
+
+    return null;
+  }
+
+  DateTime? _dateTimeFromDatabase(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+
+    final text = value.toString().trim();
+    if (text.isEmpty) return null;
+
+    return DateTime.tryParse(text);
   }
 
   ReservationModel _reservationFromDatabase(
@@ -611,7 +627,125 @@ class SupabaseDatabaseService {
       prescriptionUploaded: row['receita_enviada'] == true,
       isReviewed: false,
       reviewRating: null,
+      metodoPagamento: row['metodo_pagamento']?.toString(),
+      clienteConfirmouPagamentoEm:
+          _dateTimeFromDatabase(
+        row['cliente_confirmou_pagamento_em'],
+      ),
+      farmaciaConfirmouPagamentoEm:
+          _dateTimeFromDatabase(
+        row['farmacia_confirmou_pagamento_em'],
+      ),
+      receitaAutorizada: row['receita_autorizada'] is bool
+          ? row['receita_autorizada'] as bool
+          : null,
+      receitaVerificadaEm:
+          _dateTimeFromDatabase(
+        row['receita_verificada_em'],
+      ),
     );
+  }
+
+  Future<ReservationModel> _reloadReservation(
+    String reservationId,
+  ) async {
+    final response = await _client
+        .from('reservas')
+        .select(_reservationSelect)
+        .eq('id', reservationId)
+        .single();
+
+    return _reservationFromDatabase(
+      Map<String, dynamic>.from(response),
+    );
+  }
+
+  // ============================================================
+  // CONFIRMAÇÃO DE PAGAMENTO — CLIENTE
+  // ============================================================
+
+  Future<ReservationModel> clienteConfirmarPagamento({
+    required String reservationId,
+    required String metodoPagamento,
+  }) async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception(
+        'Inicia sessão para confirmar o pagamento.',
+      );
+    }
+
+    if (reservationId.trim().isEmpty ||
+        metodoPagamento.trim().isEmpty) {
+      throw ArgumentError(
+        'A reserva e o método de pagamento são obrigatórios.',
+      );
+    }
+
+    try {
+      await _client.rpc(
+        'cliente_confirmar_pagamento',
+        params: {
+          'p_reserva_id': reservationId.trim(),
+          'p_metodo_pagamento': metodoPagamento.trim(),
+        },
+      );
+
+      return await _reloadReservation(reservationId.trim());
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível confirmar o pagamento do cliente: ${e.message}',
+      );
+    } catch (e) {
+      throw Exception(
+        'Falha ao confirmar o pagamento do cliente: $e',
+      );
+    }
+  }
+
+  // ============================================================
+  // CONFIRMAÇÃO DE PAGAMENTO — FARMÁCIA
+  // ============================================================
+
+  Future<ReservationModel> farmaciaConfirmarPagamento({
+    required String reservationId,
+    required String metodoPagamento,
+  }) async {
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception(
+        'Inicia sessão com a conta da farmácia para confirmar o pagamento.',
+      );
+    }
+
+    if (reservationId.trim().isEmpty ||
+        metodoPagamento.trim().isEmpty) {
+      throw ArgumentError(
+        'A reserva e o método de pagamento são obrigatórios.',
+      );
+    }
+
+    try {
+      await _client.rpc(
+        'farmacia_confirmar_pagamento',
+        params: {
+          'p_reserva_id': reservationId.trim(),
+          'p_metodo_pagamento': metodoPagamento.trim(),
+        },
+      );
+
+      return await _reloadReservation(reservationId.trim());
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível confirmar o pagamento da farmácia: ${e.message}',
+      );
+    } catch (e) {
+      throw Exception(
+        'Falha ao confirmar o pagamento da farmácia: $e',
+      );
+    }
   }
 
   // ============================================================
