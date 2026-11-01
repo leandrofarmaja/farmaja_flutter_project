@@ -12,10 +12,19 @@ class ReservationModel {
   final bool isReviewed;
   final double? reviewRating;
 
+  // Confirmação bilateral do pagamento.
+  final String? metodoPagamento;
+  final DateTime? clienteConfirmouPagamentoEm;
+  final DateTime? farmaciaConfirmouPagamentoEm;
+
+  // Verificação presencial da receita médica.
+  final bool? receitaAutorizada;
+  final DateTime? receitaVerificadaEm;
+
   ReservationModel({
     required this.id,
     required this.medicineName,
-    this.pharmacyId = 'pharm-1',
+    this.pharmacyId = '',
     required this.pharmacyName,
     required this.pickupCode,
     required this.totalPriceKz,
@@ -25,56 +34,80 @@ class ReservationModel {
     required this.prescriptionUploaded,
     this.isReviewed = false,
     this.reviewRating,
+    this.metodoPagamento,
+    this.clienteConfirmouPagamentoEm,
+    this.farmaciaConfirmouPagamentoEm,
+    this.receitaAutorizada,
+    this.receitaVerificadaEm,
   });
 
   factory ReservationModel.fromJson(Map<String, dynamic> json) {
     return ReservationModel(
-      id: json['id'] ?? '',
-      medicineName:
-          json['medicine_name'] ??
-          json['medicineName'] ??
-          'Medicamento FarmaJá',
-      pharmacyId:
-          json['pharmacy_id'] ??
-          json['pharmacyId'] ??
-          'pharm-1',
-      pharmacyName:
-          json['pharmacy_name'] ??
-          json['pharmacyName'] ??
-          'Farmácia',
-      pickupCode:
-          json['reservation_code'] ??
-          json['pickup_code'] ??
-          json['pickupCode'] ??
-          'FJ-8921',
-      totalPriceKz:
-          (json['total_price_kz'] ??
-                  json['totalPriceKz'] ??
-                  json['price'] ??
-                  0)
-              .toDouble(),
-      reservationDate:
-          json['created_at'] ??
-          json['reservation_date'] ??
-          json['reservationDate'] ??
-          '22 Julho 2026',
-      expiryDate:
-          json['expires_at'] ??
-          json['expiry_date'] ??
-          json['expiryDate'] ??
-          '23 Julho 2026 - 18:00',
-      status: json['status'] ?? 'pending',
-      prescriptionUploaded:
-          json['prescription_uploaded'] ??
-          json['prescriptionUploaded'] ??
-          false,
-      isReviewed:
-          json['is_reviewed'] ??
-          json['isReviewed'] ??
-          false,
-      reviewRating: json['review_rating'] != null
-          ? (json['review_rating'] as num).toDouble()
-          : null,
+      id: _stringValue(json['id']),
+      medicineName: _stringValue(
+        json['medicine_name'] ?? json['medicineName'],
+        fallback: 'Medicamento',
+      ),
+      pharmacyId: _stringValue(
+        json['pharmacy_id'] ?? json['pharmacyId'],
+      ),
+      pharmacyName: _stringValue(
+        json['pharmacy_name'] ?? json['pharmacyName'],
+        fallback: 'Farmácia',
+      ),
+      pickupCode: _stringValue(
+        json['reservation_code'] ??
+            json['pickup_code'] ??
+            json['pickupCode'],
+      ),
+      totalPriceKz: _doubleValue(
+        json['total_price_kz'] ??
+            json['totalPriceKz'] ??
+            json['price'],
+      ),
+      reservationDate: _stringValue(
+        json['created_at'] ??
+            json['reservation_date'] ??
+            json['reservationDate'],
+      ),
+      expiryDate: _stringValue(
+        json['expires_at'] ??
+            json['expiry_date'] ??
+            json['expiryDate'],
+      ),
+      status: _stringValue(
+        json['status'],
+        fallback: 'Aguardando confirmação',
+      ),
+      prescriptionUploaded: _boolValue(
+        json['prescription_uploaded'] ??
+            json['prescriptionUploaded'],
+      ),
+      isReviewed: _boolValue(
+        json['is_reviewed'] ?? json['isReviewed'],
+      ),
+      reviewRating: _nullableDouble(
+        json['review_rating'] ?? json['reviewRating'],
+      ),
+
+      metodoPagamento: _nullableString(
+        json['metodo_pagamento'] ?? json['metodoPagamento'],
+      ),
+      clienteConfirmouPagamentoEm: _dateTimeValue(
+        json['cliente_confirmou_pagamento_em'] ??
+            json['clienteConfirmouPagamentoEm'],
+      ),
+      farmaciaConfirmouPagamentoEm: _dateTimeValue(
+        json['farmacia_confirmou_pagamento_em'] ??
+            json['farmaciaConfirmouPagamentoEm'],
+      ),
+      receitaAutorizada: _nullableBool(
+        json['receita_autorizada'] ?? json['receitaAutorizada'],
+      ),
+      receitaVerificadaEm: _dateTimeValue(
+        json['receita_verificada_em'] ??
+            json['receitaVerificadaEm'],
+      ),
     );
   }
 
@@ -82,6 +115,17 @@ class ReservationModel {
     String? status,
     bool? isReviewed,
     double? reviewRating,
+    String? metodoPagamento,
+    DateTime? clienteConfirmouPagamentoEm,
+    DateTime? farmaciaConfirmouPagamentoEm,
+    bool? receitaAutorizada,
+    DateTime? receitaVerificadaEm,
+    bool limparMetodoPagamento = false,
+    bool limparConfirmacaoCliente = false,
+    bool limparConfirmacaoFarmacia = false,
+    bool limparAutorizacaoReceita = false,
+    bool limparVerificacaoReceita = false,
+    bool limparReviewRating = false,
   }) {
     return ReservationModel(
       id: id,
@@ -95,7 +139,79 @@ class ReservationModel {
       status: status ?? this.status,
       prescriptionUploaded: prescriptionUploaded,
       isReviewed: isReviewed ?? this.isReviewed,
-      reviewRating: reviewRating ?? this.reviewRating,
+      reviewRating: limparReviewRating
+          ? null
+          : reviewRating ?? this.reviewRating,
+      metodoPagamento: limparMetodoPagamento
+          ? null
+          : metodoPagamento ?? this.metodoPagamento,
+      clienteConfirmouPagamentoEm: limparConfirmacaoCliente
+          ? null
+          : clienteConfirmouPagamentoEm ??
+              this.clienteConfirmouPagamentoEm,
+      farmaciaConfirmouPagamentoEm: limparConfirmacaoFarmacia
+          ? null
+          : farmaciaConfirmouPagamentoEm ??
+              this.farmaciaConfirmouPagamentoEm,
+      receitaAutorizada: limparAutorizacaoReceita
+          ? null
+          : receitaAutorizada ?? this.receitaAutorizada,
+      receitaVerificadaEm: limparVerificacaoReceita
+          ? null
+          : receitaVerificadaEm ?? this.receitaVerificadaEm,
     );
+  }
+
+  static String _stringValue(
+    dynamic value, {
+    String fallback = '',
+  }) {
+    if (value == null) return fallback;
+    return value.toString();
+  }
+
+  static String? _nullableString(dynamic value) {
+    if (value == null) return null;
+
+    final result = value.toString().trim();
+    return result.isEmpty ? null : result;
+  }
+
+  static double _doubleValue(dynamic value) {
+    return _nullableDouble(value) ?? 0.0;
+  }
+
+  static double? _nullableDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+
+    return double.tryParse(value.toString());
+  }
+
+  static bool _boolValue(dynamic value) {
+    return _nullableBool(value) ?? false;
+  }
+
+  static bool? _nullableBool(dynamic value) {
+    if (value == null) return null;
+    if (value is bool) return value;
+
+    if (value is num) {
+      return value != 0;
+    }
+
+    final normalized = value.toString().toLowerCase().trim();
+
+    if (normalized == 'true' || normalized == '1') return true;
+    if (normalized == 'false' || normalized == '0') return false;
+
+    return null;
+  }
+
+  static DateTime? _dateTimeValue(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+
+    return DateTime.tryParse(value.toString());
   }
 }
