@@ -284,6 +284,72 @@ class PharmacyDashboardNotifier
     return updatedReservation;
   }
 
+  /// Confirma a entrega física do medicamento ao cliente.
+  ///
+  /// Só permite avançar quando:
+  /// - A reserva pertence à farmácia autenticada.
+  /// - O pagamento foi confirmado pelas duas partes.
+  /// - Existe um método de pagamento registado.
+  /// - O estado actual da reserva é Pago.
+  Future<void> confirmarLevantamento(
+    String reservationId,
+  ) async {
+    final pharmacy = state.pharmacyDetails;
+
+    if (pharmacy == null) {
+      throw Exception(
+        'Não foi possível identificar a farmácia da conta.',
+      );
+    }
+
+    final matchingReservations = state.reservations.where(
+      (item) => item.id == reservationId,
+    );
+
+    if (matchingReservations.isEmpty) {
+      throw Exception(
+        'A reserva não foi encontrada no painel desta farmácia.',
+      );
+    }
+
+    final reservation = matchingReservations.first;
+
+    if (reservation.pharmacyId != pharmacy.id) {
+      throw Exception(
+        'Esta reserva não pertence à farmácia associada à conta.',
+      );
+    }
+
+    if (reservation.status.trim().toLowerCase() != 'pago') {
+      throw Exception(
+        'O levantamento só pode ser confirmado depois '
+        'da confirmação do pagamento.',
+      );
+    }
+
+    if (reservation.clienteConfirmouPagamentoEm == null ||
+        reservation.farmaciaConfirmouPagamentoEm == null) {
+      throw Exception(
+        'O pagamento ainda não foi confirmado pelas duas partes.',
+      );
+    }
+
+    if (reservation.metodoPagamento == null ||
+        reservation.metodoPagamento!.trim().isEmpty) {
+      throw Exception(
+        'A reserva não tem um método de pagamento registado.',
+      );
+    }
+
+    await _dbService.confirmarLevantamento(reservationId);
+
+    if (!mounted) return;
+
+    // Recarrega os dados reais para obter o estado actualizado
+    // directamente do Supabase.
+    await loadDashboardData();
+  }
+
   Future<bool> submitPaymentProof({
     required String paymentMethod,
     required String referenceNumber,
