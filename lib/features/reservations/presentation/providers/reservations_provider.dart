@@ -72,6 +72,33 @@ class ReservationsNotifier extends StateNotifier<List<ReservationModel>> {
     return newReservation;
   }
 
+  Future<ReservationModel> confirmarPagamentoComoCliente({
+    required String reservationId,
+    required String metodoPagamento,
+  }) async {
+    final userId = _userId;
+
+    if (userId == null || userId.isEmpty) {
+      throw Exception(
+        'Inicia sessão para confirmares o pagamento.',
+      );
+    }
+
+    final updatedReservation =
+        await _dbService.clienteConfirmarPagamento(
+      reservationId: reservationId,
+      metodoPagamento: metodoPagamento,
+    );
+
+    state = state.map((reservation) {
+      return reservation.id == reservationId
+          ? updatedReservation
+          : reservation;
+    }).toList();
+
+    return updatedReservation;
+  }
+
   void cancelReservation(String id) {
     throw UnsupportedError(
       'O cancelamento de reservas ainda não está implementado no Supabase.',
