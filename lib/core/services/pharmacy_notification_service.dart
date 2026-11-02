@@ -1,74 +1,83 @@
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_database_service.dart';
 
 class PharmacyNotificationService {
-  final SupabaseDatabaseService _dbService;
+final SupabaseDatabaseService _dbService;
 
-  PharmacyNotificationService(this._dbService);
+PharmacyNotificationService(this._dbService);
 
-  SupabaseClient get _client => _dbService.client;
+SupabaseClient get _client => _dbService.client;
 
-  Future<int> getUnreadCount(String pharmacyId) async {
-    if (_client.auth.currentUser == null) {
-      throw Exception('Inicia sessão com a conta da farmácia.');
-    }
+Future<int> getUnreadCount(String pharmacyId) async {
+if (_client.auth.currentUser == null) {
+throw Exception('Inicia sessão com a conta da farmácia.');
+}
 
-    if (pharmacyId.trim().isEmpty) {
-      throw ArgumentError('O identificador da farmácia é obrigatório.');
-    }
+if (pharmacyId.trim().isEmpty) {  
+  throw ArgumentError('O identificador da farmácia é obrigatório.');  
+}  
 
-    final response = await _client
-        .from('notificacoes_farmacias')
-        .select('id')
-        .eq('farmacia_id', pharmacyId.trim())
-        .isFilter('lida_em', null);
+final response = await _client  
+    .from('notificacoes_farmacias')  
+    .select('id')  
+    .eq('farmacia_id', pharmacyId.trim())  
+    .isFilter('lida_em', null);  
 
-    return response.length;
-  }
+return response.length;
 
-  RealtimeChannel subscribeToNewNotifications({
-    required String pharmacyId,
-    required void Function(PostgresChangePayload payload) onInsert,
-  }) {
-    if (pharmacyId.trim().isEmpty) {
-      throw ArgumentError('O identificador da farmácia é obrigatório.');
-    }
+}
 
-    final channel = _client
-        .channel('farmacia-notificacoes-${pharmacyId.trim()}')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'notificacoes_farmacias',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'farmacia_id',
-            value: pharmacyId.trim(),
-          ),
-          callback: onInsert,
-        );
+RealtimeChannel subscribeToNewNotifications({
+required String pharmacyId,
+required void Function(PostgresChangePayload payload) onInsert,
+}) {
+if (pharmacyId.trim().isEmpty) {
+throw ArgumentError('O identificador da farmácia é obrigatório.');
+}
 
-    channel.subscribe();
-    return channel;
-  }
+final channel = _client  
+    .channel('farmacia-notificacoes-${pharmacyId.trim()}')  
+    .onPostgresChanges(  
+      event: PostgresChangeEvent.insert,  
+      schema: 'public',  
+      table: 'notificacoes_farmacias',  
+      filter: PostgresChangeFilter(  
+        type: PostgresChangeFilterType.eq,  
+        column: 'farmacia_id',  
+        value: pharmacyId.trim(),  
+      ),  
+      callback: onInsert,  
+    );  
 
-  Future<int> markAsRead() async {
-    if (_client.auth.currentUser == null) {
-      throw Exception('Inicia sessão com a conta da farmácia.');
-    }
+channel.subscribe();  
+return channel;
 
-    final result = await _client.rpc(
-      'marcar_notificacoes_farmacia_lidas',
-    );
+}
 
-    if (result is num) {
-      return result.toInt();
-    }
+Future<int> markAsRead(String pharmacyId) async {
+if (_client.auth.currentUser == null) {
+throw Exception('Inicia sessão com a conta da farmácia.');
+}
 
-    throw Exception(
-      'O Supabase devolveu uma resposta inesperada ao marcar notificações.',
-    );
-  }
+if (pharmacyId.trim().isEmpty) {  
+  throw ArgumentError('O identificador da farmácia é obrigatório.');  
+}  
+
+final result = await _client.rpc(  
+  'marcar_notificacoes_farmacia_lidas',  
+  params: {  
+    'p_farmacia_id': pharmacyId.trim(),  
+  },  
+);  
+
+if (result is num) {  
+  return result.toInt();  
+}  
+
+throw Exception(  
+  'O Supabase devolveu uma resposta inesperada ao marcar notificações.',  
+);
+
+}
 }
