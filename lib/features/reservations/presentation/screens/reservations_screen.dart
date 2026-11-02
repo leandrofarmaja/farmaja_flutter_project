@@ -5,7 +5,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/qr_code_widget.dart';
 import '../../domain/reservation_model.dart';
 import '../../../reviews/presentation/widgets/rate_experience_dialog.dart';
-import '../providers/reservations_provider.dart';
+import '../providers/reservation_provider.dart';
 
 class ReservationsScreen extends ConsumerWidget {
   const ReservationsScreen({super.key});
@@ -19,9 +19,7 @@ class ReservationsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text(
           'Minhas Reservas',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -44,11 +42,7 @@ class ReservationsScreen extends ConsumerWidget {
                   return _ReservationCard(
                     reservation: reservation,
                     onRating: () {
-                      _showRatingDialog(
-                        context,
-                        ref,
-                        reservation,
-                      );
+                      _showRatingDialog(context, ref, reservation);
                     },
                   );
                 },
@@ -120,7 +114,7 @@ class _EmptyReservations extends StatelessWidget {
   }
 }
 
-class _ReservationCard extends StatelessWidget {
+class _ReservationCard extends ConsumerWidget {
   final ReservationModel reservation;
   final VoidCallback onRating;
 
@@ -130,50 +124,195 @@ class _ReservationCard extends StatelessWidget {
   });
 
   Color _statusColor(String status) {
-    switch (status.toLowerCase()) {
+    switch (status.trim().toLowerCase()) {
       case 'active':
         return Colors.blue;
-
       case 'completed':
+      case 'levantada':
+      case 'entregue':
+      case 'resgatado':
+      case 'pago':
         return Colors.green;
-
       case 'expired':
+      case 'expirada':
         return Colors.red;
-
       case 'pending':
+      case 'aguardando confirmação':
+      case 'aguardando confirmacao':
         return Colors.orange;
-
       default:
         return Colors.grey;
     }
   }
 
   String _statusText(String status) {
-    switch (status.toLowerCase()) {
+    switch (status.trim().toLowerCase()) {
       case 'active':
         return 'Ativa';
-
       case 'completed':
-        return 'Concluída';
-
+      case 'levantada':
+      case 'entregue':
+      case 'resgatado':
+        return 'Levantada';
       case 'expired':
+      case 'expirada':
         return 'Expirada';
-
       case 'pending':
         return 'Pendente';
-
+      case 'aguardando confirmação':
+      case 'aguardando confirmacao':
+        return 'Aguardando confirmação';
+      case 'pago':
+        return 'Pago';
       default:
         return status;
     }
   }
 
+  bool get _isAwaitingPayment =>
+      reservation.status.trim().toLowerCase() ==
+          'aguardando confirmação' ||
+      reservation.status.trim().toLowerCase() ==
+          'aguardando confirmacao';
+
+  bool get _isExpired =>
+      reservation.status.trim().toLowerCase() == 'expirada' ||
+      reservation.status.trim().toLowerCase() == 'expired';
+
+  bool get _canRate =>
+      (reservation.status.trim().toLowerCase() == 'completed' ||
+          reservation.status.trim().toLowerCase() == 'levantada') &&
+      !reservation.isReviewed;
+
+  Future<void> _confirmPayment(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    if (!_isAwaitingPayment) return;
+
+    final selectedMethod = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Confirmar pagamento',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Selecciona o método de pagamento utilizado na farmácia.',
+                ),
+                const SizedBox(height: 16),
+                ...[
+                  ('Dinheiro', 'dinheiro', Icons.money),
+                  ('TPA', 'tpa', Icons.credit_card),
+                  (
+                    'Multicaixa Express',
+                    'multicaixa_express',
+                    Icons.phone_android,
+                  ),
+                  (
+                    'Transferência bancária',
+                    'transferencia',
+                    Icons.account_balance,
+                  ),
+                  ('Outro', 'outro', Icons.more_horiz),
+                ].map(
+                  (method) => ListTile(
+                    leading: Icon(method.$3),
+                    title: Text(method.$1),
+                    onTap: () {
+                      Navigator.pop(sheetContext, method.$2);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selectedMethod == null || !context.mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Confirmar pagamento'),
+          content: const Text(
+            'Confirma que já efectuaste o pagamento deste medicamento '
+            'directamente na farmácia?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Confirmar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref
+          .read(reservationsProvider.notifier)
+          .confirmarPagamentoComoCliente(
+            reservationId: reservation.id,
+            metodoPagamento: selectedMethod,
+          );
+
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'A tua confirmação foi registada. '
+            'Aguarda a confirmação da farmácia.',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível confirmar o pagamento: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final statusColor = _statusColor(reservation.status);
 
-    final canRate =
-        reservation.status.toLowerCase() == 'completed' &&
-            !reservation.isReviewed;
+    final clientConfirmed =
+        reservation.clienteConfirmouPagamentoEm != null;
+
+    final pharmacyConfirmed =
+        reservation.farmaciaConfirmouPagamentoEm != null;
+
+    final canConfirmPayment =
+        _isAwaitingPayment && !clientConfirmed && !_isExpired;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -181,9 +320,7 @@ class _ReservationCard extends StatelessWidget {
       color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: Colors.grey.shade200,
-        ),
+        side: BorderSide(color: Colors.grey.shade200),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -222,79 +359,114 @@ class _ReservationCard extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 16),
-
             _InfoRow(
               icon: Icons.medication_outlined,
               label: 'Medicamento',
               value: reservation.medicineName,
             ),
-
             _InfoRow(
               icon: Icons.payments_outlined,
               label: 'Valor',
-              value:
-                  '${reservation.totalPriceKz.toStringAsFixed(2)} Kz',
+              value: '${reservation.totalPriceKz.toStringAsFixed(2)} Kz',
             ),
-
             _InfoRow(
               icon: Icons.calendar_today_outlined,
               label: 'Data da reserva',
               value: reservation.reservationDate,
             ),
-
             _InfoRow(
               icon: Icons.access_time_outlined,
               label: 'Expira em',
               value: reservation.expiryDate,
             ),
-
             _InfoRow(
               icon: Icons.qr_code_2_rounded,
               label: 'Código de levantamento',
               value: reservation.pickupCode,
             ),
-
             _InfoRow(
               icon: Icons.description_outlined,
               label: 'Receita',
-              value: 'Apresentação presencial na farmácia, quando exigida',
+              value:
+                  'Apresentação presencial na farmácia, quando exigida',
             ),
-
+            if (reservation.metodoPagamento != null)
+              _InfoRow(
+                icon: Icons.account_balance_wallet_outlined,
+                label: 'Método de pagamento',
+                value: reservation.metodoPagamento!,
+              ),
             if (reservation.reviewRating != null)
               _InfoRow(
                 icon: Icons.star_rounded,
                 label: 'Sua avaliação',
-                value:
-                    '${reservation.reviewRating!.toStringAsFixed(1)} / 5',
+                value: '${reservation.reviewRating!.toStringAsFixed(1)} / 5',
               ),
-
-            const SizedBox(height: 12),
-
-            if (reservation.pickupCode.isNotEmpty)
+            if (reservation.pickupCode.isNotEmpty) ...[
+              const SizedBox(height: 12),
               Center(
-                child: QrCodeWidget(
-                  data: reservation.pickupCode,
+                child: QrCodeWidget(data: reservation.pickupCode),
+              ),
+            ],
+            if (_isAwaitingPayment) ...[
+              const SizedBox(height: 12),
+              _PaymentConfirmationStatus(
+                clientConfirmed: clientConfirmed,
+                pharmacyConfirmed: pharmacyConfirmed,
+              ),
+            ],
+            if (canConfirmPayment) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => _confirmPayment(context, ref),
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('Confirmar pagamento'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                 ),
               ),
-
-            if (canRate) ...[
+            ],
+            if (clientConfirmed && !pharmacyConfirmed) ...[
+              const SizedBox(height: 10),
+              const Text(
+                'A tua confirmação foi registada. '
+                'Aguarda a confirmação da farmácia.',
+                style: TextStyle(
+                  color: Colors.orange,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+            if (canConfirmPayment == false &&
+                clientConfirmed &&
+                pharmacyConfirmed) ...[
+              const SizedBox(height: 10),
+              const Text(
+                'Pagamento confirmado por ambas as partes.',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+            if (_canRate) ...[
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: onRating,
-                  icon: const Icon(
-                    Icons.star_rate_rounded,
-                  ),
-                  label: const Text(
-                    'Avaliar experiência',
-                  ),
+                  icon: const Icon(Icons.star_rate_rounded),
+                  label: const Text('Avaliar experiência'),
                 ),
               ),
             ],
-
             if (reservation.isReviewed) ...[
               const SizedBox(height: 12),
               Container(
@@ -333,6 +505,81 @@ class _ReservationCard extends StatelessWidget {
   }
 }
 
+class _PaymentConfirmationStatus extends StatelessWidget {
+  final bool clientConfirmed;
+  final bool pharmacyConfirmed;
+
+  const _PaymentConfirmationStatus({
+    required this.clientConfirmed,
+    required this.pharmacyConfirmed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Confirmação bilateral do pagamento',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _ConfirmationLine(
+            label: 'Cliente',
+            confirmed: clientConfirmed,
+          ),
+          const SizedBox(height: 5),
+          _ConfirmationLine(
+            label: 'Farmácia',
+            confirmed: pharmacyConfirmed,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConfirmationLine extends StatelessWidget {
+  final String label;
+  final bool confirmed;
+
+  const _ConfirmationLine({
+    required this.label,
+    required this.confirmed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          confirmed ? Icons.check_circle : Icons.hourglass_empty,
+          size: 17,
+          color: confirmed ? Colors.green : Colors.orange,
+        ),
+        const SizedBox(width: 7),
+        Text(
+          '$label: ${confirmed ? 'Confirmado' : 'Pendente'}',
+          style: TextStyle(
+            fontSize: 12,
+            color: confirmed ? Colors.green : Colors.orange,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -367,9 +614,7 @@ class _InfoRow extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 13,
-              ),
+              style: const TextStyle(fontSize: 13),
             ),
           ),
         ],
