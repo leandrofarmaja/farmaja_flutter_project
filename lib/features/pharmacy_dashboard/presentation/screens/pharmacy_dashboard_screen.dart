@@ -27,6 +27,15 @@ class _PharmacyDashboardScreenState
   String _searchQuery = '';
   String _selectedStatsPeriod = 'Dia';
   bool _isSigningOut = false;
+  final Set<String> _processingReservations = {};
+
+  static const Map<String, String> _paymentMethods = {
+    'dinheiro': 'Dinheiro',
+    'tpa': 'TPA',
+    'multicaixa_express': 'Multicaixa Express',
+    'transferencia': 'Transferência bancária',
+    'outro': 'Outro',
+  };
 
   @override
   void initState() {
@@ -46,10 +55,7 @@ class _PharmacyDashboardScreenState
     super.dispose();
   }
 
-  void _showMessage(
-    String message, {
-    bool isError = false,
-  }) {
+  void _showMessage(String message, {bool isError = false}) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context)
@@ -122,7 +128,6 @@ class _PharmacyDashboardScreenState
     }
   }
 
-  /// Aceita resultados booleanos e UUIDs devolvidos pela base de dados.
   Future<bool> _runOperation(
     Future<dynamic> Function() operation, {
     required String successMessage,
@@ -146,15 +151,11 @@ class _PharmacyDashboardScreenState
     } catch (e) {
       if (!mounted) return false;
 
-      _showMessage(
-        '$failureMessage Detalhe: $e',
-        isError: true,
-      );
+      _showMessage('$failureMessage Detalhe: $e', isError: true);
       return false;
     }
   }
 
-  /// Mantém o formulário aberto se a gravação falhar.
   void _showAddEditMedicineModal([MedicineModel? medicine]) {
     final state = ref.read(pharmacyDashboardProvider);
 
@@ -171,11 +172,9 @@ class _PharmacyDashboardScreenState
         onSave: (updated) async {
           final success = await _runOperation(
             () => medicine == null
-                ? ref
-                    .read(pharmacyDashboardProvider.notifier)
+                ? ref.read(pharmacyDashboardProvider.notifier)
                     .addMedicine(updated)
-                : ref
-                    .read(pharmacyDashboardProvider.notifier)
+                : ref.read(pharmacyDashboardProvider.notifier)
                     .updateMedicine(updated),
             successMessage: medicine == null
                 ? 'Medicamento adicionado com sucesso.'
@@ -272,6 +271,187 @@ class _PharmacyDashboardScreenState
     );
   }
 
+  Future<String?> _selectPaymentMethod({
+    String? initialValue,
+  }) async {
+    String selected = initialValue ?? 'dinheiro';
+
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Método de pagamento'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: _paymentMethods.entries.map((entry) {
+                  return RadioListTile<String>(
+                    value: entry.key,
+                    groupValue: selected,
+                    title: Text(entry.value),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setDialogState(() => selected = value);
+                    },
+                  );
+                }).toList(),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () =>
+                      Navigator.of(dialogContext).pop(selected),
+                  child: const Text('Confirmar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmPharmacyPayment(dynamic reservation) async {
+    final reservationId = reservation.id as String;
+
+    if (_processingReservations.contains(reservationId)) return;
+
+    final existingMethod =
+        (reservation.metodoPagamento as String?)?.trim();
+
+    final method = existingMethod != null && existingMethod.isNotEmpty
+        ? existingMethod
+        : await _selectPaymentMethod();
+
+    if (method == null || !mounted) return;
+
+    if (!_paymentMethods.containsKey(method)) {
+      _showMessage(
+        'O método de pagamento da reserva não é reconhecido.',
+        isError: true,
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirmar pagamento'),
+        content: Text(
+          'Confirmas que recebeste ${reservation.totalPriceKz.toInt()} Kz '
+          'através de ${_paymentMethods[method]}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(true),
+            child: const Text('Confirmar pagamento'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _processingReservations.add(reservationId));
+
+    try {
+      await ref
+          .read(pharmacyDashboardProvider.notifier)
+          .confirmarPagamentoComoFarmacia(
+            reservationId: reservationId,
+            metodoPagamento: method,
+          );
+
+      if (mounted) {
+        _showMessage(
+          'Confirmação de pagamento registada. '
+          'A reserva ficará paga quando o cliente também confirmar.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showMessage(
+          'Não foi possível confirmar o pagamento. Detalhe: $e',
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _processingReservations.remove(reservationId));
+      }
+    }
+  }
+
+  Future<void> _confirmPhysicalDelivery(dynamic reservation) async {
+    final reservationId = reservation.id as String;
+
+    if (_processingReservations.contains(reservationId)) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(
+          Icons.inventory_2_rounded,
+          color: AppColors.primary,
+          size: 40,
+        ),
+        title: const Text('Confirmar entrega'),
+        content: const Text(
+          'Confirma apenas se o medicamento já foi entregue fisicamente '
+          'ao cliente. Esta operação concluirá a reserva.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(true),
+            child: const Text('Confirmar entrega'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _processingReservations.add(reservationId));
+
+    try {
+      await ref
+          .read(pharmacyDashboardProvider.notifier)
+          .confirmarLevantamento(reservationId);
+
+      if (mounted) {
+        _showMessage('Entrega confirmada. Reserva concluída.');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showMessage(
+          'Não foi possível confirmar a entrega. Detalhe: $e',
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _processingReservations.remove(reservationId));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(pharmacyDashboardProvider);
@@ -325,8 +505,7 @@ class _PharmacyDashboardScreenState
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Actualizar dados',
             onPressed: () {
-              ref
-                  .read(pharmacyDashboardProvider.notifier)
+              ref.read(pharmacyDashboardProvider.notifier)
                   .loadDashboardData();
             },
           ),
@@ -338,18 +517,9 @@ class _PharmacyDashboardScreenState
           unselectedLabelColor: Colors.grey,
           indicatorColor: AppColors.primary,
           tabs: const [
-            Tab(
-              icon: Icon(Icons.analytics_rounded),
-              text: 'Estatísticas',
-            ),
-            Tab(
-              icon: Icon(Icons.inventory_rounded),
-              text: 'Medicamentos',
-            ),
-            Tab(
-              icon: Icon(Icons.bookmark_rounded),
-              text: 'Reservas',
-            ),
+            Tab(icon: Icon(Icons.analytics_rounded), text: 'Estatísticas'),
+            Tab(icon: Icon(Icons.inventory_rounded), text: 'Medicamentos'),
+            Tab(icon: Icon(Icons.bookmark_rounded), text: 'Reservas'),
             Tab(
               icon: Icon(Icons.assignment_turned_in_rounded),
               text: 'Receitas',
@@ -365,10 +535,7 @@ class _PharmacyDashboardScreenState
           : FloatingActionButton.extended(
               onPressed: () => _showAddEditMedicineModal(),
               backgroundColor: AppColors.primary,
-              icon: const Icon(
-                Icons.add_rounded,
-                color: Colors.white,
-              ),
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
               label: const Text(
                 'Novo Medicamento',
                 style: TextStyle(
@@ -403,15 +570,11 @@ class _PharmacyDashboardScreenState
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                state.error!,
-                textAlign: TextAlign.center,
-              ),
+              Text(state.error!, textAlign: TextAlign.center),
               const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: () {
-                  ref
-                      .read(pharmacyDashboardProvider.notifier)
+                  ref.read(pharmacyDashboardProvider.notifier)
                       .loadDashboardData();
                 },
                 icon: const Icon(Icons.refresh_rounded),
@@ -457,10 +620,7 @@ class _PharmacyDashboardScreenState
         color: Colors.blue.shade50,
         child: Row(
           children: [
-            const Icon(
-              Icons.timer_outlined,
-              color: Colors.blue,
-            ),
+            const Icon(Icons.timer_outlined, color: Colors.blue),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -500,10 +660,7 @@ class _PharmacyDashboardScreenState
         color: Colors.green.shade50,
         child: Row(
           children: [
-            const Icon(
-              Icons.verified_rounded,
-              color: Colors.green,
-            ),
+            const Icon(Icons.verified_rounded, color: Colors.green),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -557,10 +714,7 @@ class _PharmacyDashboardScreenState
               'O acesso à gestão está bloqueado. '
               'Contacta o administrador para confirmar o estado da conta.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.black87,
-              ),
+              style: TextStyle(fontSize: 13, color: Colors.black87),
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
@@ -574,8 +728,6 @@ class _PharmacyDashboardScreenState
     );
   }
 
-  // CORRECÇÃO: estados desconhecidos não são apresentados
-  // como se a subscrição estivesse efectivamente bloqueada.
   String _getSubscriptionStatusBadge(
     PharmacyDashboardState state,
   ) {
@@ -587,39 +739,31 @@ class _PharmacyDashboardScreenState
     if (status == 'trial') {
       return 'Período experimental (${state.daysLeftInTrial}d)';
     }
-
-    if (status == 'active') {
-      return 'Activa';
-    }
-
-    if (status == 'expired') {
-      return 'Expirada';
-    }
-
-    if (status == 'blocked') {
-      return 'Bloqueada';
-    }
+    if (status == 'active') return 'Activa';
+    if (status == 'expired') return 'Expirada';
+    if (status == 'blocked') return 'Bloqueada';
 
     return 'Estado não confirmado';
   }
 
-  // Classifica os estados reais das reservas.
   String _getReservationStatusLabel(String status) {
-    final normalized = status.trim().toLowerCase();
-
-    switch (normalized) {
+    switch (status.trim().toLowerCase()) {
       case 'levantada':
       case 'completed':
       case 'resgatado':
       case 'entregue':
         return 'Levantada';
 
+      case 'pago':
+      case 'paid':
+        return 'Pago';
+
       case 'expirada':
       case 'expired':
         return 'Expirada';
 
       default:
-        return 'Pendente';
+        return 'Aguardando confirmação';
     }
   }
 
@@ -628,8 +772,6 @@ class _PharmacyDashboardScreenState
   }
 
   Widget _buildStatsTab(PharmacyDashboardState state) {
-    // Os valores são os carregados pelo serviço; o selector de período
-    // ainda não consulta totais diferentes na base de dados.
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -637,10 +779,7 @@ class _PharmacyDashboardScreenState
         children: [
           const Text(
             'Visão geral do desempenho',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 12),
           SegmentedButton<String>(
@@ -651,9 +790,7 @@ class _PharmacyDashboardScreenState
             ],
             selected: {_selectedStatsPeriod},
             onSelectionChanged: (selection) {
-              setState(() {
-                _selectedStatsPeriod = selection.first;
-              });
+              setState(() => _selectedStatsPeriod = selection.first);
             },
           ),
           const SizedBox(height: 16),
@@ -701,10 +838,7 @@ class _PharmacyDashboardScreenState
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [
-                  AppColors.primaryDark,
-                  AppColors.primary,
-                ],
+                colors: [AppColors.primaryDark, AppColors.primary],
               ),
               borderRadius: BorderRadius.circular(16),
             ),
@@ -752,10 +886,7 @@ class _PharmacyDashboardScreenState
           const SizedBox(height: 24),
           const Text(
             'Actividade recente',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 8),
           if (state.reservations.isEmpty)
@@ -765,30 +896,31 @@ class _PharmacyDashboardScreenState
             )
           else
             ...state.reservations.take(3).map((reservation) {
-              final statusLabel =
+              final label =
                   _getReservationStatusLabel(reservation.status);
-              final completed = statusLabel == 'Levantada';
-              final expired = statusLabel == 'Expirada';
+              final completed = label == 'Levantada';
+              final paid = label == 'Pago';
+              final expired = label == 'Expirada';
+
+              final color = completed || paid
+                  ? Colors.green
+                  : expired
+                      ? Colors.red
+                      : AppColors.primary;
 
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: completed
-                        ? Colors.green.shade100
-                        : expired
-                            ? Colors.red.shade100
-                            : Colors.blue.shade100,
+                    backgroundColor: color.withValues(alpha: 0.12),
                     child: Icon(
                       completed
                           ? Icons.check
-                          : expired
-                              ? Icons.timer_off
-                              : Icons.bookmark,
-                      color: completed
-                          ? Colors.green
-                          : expired
-                              ? Colors.red
-                              : AppColors.primary,
+                          : paid
+                              ? Icons.payments
+                              : expired
+                                  ? Icons.timer_off
+                                  : Icons.bookmark,
+                      color: color,
                     ),
                   ),
                   title: Text(
@@ -800,14 +932,10 @@ class _PharmacyDashboardScreenState
                     '${reservation.totalPriceKz.toInt()} Kz',
                   ),
                   trailing: Text(
-                    statusLabel,
+                    label,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: completed
-                          ? Colors.green
-                          : expired
-                              ? Colors.red
-                              : AppColors.primary,
+                      color: color,
                     ),
                   ),
                 ),
@@ -830,9 +958,7 @@ class _PharmacyDashboardScreenState
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -923,8 +1049,7 @@ class _PharmacyDashboardScreenState
                                         medicine.activeIngredient,
                                         style: const TextStyle(
                                           fontSize: 12,
-                                          color:
-                                              AppColors.textSecondaryLight,
+                                          color: AppColors.textSecondaryLight,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -986,10 +1111,8 @@ class _PharmacyDashboardScreenState
                                       ? () {
                                           _runOperation(
                                             () => ref
-                                                .read(
-                                                  pharmacyDashboardProvider
-                                                      .notifier,
-                                                )
+                                                .read(pharmacyDashboardProvider
+                                                    .notifier)
                                                 .updateStock(
                                                   medicine.id,
                                                   medicine.stockQuantity - 1,
@@ -1019,9 +1142,8 @@ class _PharmacyDashboardScreenState
                                   onPressed: () {
                                     _runOperation(
                                       () => ref
-                                          .read(
-                                            pharmacyDashboardProvider.notifier,
-                                          )
+                                          .read(pharmacyDashboardProvider
+                                              .notifier)
                                           .updateStock(
                                             medicine.id,
                                             medicine.stockQuantity + 1,
@@ -1100,9 +1222,7 @@ class _PharmacyDashboardScreenState
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Eliminar'),
           ),
@@ -1113,8 +1233,7 @@ class _PharmacyDashboardScreenState
     if (confirmed != true || !mounted) return;
 
     await _runOperation(
-      () => ref
-          .read(pharmacyDashboardProvider.notifier)
+      () => ref.read(pharmacyDashboardProvider.notifier)
           .deleteMedicine(medicine.id),
       successMessage: 'Medicamento eliminado.',
       failureMessage: 'Não foi possível eliminar o medicamento.',
@@ -1137,63 +1256,147 @@ class _PharmacyDashboardScreenState
         ),
         Expanded(
           child: state.reservations.isEmpty
-              ? const Center(
-                  child: Text('Ainda não existem reservas.'),
-                )
+              ? const Center(child: Text('Ainda não existem reservas.'))
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: state.reservations.length,
                   itemBuilder: (context, index) {
                     final reservation = state.reservations[index];
-                    final statusLabel =
+                    final label =
                         _getReservationStatusLabel(reservation.status);
-                    final completed = statusLabel == 'Levantada';
-                    final expired = statusLabel == 'Expirada';
+
+                    final completed = label == 'Levantada';
+                    final paid = label == 'Pago';
+                    final expired = label == 'Expirada';
+
+                    final clientConfirmed =
+                        reservation.clienteConfirmouPagamentoEm != null;
+                    final pharmacyConfirmed =
+                        reservation.farmaciaConfirmouPagamentoEm != null;
+
+                    final method = reservation.metodoPagamento;
+                    final isProcessing = _processingReservations
+                        .contains(reservation.id);
+
+                    final statusColor = completed || paid
+                        ? Colors.green
+                        : expired
+                            ? Colors.red
+                            : Colors.amber.shade800;
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        title: Text(
-                          reservation.medicineName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        subtitle: Column(
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    reservation.medicineName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: statusColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
                             Text('Código: ${reservation.pickupCode}'),
                             Text(
                               'Preço: ${reservation.totalPriceKz.toInt()} Kz',
                             ),
                             const Text('Prazo de levantamento: 2 horas'),
+                            if (method != null && method.isNotEmpty)
+                              Text(
+                                'Método: ${_paymentMethods[method] ?? method}',
+                              ),
+                            if (!expired) ...[
+                              const Divider(height: 20),
+                              Text(
+                                'Confirmação do cliente: '
+                                '${clientConfirmed ? "Confirmada" : "Pendente"}',
+                                style: TextStyle(
+                                  color: clientConfirmed
+                                      ? Colors.green.shade700
+                                      : Colors.orange.shade800,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Confirmação da farmácia: '
+                                '${pharmacyConfirmed ? "Confirmada" : "Pendente"}',
+                                style: TextStyle(
+                                  color: pharmacyConfirmed
+                                      ? Colors.green.shade700
+                                      : Colors.orange.shade800,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                            if (isProcessing) ...[
+                              const SizedBox(height: 12),
+                              const LinearProgressIndicator(),
+                            ] else if (!completed && !expired) ...[
+                              const SizedBox(height: 12),
+                              if (!pharmacyConfirmed && !paid)
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton.icon(
+                                    icon: const Icon(Icons.payments_rounded),
+                                    label: const Text(
+                                      'Confirmar recebimento do pagamento',
+                                    ),
+                                    onPressed: () =>
+                                        _confirmPharmacyPayment(reservation),
+                                  ),
+                                ),
+                              if (paid) ...[
+                                const SizedBox(height: 4),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton.icon(
+                                    icon: const Icon(
+                                      Icons.inventory_2_rounded,
+                                    ),
+                                    label: const Text(
+                                      'Confirmar entrega ao cliente',
+                                    ),
+                                    onPressed: clientConfirmed &&
+                                            pharmacyConfirmed &&
+                                            method != null &&
+                                            method.trim().isNotEmpty
+                                        ? () => _confirmPhysicalDelivery(
+                                              reservation,
+                                            )
+                                        : null,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ],
-                        ),
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: completed
-                                ? Colors.green.shade100
-                                : expired
-                                    ? Colors.red.shade100
-                                    : Colors.amber.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            statusLabel,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: completed
-                                  ? Colors.green.shade800
-                                  : expired
-                                      ? Colors.red.shade800
-                                      : Colors.amber.shade900,
-                            ),
-                          ),
                         ),
                       ),
                     );
