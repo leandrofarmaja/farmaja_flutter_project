@@ -5,7 +5,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/qr_code_widget.dart';
 import '../../domain/reservation_model.dart';
 import '../../../reviews/presentation/widgets/rate_experience_dialog.dart';
-import '../providers/reservation_provider.dart';
+import '../providers/reservations_provider.dart';
 
 class ReservationsScreen extends ConsumerWidget {
   const ReservationsScreen({super.key});
