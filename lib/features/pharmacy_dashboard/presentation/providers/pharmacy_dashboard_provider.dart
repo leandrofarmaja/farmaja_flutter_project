@@ -292,7 +292,7 @@ class PharmacyDashboardNotifier
     if (pharmacy == null) return;
 
     try {
-      await _notificationService.markAsRead();
+      await _notificationService.markAsRead(pharmacy.id);
 
       if (!mounted) return;
 
