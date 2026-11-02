@@ -123,6 +123,9 @@ class _ReservationCard extends ConsumerWidget {
     required this.onRating,
   });
 
+  String get _normalizedStatus =>
+      reservation.status.trim().toLowerCase();
+
   Color _statusColor(String status) {
     switch (status.trim().toLowerCase()) {
       case 'active':
@@ -170,18 +173,21 @@ class _ReservationCard extends ConsumerWidget {
   }
 
   bool get _isAwaitingPayment =>
-      reservation.status.trim().toLowerCase() ==
-          'aguardando confirmação' ||
-      reservation.status.trim().toLowerCase() ==
-          'aguardando confirmacao';
+      _normalizedStatus == 'aguardando confirmação' ||
+      _normalizedStatus == 'aguardando confirmacao';
+
+  bool get _isPaid => _normalizedStatus == 'pago';
 
   bool get _isExpired =>
-      reservation.status.trim().toLowerCase() == 'expirada' ||
-      reservation.status.trim().toLowerCase() == 'expired';
+      _normalizedStatus == 'expirada' ||
+      _normalizedStatus == 'expired';
+
+  bool get _showPaymentConfirmation =>
+      _isAwaitingPayment || _isPaid;
 
   bool get _canRate =>
-      (reservation.status.trim().toLowerCase() == 'completed' ||
-          reservation.status.trim().toLowerCase() == 'levantada') &&
+      (_normalizedStatus == 'completed' ||
+          _normalizedStatus == 'levantada') &&
       !reservation.isReviewed;
 
   Future<void> _confirmPayment(
@@ -409,11 +415,12 @@ class _ReservationCard extends ConsumerWidget {
                 child: QrCodeWidget(data: reservation.pickupCode),
               ),
             ],
-            if (_isAwaitingPayment) ...[
+            if (_showPaymentConfirmation) ...[
               const SizedBox(height: 12),
               _PaymentConfirmationStatus(
                 clientConfirmed: clientConfirmed,
                 pharmacyConfirmed: pharmacyConfirmed,
+                paymentCompleted: _isPaid,
               ),
             ],
             if (canConfirmPayment) ...[
@@ -443,12 +450,11 @@ class _ReservationCard extends ConsumerWidget {
                 ),
               ),
             ],
-            if (canConfirmPayment == false &&
-                clientConfirmed &&
-                pharmacyConfirmed) ...[
+            if (_isPaid && clientConfirmed && pharmacyConfirmed) ...[
               const SizedBox(height: 10),
               const Text(
-                'Pagamento confirmado por ambas as partes.',
+                'Pagamento confirmado por ambas as partes. '
+                'Aguarda a entrega do medicamento.',
                 style: TextStyle(
                   color: Colors.green,
                   fontWeight: FontWeight.bold,
@@ -508,10 +514,12 @@ class _ReservationCard extends ConsumerWidget {
 class _PaymentConfirmationStatus extends StatelessWidget {
   final bool clientConfirmed;
   final bool pharmacyConfirmed;
+  final bool paymentCompleted;
 
   const _PaymentConfirmationStatus({
     required this.clientConfirmed,
     required this.pharmacyConfirmed,
+    required this.paymentCompleted,
   });
 
   @override
@@ -526,9 +534,11 @@ class _PaymentConfirmationStatus extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Confirmação bilateral do pagamento',
-            style: TextStyle(
+          Text(
+            paymentCompleted
+                ? 'Pagamento confirmado'
+                : 'Confirmação bilateral do pagamento',
+            style: const TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 13,
             ),
