@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -242,6 +241,49 @@ class PharmacyDashboardNotifier
     await loadDashboardData();
   }
 
+  Future<ReservationModel> confirmarPagamentoComoFarmacia({
+    required String reservationId,
+    required String metodoPagamento,
+  }) async {
+    final pharmacy = state.pharmacyDetails;
+
+    if (pharmacy == null) {
+      throw Exception(
+        'Não foi possível identificar a farmácia da conta.',
+      );
+    }
+
+    final reservation = state.reservations.where(
+      (item) => item.id == reservationId,
+    );
+
+    if (reservation.isEmpty ||
+        reservation.first.pharmacyId != pharmacy.id) {
+      throw Exception(
+        'Esta reserva não pertence à farmácia associada à conta.',
+      );
+    }
+
+    final updatedReservation =
+        await _dbService.farmaciaConfirmarPagamento(
+      reservationId: reservationId,
+      metodoPagamento: metodoPagamento,
+    );
+
+    if (!mounted) return updatedReservation;
+
+    state = state.copyWith(
+      reservations: state.reservations.map((item) {
+        return item.id == reservationId
+            ? updatedReservation
+            : item;
+      }).toList(),
+      error: null,
+    );
+
+    return updatedReservation;
+  }
+
   Future<bool> submitPaymentProof({
     required String paymentMethod,
     required String referenceNumber,
@@ -319,9 +361,6 @@ class PharmacyDashboardNotifier
       return false;
     }
 
-    // A criação usa sempre a farmácia identificada pelo painel.
-    // O serviço e a função SQL continuam responsáveis por validar
-    // a associação com o utilizador autenticado.
     final medicineForPharmacy = MedicineModel(
       id: medicine.id,
       pharmacyId: pharmacy.id,
