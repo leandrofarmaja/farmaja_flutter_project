@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/services/supabase_database_service.dart';
+import '../../../../core/services/pharmacy_notification_service.dart';
 import '../../../medicines/domain/medicine_model.dart';
 import '../../../pharmacies/domain/pharmacy_model.dart';
 import '../../../pharmacies/domain/pharmacy_payment_model.dart';
@@ -18,6 +20,7 @@ class PharmacyDashboardState {
   final bool isLoading;
   final String? error;
   final String? activePharmacyName;
+  final int unreadReservationsCount;
 
   PharmacyDashboardState({
     this.medicines = const [],
@@ -28,6 +31,7 @@ class PharmacyDashboardState {
     this.isLoading = false,
     this.error,
     this.activePharmacyName,
+    this.unreadReservationsCount = 0,
   });
 
   PharmacyDashboardState copyWith({
@@ -39,6 +43,7 @@ class PharmacyDashboardState {
     bool? isLoading,
     String? error,
     String? activePharmacyName,
+    int? unreadReservationsCount,
   }) {
     return PharmacyDashboardState(
       medicines: medicines ?? this.medicines,
@@ -50,6 +55,8 @@ class PharmacyDashboardState {
       error: error,
       activePharmacyName:
           activePharmacyName ?? this.activePharmacyName,
+      unreadReservationsCount:
+          unreadReservationsCount ?? this.unreadReservationsCount,
     );
   }
 
@@ -104,11 +111,17 @@ class PharmacyDashboardState {
 class PharmacyDashboardNotifier
     extends StateNotifier<PharmacyDashboardState> {
   final SupabaseDatabaseService _dbService;
+  final PharmacyNotificationService _notificationService;
 
   static const Duration _saveTimeout = Duration(seconds: 25);
 
+  RealtimeChannel? _notificationChannel;
+  String? _subscribedPharmacyId;
+
   PharmacyDashboardNotifier(this._dbService)
-      : super(PharmacyDashboardState(isLoading: true)) {
+      : _notificationService =
+            PharmacyNotificationService(_dbService),
+        super(PharmacyDashboardState(isLoading: true)) {
     loadDashboardData();
   }
 
@@ -120,6 +133,9 @@ class PharmacyDashboardNotifier
 
       if (pharmacy == null) {
         if (!mounted) return;
+
+        await _removeNotificationSubscription();
+
         state = PharmacyDashboardState(
           isLoading: false,
           error:
@@ -186,13 +202,125 @@ class PharmacyDashboardNotifier
         isLoading: false,
         error: loadingError,
       );
+
+      await _configureNotificationSubscription(pharmacy.id);
     } catch (e) {
       if (!mounted) return;
+
       state = state.copyWith(
         isLoading: false,
         error: 'Erro ao carregar o painel da farmácia: $e',
       );
     }
+  }
+
+  Future<void> _configureNotificationSubscription(
+    String pharmacyId,
+  ) async {
+    if (!mounted) return;
+
+    if (_subscribedPharmacyId == pharmacyId &&
+        _notificationChannel != null) {
+      await _refreshUnreadCount(pharmacyId);
+      return;
+    }
+
+    await _removeNotificationSubscription();
+
+    if (!mounted) return;
+
+    try {
+      final count =
+          await _notificationService.getUnreadCount(pharmacyId);
+
+      if (!mounted) return;
+
+      if (state.pharmacyDetails?.id != pharmacyId) return;
+
+      state = state.copyWith(
+        unreadReservationsCount: count,
+      );
+
+      _notificationChannel =
+          _notificationService.subscribeToNewNotifications(
+        pharmacyId: pharmacyId,
+        onInsert: (PostgresChangePayload payload) {
+          if (!mounted) return;
+
+          if (state.pharmacyDetails?.id != pharmacyId) return;
+
+          unawaited(_refreshUnreadCount(pharmacyId));
+        },
+      );
+
+      _subscribedPharmacyId = pharmacyId;
+    } catch (e) {
+      if (!mounted) return;
+
+      state = state.copyWith(
+        error:
+            'Não foi possível activar as notificações '
+            'de novas reservas: $e',
+      );
+    }
+  }
+
+  Future<void> _refreshUnreadCount(String pharmacyId) async {
+    try {
+      final count =
+          await _notificationService.getUnreadCount(pharmacyId);
+
+      if (!mounted) return;
+
+      if (state.pharmacyDetails?.id != pharmacyId) return;
+
+      state = state.copyWith(
+        unreadReservationsCount: count,
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      state = state.copyWith(
+        error: 'Não foi possível actualizar o contador de reservas: $e',
+      );
+    }
+  }
+
+  Future<void> markReservationNotificationsAsRead() async {
+    final pharmacy = state.pharmacyDetails;
+
+    if (pharmacy == null) return;
+
+    try {
+      await _notificationService.markAsRead();
+
+      if (!mounted) return;
+
+      await _refreshUnreadCount(pharmacy.id);
+    } catch (e) {
+      if (!mounted) return;
+
+      state = state.copyWith(
+        error: 'Não foi possível marcar as notificações como lidas: $e',
+      );
+    }
+  }
+
+  Future<void> _removeNotificationSubscription() async {
+    final channel = _notificationChannel;
+
+    _notificationChannel = null;
+    _subscribedPharmacyId = null;
+
+    if (channel != null) {
+      await _dbService.client.removeChannel(channel);
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_removeNotificationSubscription());
+    super.dispose();
   }
 
   Future<void> _refreshMedicinesAfterMutation() async {
@@ -345,8 +473,6 @@ class PharmacyDashboardNotifier
 
     if (!mounted) return;
 
-    // Recarrega os dados reais para obter o estado actualizado
-    // directamente do Supabase.
     await loadDashboardData();
   }
 
