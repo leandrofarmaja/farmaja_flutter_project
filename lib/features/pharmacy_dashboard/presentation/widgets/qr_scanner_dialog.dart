@@ -24,6 +24,7 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
   bool _isValidating = false;
   bool _isCameraActive = true;
   bool _showManualEntry = false;
+  bool _isCameraUnavailable = false;
 
   ReservationModel? _validatedReservation;
   String? _errorMessage;
@@ -68,7 +69,14 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
   Future<void> _validateCode(String rawCode) async {
     final code = rawCode.trim().toUpperCase();
 
-    if (code.isEmpty || _isValidating) return;
+    if (code.isEmpty || _isValidating) {
+      if (code.isEmpty && mounted) {
+        setState(() {
+          _errorMessage = 'Introduza um código de reserva válido.';
+        });
+      }
+      return;
+    }
 
     setState(() {
       _isValidating = true;
@@ -111,31 +119,66 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
       _errorMessage = null;
       _isCameraActive = true;
       _showManualEntry = false;
+      _isCameraUnavailable = false;
     });
 
     try {
       await _scannerController.start();
+
+      if (!mounted) return;
     } catch (e) {
       if (!mounted) return;
 
       setState(() {
         _isCameraActive = false;
         _showManualEntry = true;
+        _isCameraUnavailable = true;
         _errorMessage =
             'Não foi possível iniciar a câmara. Introduza o código manualmente.';
       });
     }
   }
 
-  void _resetForAnotherCode() {
+  Future<void> _resetForAnotherCode() async {
+    if (!mounted) return;
+
     setState(() {
       _validatedReservation = null;
       _errorMessage = null;
       _codeController.clear();
       _showManualEntry = false;
+      _isCameraUnavailable = false;
     });
 
-    _restartCamera();
+    await _restartCamera();
+  }
+
+  void _switchToManualEntry() {
+    if (_isValidating) return;
+
+    if (_isCameraActive) {
+      _scannerController.stop();
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _isCameraActive = false;
+      _showManualEntry = true;
+      _errorMessage = null;
+    });
+  }
+
+  void _handleCameraError() {
+    if (!mounted) return;
+
+    setState(() {
+      _isCameraActive = false;
+      _showManualEntry = true;
+      _isCameraUnavailable = true;
+      _errorMessage =
+          'Não foi possível abrir a câmara. Introduza o código manualmente.';
+    });
   }
 
   @override
@@ -184,8 +227,7 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
                   if (_isCameraActive && !_showManualEntry)
                     _buildCameraScanner(),
 
-                  if (!_isCameraActive && !_showManualEntry &&
-                      !_isValidating)
+                  if (_isCameraUnavailable && !_showManualEntry)
                     _buildCameraUnavailable(),
 
                   if (_isValidating) ...[
@@ -211,10 +253,9 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
                             Icons.arrow_forward_rounded,
                             color: AppColors.primary,
                           ),
-                          onPressed:
-                              _isValidating ? null : () {
-                            _validateCode(_codeController.text);
-                          },
+                          onPressed: _isValidating
+                              ? null
+                              : () => _validateCode(_codeController.text),
                         ),
                       ),
                       onFieldSubmitted: (value) {
@@ -240,19 +281,7 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
 
                   if (!_showManualEntry && !_isValidating)
                     OutlinedButton.icon(
-                      onPressed: () async {
-                        if (_isCameraActive) {
-                          await _scannerController.stop();
-                        }
-
-                        if (!mounted) return;
-
-                        setState(() {
-                          _isCameraActive = false;
-                          _showManualEntry = true;
-                          _errorMessage = null;
-                        });
-                      },
+                      onPressed: _switchToManualEntry,
                       icon: const Icon(Icons.keyboard_rounded),
                       label: const Text('Introduzir código manualmente'),
                     ),
@@ -303,14 +332,18 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
             controller: _scannerController,
             onDetect: _handleScan,
             errorBuilder: (context, error) {
-              return Center(
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _handleCameraError();
+              });
+
+              return const Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
                   child: Text(
                     'Não foi possível abrir a câmara.\n'
-                    'Verifique a permissão de utilização.',
+                    'A activar a introdução manual...',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: Colors.white),
                   ),
                 ),
               );
@@ -351,11 +384,7 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
             textAlign: TextAlign.center,
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                _showManualEntry = true;
-              });
-            },
+            onPressed: _switchToManualEntry,
             child: const Text('Introduzir código manualmente'),
           ),
         ],
@@ -405,15 +434,15 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
           Text('Código: ${reservation.pickupCode}'),
           Text('Valor: ${reservation.totalPriceKz.toInt()} Kz'),
           const SizedBox(height: 12),
-          const Chip(
-            avatar: Icon(
+          Chip(
+            avatar: const Icon(
               Icons.schedule_rounded,
               color: Colors.white,
               size: 18,
             ),
-            label: Text('Estado: Aguardando confirmação'),
+            label: Text('Estado: ${reservation.status}'),
             backgroundColor: Colors.orange,
-            labelStyle: TextStyle(
+            labelStyle: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
               fontSize: 11,
@@ -421,7 +450,7 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
           ),
           const SizedBox(height: 12),
           const Text(
-            'A validação do código não confirma o levantamento. '
+            'A validação do código não confirma o pagamento nem o levantamento. '
             'Verifique presencialmente a receita médica, quando exigida, '
             'e só confirme a entrega depois de entregar o medicamento.',
             textAlign: TextAlign.center,
