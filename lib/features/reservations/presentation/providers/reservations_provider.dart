@@ -74,20 +74,18 @@ class ReservationsNotifier extends StateNotifier<List<ReservationModel>> {
 
   Future<ReservationModel> confirmarPagamentoComoCliente({
     required String reservationId,
-    required String metodoPagamento,
   }) async {
     final userId = _userId;
 
     if (userId == null || userId.isEmpty) {
       throw Exception(
-        'Inicia sessão para confirmares o pagamento.',
+        'Inicia sessão para confirmares a compra.',
       );
     }
 
     final updatedReservation =
         await _dbService.clienteConfirmarPagamento(
       reservationId: reservationId,
-      metodoPagamento: metodoPagamento,
     );
 
     state = state.map((reservation) {
