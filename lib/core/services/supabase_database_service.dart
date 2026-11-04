@@ -27,8 +27,8 @@ class SupabaseDatabaseService {
       'codigo_reserva, url_foto_receita, criado_em, '
       'user_id, preco_kwanza, expira_em, receita_enviada, '
       'metodo_pagamento, cliente_confirmou_pagamento_em, '
-      'farmacia_confirmou_pagamento_em, receita_autorizada, '
-      'receita_verificada_em, '
+      'farmacia_confirmou_pagamento_em, qr_validado_em, '
+      'receita_autorizada, receita_verificada_em, '
       'medicamentos(nome_medicamento), farmacias(nome)';
 
   // ============================================================
@@ -636,6 +636,8 @@ class SupabaseDatabaseService {
           _dateTimeFromDatabase(
         row['farmacia_confirmou_pagamento_em'],
       ),
+      qrValidadoEm:
+          _dateTimeFromDatabase(row['qr_validado_em']),
       receitaAutorizada: row['receita_autorizada'] is bool
           ? row['receita_autorizada'] as bool
           : null,
