@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -228,7 +229,6 @@ class _ReservationCard extends ConsumerWidget {
           .read(reservationsProvider.notifier)
           .confirmarPagamentoComoCliente(
             reservationId: reservation.id,
-            metodoPagamento: 'outro',
           );
 
       await ref
