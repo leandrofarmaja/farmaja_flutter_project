@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,7 +88,8 @@ class PharmacyDashboardState {
     return status == 'active' ||
         status == 'pending' ||
         status == 'aguardando confirmação' ||
-        status == 'aguardando confirmacao';
+        status == 'aguardando confirmacao' ||
+        status == 'pago';
   }
 
   double get totalRevenue => reservations
@@ -375,7 +377,6 @@ class PharmacyDashboardNotifier
 
   Future<ReservationModel> confirmarPagamentoComoFarmacia({
     required String reservationId,
-    required String metodoPagamento,
   }) async {
     final pharmacy = state.pharmacyDetails;
 
@@ -399,7 +400,6 @@ class PharmacyDashboardNotifier
     final updatedReservation =
         await _dbService.farmaciaConfirmarPagamento(
       reservationId: reservationId,
-      metodoPagamento: metodoPagamento,
     );
 
     if (!mounted) return updatedReservation;
@@ -421,7 +421,6 @@ class PharmacyDashboardNotifier
   /// Só permite avançar quando:
   /// - A reserva pertence à farmácia autenticada.
   /// - O pagamento foi confirmado pelas duas partes.
-  /// - Existe um método de pagamento registado.
   /// - O estado actual da reserva é Pago.
   Future<void> confirmarLevantamento(
     String reservationId,
@@ -463,13 +462,6 @@ class PharmacyDashboardNotifier
         reservation.farmaciaConfirmouPagamentoEm == null) {
       throw Exception(
         'O pagamento ainda não foi confirmado pelas duas partes.',
-      );
-    }
-
-    if (reservation.metodoPagamento == null ||
-        reservation.metodoPagamento!.trim().isEmpty) {
-      throw Exception(
-        'A reserva não tem um método de pagamento registado.',
       );
     }
 
