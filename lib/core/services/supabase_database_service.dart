@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -668,20 +667,18 @@ class SupabaseDatabaseService {
 
   Future<ReservationModel> clienteConfirmarPagamento({
     required String reservationId,
-    required String metodoPagamento,
   }) async {
     final currentUser = _client.auth.currentUser;
 
     if (currentUser == null) {
       throw Exception(
-        'Inicia sessão para confirmar o pagamento.',
+        'Inicia sessão para confirmar a compra.',
       );
     }
 
-    if (reservationId.trim().isEmpty ||
-        metodoPagamento.trim().isEmpty) {
+    if (reservationId.trim().isEmpty) {
       throw ArgumentError(
-        'A reserva e o método de pagamento são obrigatórios.',
+        'O identificador da reserva é obrigatório.',
       );
     }
 
@@ -690,18 +687,17 @@ class SupabaseDatabaseService {
         'cliente_confirmar_pagamento',
         params: {
           'p_reserva_id': reservationId.trim(),
-          'p_metodo_pagamento': metodoPagamento.trim(),
         },
       );
 
       return await _reloadReservation(reservationId.trim());
     } on PostgrestException catch (e) {
       throw Exception(
-        'Não foi possível confirmar o pagamento do cliente: ${e.message}',
+        'Não foi possível confirmar a compra do cliente: ${e.message}',
       );
     } catch (e) {
       throw Exception(
-        'Falha ao confirmar o pagamento do cliente: $e',
+        'Falha ao confirmar a compra do cliente: $e',
       );
     }
   }
@@ -712,20 +708,18 @@ class SupabaseDatabaseService {
 
   Future<ReservationModel> farmaciaConfirmarPagamento({
     required String reservationId,
-    required String metodoPagamento,
   }) async {
     final currentUser = _client.auth.currentUser;
 
     if (currentUser == null) {
       throw Exception(
-        'Inicia sessão com a conta da farmácia para confirmar o pagamento.',
+        'Inicia sessão com a conta da farmácia para confirmar a venda.',
       );
     }
 
-    if (reservationId.trim().isEmpty ||
-        metodoPagamento.trim().isEmpty) {
+    if (reservationId.trim().isEmpty) {
       throw ArgumentError(
-        'A reserva e o método de pagamento são obrigatórios.',
+        'O identificador da reserva é obrigatório.',
       );
     }
 
@@ -734,18 +728,17 @@ class SupabaseDatabaseService {
         'farmacia_confirmar_pagamento',
         params: {
           'p_reserva_id': reservationId.trim(),
-          'p_metodo_pagamento': metodoPagamento.trim(),
         },
       );
 
       return await _reloadReservation(reservationId.trim());
     } on PostgrestException catch (e) {
       throw Exception(
-        'Não foi possível confirmar o pagamento da farmácia: ${e.message}',
+        'Não foi possível confirmar a venda da farmácia: ${e.message}',
       );
     } catch (e) {
       throw Exception(
-        'Falha ao confirmar o pagamento da farmácia: $e',
+        'Falha ao confirmar a venda da farmácia: $e',
       );
     }
   }
