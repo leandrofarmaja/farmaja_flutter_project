@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -183,19 +182,31 @@ class _ReservationCard extends ConsumerWidget {
       _normalizedStatus == 'expirada' ||
       _normalizedStatus == 'expired';
 
+  bool get _isCompleted =>
+      _normalizedStatus == 'levantada' ||
+      _normalizedStatus == 'completed' ||
+      _normalizedStatus == 'entregue' ||
+      _normalizedStatus == 'resgatado';
+
   bool get _showPaymentConfirmation =>
       _isAwaitingPayment || _isPaid;
 
   bool get _canRate =>
-      (_normalizedStatus == 'completed' ||
-          _normalizedStatus == 'levantada') &&
-      !reservation.isReviewed;
+      _isCompleted && !reservation.isReviewed;
+
+  bool get _qrWasValidated =>
+      reservation.qrValidadoEm != null;
+
+  bool get _canShowQr =>
+      reservation.pickupCode.isNotEmpty &&
+      !_isExpired &&
+      !_isCompleted;
 
   Future<void> _confirmPurchase(
     BuildContext context,
     WidgetRef ref,
   ) async {
-    if (!_isAwaitingPayment) return;
+    if (!_isAwaitingPayment || !_qrWasValidated) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -203,18 +214,25 @@ class _ReservationCard extends ConsumerWidget {
         return AlertDialog(
           title: const Text('Confirmar compra'),
           content: const Text(
-            'Confirma que verificaste o medicamento e que já '
-            'efectuaste o pagamento presencialmente na farmácia?',
+            'Antes de confirmar, verifique cuidadosamente se o '
+            'medicamento apresentado corresponde ao que reservou, '
+            'conferindo o nome, a dosagem, a apresentação e a validade.\n\n'
+            'Efectue o pagamento apenas depois de confirmar que '
+            'recebeu o medicamento pretendido.\n\n'
+            'Já verificou o medicamento e efectuou o pagamento '
+            'presencialmente na farmácia?',
           ),
           actions: [
             TextButton(
-              onPressed: () =>
-                  Navigator.pop(dialogContext, false),
-              child: const Text('Cancelar'),
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Ainda não'),
             ),
             FilledButton(
-              onPressed: () =>
-                  Navigator.pop(dialogContext, true),
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
               child: const Text('Confirmar compra'),
             ),
           ],
@@ -271,7 +289,10 @@ class _ReservationCard extends ConsumerWidget {
         reservation.farmaciaConfirmouPagamentoEm != null;
 
     final canConfirmPurchase =
-        _isAwaitingPayment && !clientConfirmed && !_isExpired;
+        _isAwaitingPayment &&
+        _qrWasValidated &&
+        !clientConfirmed &&
+        !_isExpired;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -327,7 +348,8 @@ class _ReservationCard extends ConsumerWidget {
             _InfoRow(
               icon: Icons.payments_outlined,
               label: 'Valor',
-              value: '${reservation.totalPriceKz.toStringAsFixed(2)} Kz',
+              value:
+                  '${reservation.totalPriceKz.toStringAsFixed(2)} Kz',
             ),
             _InfoRow(
               icon: Icons.calendar_today_outlined,
@@ -342,7 +364,9 @@ class _ReservationCard extends ConsumerWidget {
             _InfoRow(
               icon: Icons.qr_code_2_rounded,
               label: 'Código de levantamento',
-              value: reservation.pickupCode,
+              value: _isExpired
+                  ? 'Código expirado'
+                  : reservation.pickupCode,
             ),
             _InfoRow(
               icon: Icons.description_outlined,
@@ -357,10 +381,24 @@ class _ReservationCard extends ConsumerWidget {
                 value:
                     '${reservation.reviewRating!.toStringAsFixed(1)} / 5',
               ),
-            if (reservation.pickupCode.isNotEmpty) ...[
+            if (_canShowQr) ...[
               const SizedBox(height: 12),
               Center(
-                child: QrCodeWidget(data: reservation.pickupCode),
+                child: QrCodeWidget(
+                  data: reservation.pickupCode,
+                ),
+              ),
+            ],
+            if (_isExpired) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Esta reserva expirou. O código QR já não pode ser utilizado.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
               ),
             ],
             if (_showPaymentConfirmation) ...[
@@ -371,12 +409,26 @@ class _ReservationCard extends ConsumerWidget {
                 purchaseCompleted: _isPaid,
               ),
             ],
+            if (_isAwaitingPayment && !_qrWasValidated) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Apresente o código QR na farmácia. '
+                'Depois da validação e da verificação do medicamento, '
+                'poderá confirmar a compra após efectuar o pagamento.',
+                style: TextStyle(
+                  color: Colors.orange,
+                  fontSize: 12,
+                ),
+              ),
+            ],
             if (canConfirmPurchase) ...[
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => _confirmPurchase(context, ref),
+                  onPressed: () {
+                    _confirmPurchase(context, ref);
+                  },
                   icon: const Icon(Icons.shopping_bag_outlined),
                   label: const Text('Confirmar compra'),
                   style: FilledButton.styleFrom(
