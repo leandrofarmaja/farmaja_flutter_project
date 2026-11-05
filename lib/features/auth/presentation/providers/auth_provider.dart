@@ -202,6 +202,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _handleAuthEvent(dynamic data) async {
     final AuthChangeEvent event = data.event;
+
     final bool isRecovery =
         event == AuthChangeEvent.passwordRecovery;
 
@@ -236,14 +237,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
             isRecovery || state.isPasswordRecovery,
       );
     } catch (e) {
+      final recovery =
+          isRecovery || state.isPasswordRecovery;
+
+      if (!recovery && _authService.currentUser != null) {
+        try {
+          await _authService.signOut();
+        } catch (_) {
+          // Não conceder acesso sem perfil válido.
+        }
+      }
+
       state = AuthState(
         isLoading: false,
-        error: (isRecovery || state.isPasswordRecovery)
+        error: recovery
             ? null
             : 'Não foi possível validar o perfil desta conta. '
                 'Contacte o suporte FARCLIK.',
-        isPasswordRecovery:
-            isRecovery || state.isPasswordRecovery,
+        isPasswordRecovery: recovery,
       );
     }
   }
@@ -258,6 +269,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       clearUser: true,
     );
 
+    // 1. Autenticar as credenciais.
+    User? authenticatedUser;
+
     try {
       final response =
           await _authService.signInWithEmailAndPassword(
@@ -265,35 +279,42 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password: password,
       );
 
-      final user = response.user;
+      authenticatedUser = response.user;
 
-      if (user == null) {
+      if (authenticatedUser == null) {
         state = const AuthState(
           error: 'Não foi possível confirmar a conta autenticada.',
         );
         return false;
       }
+    } catch (e) {
+      state = AuthState(
+        error: _friendlyAuthError(e),
+      );
+      return false;
+    }
 
-      final profile = await _loadUserProfile(user.id);
+    // 2. Validar o perfil separadamente.
+    try {
+      final profile =
+          await _loadUserProfile(authenticatedUser.id);
 
       state = AuthState(user: profile);
       return true;
     } catch (e) {
-      final errorMessage = _friendlyAuthError(e);
-
-      // Só terminar a sessão quando a autenticação foi aceite,
-      // mas a validação do perfil falhou.
-      final isProfileError = e is StateError;
-
-      if (isProfileError && _authService.currentUser != null) {
-        try {
-          await _authService.signOut();
-        } catch (_) {
-          // Não conceder acesso sem perfil válido.
-        }
+      // A autenticação foi aceite, mas o perfil falhou.
+      // Terminar a sessão independentemente do tipo de erro.
+      try {
+        await _authService.signOut();
+      } catch (_) {
+        // O acesso continua bloqueado no estado local.
       }
 
-      state = AuthState(error: errorMessage);
+      state = const AuthState(
+        error: 'As credenciais foram aceites, mas não foi possível '
+            'validar o perfil desta conta. Contacte o suporte FARCLIK.',
+      );
+
       return false;
     }
   }
