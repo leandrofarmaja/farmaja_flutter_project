@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -33,7 +32,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   String _friendlyError(String? error) {
     if (error == null || error.trim().isEmpty) {
-      return 'Não foi possível iniciar sessão. Tente novamente.';
+      return 'Não foi possível iniciar sessão. '
+          'Verifique os seus dados e tente novamente.';
     }
 
     final message = error.toLowerCase();
@@ -41,26 +41,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (message.contains('socketexception') ||
         message.contains('failed host lookup') ||
         message.contains('network') ||
-        message.contains('connection')) {
+        message.contains('connection') ||
+        message.contains('timeout') ||
+        message.contains('timed out')) {
       return 'Não foi possível estabelecer ligação. '
-          'Verifique a sua internet e tente novamente.';
+          'Verifique a sua ligação à Internet e tente novamente.';
     }
 
     if (message.contains('invalid login credentials') ||
-        message.contains('invalid_credentials')) {
-      return 'E-mail ou palavra-passe incorrectos.';
+        message.contains('invalid_credentials') ||
+        message.contains('user not found') ||
+        message.contains('invalid email or password')) {
+      return 'O e-mail ou a palavra-passe estão incorrectos. '
+          'Verifique os seus dados e tente novamente.';
     }
 
     if (message.contains('email not confirmed')) {
-      return 'Confirme o seu e-mail antes de iniciar sessão.';
+      return 'Confirme o seu endereço de e-mail antes de iniciar sessão.';
+    }
+
+    if (message.contains('too many requests') ||
+        message.contains('rate limit')) {
+      return 'Foram realizadas demasiadas tentativas. '
+          'Aguarde alguns instantes e tente novamente.';
     }
 
     if (message.contains('perfil') ||
         message.contains('role') ||
         message.contains('função') ||
         message.contains('funcao')) {
-      return 'Não foi possível validar o perfil desta conta. '
-          'Contacte o suporte FARCLIK.';
+      return 'As credenciais foram aceites, mas não foi possível '
+          'carregar o perfil da conta. Contacte o suporte FARCLIK.';
     }
 
     return 'Não foi possível iniciar sessão. '
@@ -100,8 +111,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'A conta foi autenticada, mas o perfil não foi validado. '
-            'Contacte o suporte FARCLIK.',
+            'As credenciais foram aceites, mas não foi possível '
+            'carregar o perfil da conta. Contacte o suporte FARCLIK.',
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -126,8 +137,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Esta conta não tem uma função válida. '
-              'Contacte o suporte FARCLIK.',
+              'As credenciais foram aceites, mas esta conta '
+              'não possui uma função válida. Contacte o suporte FARCLIK.',
             ),
             behavior: SnackBarBehavior.floating,
           ),
@@ -208,7 +219,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               const SizedBox(height: 12),
 
-              // Logótipo oficial FARCLIK.
               Center(
                 child: Container(
                   width: 116,
