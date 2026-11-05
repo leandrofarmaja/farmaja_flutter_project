@@ -65,7 +65,7 @@ class SupabaseDatabaseService {
           .select(
             'id, nome_medicamento, preco_kwanza, farmacia_id, '
             'disponivel, quantidade_stock, distancia_km, '
-            'receita_obrigatoria, '
+            'receita_obrigatoria, imagem_url, '
             'farmacias(id, nome, endereco, telefone, aberta_agora, avaliacao)',
           );
 
@@ -116,7 +116,7 @@ class SupabaseDatabaseService {
           .select(
             'id, nome_medicamento, preco_kwanza, farmacia_id, '
             'disponivel, quantidade_stock, distancia_km, '
-            'receita_obrigatoria, '
+            'receita_obrigatoria, imagem_url, '
             'farmacias(id, nome, endereco, telefone, aberta_agora, avaliacao)',
           )
           .eq('id', id)
@@ -152,6 +152,9 @@ class SupabaseDatabaseService {
     final available =
         row['disponivel'] == true && stockQuantity > 0;
 
+    // NOVO: suporte à imagem do medicamento.
+    final rawImageUrl = row['imagem_url']?.toString().trim();
+
     return MedicineModel(
       id: (row['id'] ?? '').toString(),
       pharmacyId: (row['farmacia_id'] ?? '').toString(),
@@ -172,6 +175,11 @@ class SupabaseDatabaseService {
       dosageInstructions: '',
       pharmacyLatitude: 0.0,
       pharmacyLongitude: 0.0,
+
+      // NOVO: atribuição do URL ao modelo.
+      imageUrl: rawImageUrl == null || rawImageUrl.isEmpty
+          ? null
+          : rawImageUrl,
     );
   }
 
