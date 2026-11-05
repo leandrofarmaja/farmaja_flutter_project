@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,10 +74,53 @@ class AuthNotifier extends StateNotifier<AuthState> {
     'admin',
   };
 
+  String _friendlyAuthError(Object error) {
+    final message = error.toString().toLowerCase();
+
+    if (message.contains('invalid login credentials') ||
+        message.contains('invalid_credentials') ||
+        message.contains('invalid email or password') ||
+        message.contains('user not found')) {
+      return 'O e-mail ou a palavra-passe estão incorrectos. '
+          'Verifique os seus dados e tente novamente.';
+    }
+
+    if (message.contains('email not confirmed')) {
+      return 'Confirme o seu endereço de e-mail antes de iniciar sessão.';
+    }
+
+    if (message.contains('socketexception') ||
+        message.contains('failed host lookup') ||
+        message.contains('network') ||
+        message.contains('connection') ||
+        message.contains('timeout') ||
+        message.contains('timed out')) {
+      return 'Não foi possível estabelecer ligação. '
+          'Verifique a sua Internet e tente novamente.';
+    }
+
+    if (message.contains('too many requests') ||
+        message.contains('rate limit')) {
+      return 'Foram realizadas demasiadas tentativas. '
+          'Aguarde alguns instantes e tente novamente.';
+    }
+
+    if (error is StateError ||
+        message.contains('profiles') ||
+        message.contains('perfil') ||
+        message.contains('role')) {
+      return 'As credenciais foram aceites, mas não foi possível '
+          'validar o perfil desta conta. Contacte o suporte FARCLIK.';
+    }
+
+    return 'Não foi possível iniciar sessão. '
+        'Verifique os seus dados e tente novamente.';
+  }
+
   /// Carrega exclusivamente o perfil persistido no Supabase.
   ///
-  /// Não cria um perfil fictício a partir dos metadados
-  /// nem transforma automaticamente uma conta em cliente.
+  /// Não cria perfis fictícios nem atribui automaticamente
+  /// uma função ao utilizador.
   Future<UserModel> _loadUserProfile(String id) async {
     final profile = await _dbService.getUserProfile(id);
 
@@ -139,13 +181,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       final recovery = state.isPasswordRecovery;
 
-      // Nunca terminar uma sessão de recuperação da palavra-passe
-      // apenas porque o perfil não pôde ser carregado.
       if (!recovery && _authService.currentUser != null) {
         try {
           await _authService.signOut();
         } catch (_) {
-          // O acesso continua bloqueado pelo estado sem utilizador.
+          // O acesso permanece bloqueado.
         }
       }
 
@@ -196,8 +236,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
             isRecovery || state.isPasswordRecovery,
       );
     } catch (e) {
-      // Preserva o fluxo de recuperação, sem conceder acesso
-      // a áreas de cliente, farmácia ou administração.
       state = AuthState(
         isLoading: false,
         error: (isRecovery || state.isPasswordRecovery)
@@ -217,6 +255,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(
       isLoading: true,
       clearError: true,
+      clearUser: true,
     );
 
     try {
@@ -240,22 +279,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(user: profile);
       return true;
     } catch (e) {
-      // Uma conta sem perfil válido não deve permanecer
-      // autenticada na aplicação como se fosse um cliente.
-      try {
-        if (_authService.currentUser != null) {
+      final errorMessage = _friendlyAuthError(e);
+
+      // Só terminar a sessão quando a autenticação foi aceite,
+      // mas a validação do perfil falhou.
+      final isProfileError = e is StateError;
+
+      if (isProfileError && _authService.currentUser != null) {
+        try {
           await _authService.signOut();
+        } catch (_) {
+          // Não conceder acesso sem perfil válido.
         }
-      } catch (_) {
-        // O estado abaixo continua sem conceder acesso.
       }
 
-      state = const AuthState(
-        error: 'Não foi possível validar a conta. '
-            'Confirma se o perfil está correctamente configurado '
-            'e tenta novamente.',
-      );
-
+      state = AuthState(error: errorMessage);
       return false;
     }
   }
@@ -298,8 +336,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (response.user == null) {
         state = const AuthState(
           error: 'O Supabase não devolveu um utilizador. '
-              'Verifica a configuração do registo e a confirmação '
-              'do email.',
+              'Verifique a configuração do registo e a confirmação '
+              'do e-mail.',
         );
         return false;
       }
@@ -314,12 +352,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
           try {
             await _authService.signOut();
           } catch (_) {
-            // Não atribuir um papel fictício ao utilizador.
+            // Não atribuir um papel fictício.
           }
 
           state = const AuthState(
             error: 'A conta foi criada, mas o perfil ainda não '
-                'está disponível. Confirma a criação do perfil '
+                'está disponível. Confirme a criação do perfil '
                 'no Supabase antes de iniciar sessão.',
           );
 
@@ -333,7 +371,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = const AuthState(
         error: 'Não foi possível concluir o registo. '
-            'Verifica os dados e tenta novamente.',
+            'Verifique os dados e tente novamente.',
       );
       return false;
     }
@@ -358,7 +396,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(
         isLoading: false,
         error: 'Não foi possível pedir a recuperação. '
-            'Tenta novamente.',
+            'Tente novamente.',
       );
       return false;
     }
@@ -378,7 +416,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         user: state.user,
         isLoading: false,
         error: 'Não foi possível voltar ao início de sessão. '
-            'Tenta novamente.',
+            'Tente novamente.',
         isPasswordRecovery: state.isPasswordRecovery,
       );
       rethrow;
@@ -399,7 +437,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         user: state.user,
         isLoading: false,
         error: 'Não foi possível terminar a sessão. '
-            'Tenta novamente.',
+            'Tente novamente.',
         isPasswordRecovery: state.isPasswordRecovery,
       );
     }
