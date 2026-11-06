@@ -1,11 +1,19 @@
+
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../medicines/domain/medicine_model.dart';
 
 class AddEditMedicineDialog extends StatefulWidget {
   final MedicineModel? medicine;
-  final Future<void> Function(MedicineModel) onSave;
+
+  final Future<void> Function(
+    MedicineModel medicine,
+    XFile? image,
+  ) onSave;
 
   const AddEditMedicineDialog({
     super.key,
@@ -21,13 +29,17 @@ class AddEditMedicineDialog extends StatefulWidget {
 class _AddEditMedicineDialogState
     extends State<AddEditMedicineDialog> {
   final _formKey = GlobalKey<FormState>();
+  final ImagePicker _imagePicker = ImagePicker();
 
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
   late final TextEditingController _stockController;
 
+  XFile? _selectedImage;
+
   bool _requiresPrescription = false;
   bool _isSaving = false;
+  bool _isPickingImage = false;
 
   @override
   void initState() {
@@ -95,8 +107,117 @@ class _AddEditMedicineDialogState
     return null;
   }
 
+  Future<void> _pickImage() async {
+    if (_isSaving || _isPickingImage) return;
+
+    setState(() {
+      _isPickingImage = true;
+    });
+
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+
+      if (!mounted) return;
+
+      if (image != null) {
+        setState(() {
+          _selectedImage = image;
+        });
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Erro ao seleccionar fotografia: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Não foi possível seleccionar a fotografia.',
+              ),
+            ),
+          );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPickingImage = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildImagePreview() {
+    final existingImageUrl = widget.medicine?.imageUrl;
+
+    Widget image;
+
+    if (_selectedImage != null) {
+      image = Image.file(
+        File(_selectedImage!.path),
+        width: double.infinity,
+        height: 190,
+        fit: BoxFit.cover,
+      );
+    } else if (existingImageUrl != null &&
+        existingImageUrl.trim().isNotEmpty) {
+      image = Image.network(
+        existingImageUrl,
+        width: double.infinity,
+        height: 190,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildImagePlaceholder();
+        },
+      );
+    } else {
+      image = _buildImagePlaceholder();
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: SizedBox(
+        width: double.infinity,
+        height: 190,
+        child: image,
+      ),
+    );
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      width: double.infinity,
+      height: 190,
+      color: Colors.grey.shade100,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.add_photo_alternate_outlined,
+            size: 46,
+            color: Colors.grey.shade500,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sem fotografia seleccionada',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _submit() async {
-    if (_isSaving) return;
+    if (_isSaving || _isPickingImage) return;
 
     FocusScope.of(context).unfocus();
 
@@ -144,6 +265,7 @@ class _AddEditMedicineDialogState
           existingMedicine?.pharmacyLatitude ?? 0.0,
       pharmacyLongitude:
           existingMedicine?.pharmacyLongitude ?? 0.0,
+      imageUrl: existingMedicine?.imageUrl,
     );
 
     setState(() {
@@ -151,10 +273,7 @@ class _AddEditMedicineDialogState
     });
 
     try {
-      await widget.onSave(medicine);
-
-      // O callback do ecrã pai decide se fecha o formulário.
-      // Se a gravação falhar, o formulário permanece aberto.
+      await widget.onSave(medicine, _selectedImage);
     } catch (error, stackTrace) {
       debugPrint(
         'Erro ao guardar medicamento no formulário: $error',
@@ -225,6 +344,45 @@ class _AddEditMedicineDialogState
                   ),
                   const Divider(),
                   const SizedBox(height: 16),
+
+                  const Text(
+                    'Fotografia do medicamento',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  _buildImagePreview(),
+
+                  const SizedBox(height: 10),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isSaving || _isPickingImage
+                          ? null
+                          : _pickImage,
+                      icon: _isPickingImage
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.photo_library_outlined),
+                      label: Text(
+                        _isPickingImage
+                            ? 'A abrir galeria...'
+                            : 'Seleccionar fotografia',
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
                   TextFormField(
                     controller: _nameController,
                     enabled: !_isSaving,
@@ -239,7 +397,9 @@ class _AddEditMedicineDialogState
                     ),
                     validator: _validateName,
                   ),
+
                   const SizedBox(height: 16),
+
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -281,7 +441,9 @@ class _AddEditMedicineDialogState
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 12),
+
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text(
@@ -305,7 +467,9 @@ class _AddEditMedicineDialogState
                             });
                           },
                   ),
+
                   const SizedBox(height: 20),
+
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
@@ -326,7 +490,9 @@ class _AddEditMedicineDialogState
                                 ? 'Guardar alterações'
                                 : 'Adicionar ao stock',
                       ),
-                      onPressed: _isSaving ? null : _submit,
+                      onPressed: _isSaving || _isPickingImage
+                          ? null
+                          : _submit,
                     ),
                   ),
                 ],
