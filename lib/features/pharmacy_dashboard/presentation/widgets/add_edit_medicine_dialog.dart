@@ -153,6 +153,14 @@ class _AddEditMedicineDialogState
     }
   }
 
+  void _removeSelectedImage() {
+    if (_isSaving || _isPickingImage) return;
+
+    setState(() {
+      _selectedImage = null;
+    });
+  }
+
   Widget _buildImagePreview() {
     final existingImageUrl = widget.medicine?.imageUrl;
 
@@ -274,6 +282,10 @@ class _AddEditMedicineDialogState
 
     try {
       await widget.onSave(medicine, _selectedImage);
+
+      if (!mounted) return;
+
+      Navigator.of(context).pop();
     } catch (error, stackTrace) {
       debugPrint(
         'Erro ao guardar medicamento no formulário: $error',
@@ -354,7 +366,23 @@ class _AddEditMedicineDialogState
                   ),
                   const SizedBox(height: 10),
 
-                  _buildImagePreview(),
+                  Stack(
+                    children: [
+                      _buildImagePreview(),
+                      if (_selectedImage != null)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: IconButton.filled(
+                            tooltip: 'Remover fotografia seleccionada',
+                            onPressed: _isSaving || _isPickingImage
+                                ? null
+                                : _removeSelectedImage,
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ),
+                    ],
+                  ),
 
                   const SizedBox(height: 10),
 
