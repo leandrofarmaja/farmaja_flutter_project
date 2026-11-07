@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -31,14 +32,6 @@ class _PharmacyDashboardScreenState
   int _lastTabIndex = 0;
 
   final Set<String> _processingReservations = {};
-
-  static const Map<String, String> _paymentMethods = {
-    'dinheiro': 'Dinheiro',
-    'tpa': 'TPA',
-    'multicaixa_express': 'Multicaixa Express',
-    'transferencia': 'Transferência bancária',
-    'outro': 'Outro',
-  };
 
   @override
   void initState() {
@@ -293,79 +286,18 @@ class _PharmacyDashboardScreenState
     );
   }
 
-  Future<String?> _selectPaymentMethod({
-    String? initialValue,
-  }) async {
-    String selected = initialValue ?? 'dinheiro';
-
-    return showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Método de pagamento'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: _paymentMethods.entries.map((entry) {
-                  return RadioListTile<String>(
-                    value: entry.key,
-                    groupValue: selected,
-                    title: Text(entry.value),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setDialogState(() => selected = value);
-                    },
-                  );
-                }).toList(),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(
-                  onPressed: () =>
-                      Navigator.of(dialogContext).pop(selected),
-                  child: const Text('Confirmar'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
   Future<void> _confirmPharmacyPayment(dynamic reservation) async {
     final reservationId = reservation.id as String;
 
     if (_processingReservations.contains(reservationId)) return;
 
-    final existingMethod =
-        (reservation.metodoPagamento as String?)?.trim();
-
-    final method = existingMethod != null && existingMethod.isNotEmpty
-        ? existingMethod
-        : await _selectPaymentMethod();
-
-    if (method == null || !mounted) return;
-
-    if (!_paymentMethods.containsKey(method)) {
-      _showMessage(
-        'O método de pagamento da reserva não é reconhecido.',
-        isError: true,
-      );
-      return;
-    }
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Confirmar pagamento'),
+        title: const Text('Confirmar recebimento'),
         content: Text(
           'Confirmas que recebeste ${reservation.totalPriceKz.toInt()} Kz '
-          'através de ${_paymentMethods[method]}?',
+          'do cliente, referente a esta reserva?',
         ),
         actions: [
           TextButton(
@@ -374,7 +306,7 @@ class _PharmacyDashboardScreenState
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Confirmar pagamento'),
+            child: const Text('Confirmar recebimento'),
           ),
         ],
       ),
@@ -391,16 +323,20 @@ class _PharmacyDashboardScreenState
             reservationId: reservationId,
           );
 
+      await ref
+          .read(pharmacyDashboardProvider.notifier)
+          .loadDashboardData();
+
       if (mounted) {
         _showMessage(
-          'Confirmação de pagamento registada. '
+          'Confirmação de recebimento registada. '
           'A reserva ficará paga quando o cliente também confirmar.',
         );
       }
     } catch (e) {
       if (mounted) {
         _showMessage(
-          'Não foi possível confirmar o pagamento. Detalhe: $e',
+          'Não foi possível confirmar o recebimento. Detalhe: $e',
           isError: true,
         );
       }
@@ -450,6 +386,10 @@ class _PharmacyDashboardScreenState
       await ref
           .read(pharmacyDashboardProvider.notifier)
           .confirmarLevantamento(reservationId);
+
+      await ref
+          .read(pharmacyDashboardProvider.notifier)
+          .loadDashboardData();
 
       if (mounted) {
         _showMessage('Entrega confirmada. Reserva concluída.');
@@ -1404,8 +1344,6 @@ class _PharmacyDashboardScreenState
                         reservation.farmaciaConfirmouPagamentoEm !=
                             null;
 
-                    final method = reservation.metodoPagamento;
-
                     final isProcessing =
                         _processingReservations.contains(
                       reservation.id,
@@ -1470,12 +1408,6 @@ class _PharmacyDashboardScreenState
                             const Text(
                               'Prazo de levantamento: 2 horas',
                             ),
-                            if (method != null &&
-                                method.isNotEmpty)
-                              Text(
-                                'Método: '
-                                '${_paymentMethods[method] ?? method}',
-                              ),
                             if (!expired) ...[
                               const Divider(height: 20),
                               Text(
@@ -1510,10 +1442,10 @@ class _PharmacyDashboardScreenState
                                   width: double.infinity,
                                   child: FilledButton.icon(
                                     icon: const Icon(
-                                      Icons.payments_rounded,
+                                      Icons.check_circle_outline_rounded,
                                     ),
                                     label: const Text(
-                                      'Confirmar recebimento do pagamento',
+                                      'Confirmar recebimento',
                                     ),
                                     onPressed: () =>
                                         _confirmPharmacyPayment(
@@ -1533,9 +1465,7 @@ class _PharmacyDashboardScreenState
                                       'Confirmar entrega ao cliente',
                                     ),
                                     onPressed: clientConfirmed &&
-                                            pharmacyConfirmed &&
-                                            method != null &&
-                                            method.trim().isNotEmpty
+                                            pharmacyConfirmed
                                         ? () =>
                                             _confirmPhysicalDelivery(
                                               reservation,
