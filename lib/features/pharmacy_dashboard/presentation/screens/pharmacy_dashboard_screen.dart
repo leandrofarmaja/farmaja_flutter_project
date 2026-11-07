@@ -176,6 +176,7 @@ class _PharmacyDashboardScreenState
     }
   }
 
+  // Adicionar ou editar medicamento, incluindo a fotografia.
   void _showAddEditMedicineModal([MedicineModel? medicine]) {
     final state = ref.read(pharmacyDashboardProvider);
 
@@ -189,27 +190,29 @@ class _PharmacyDashboardScreenState
       barrierDismissible: false,
       builder: (dialogContext) => AddEditMedicineDialog(
         medicine: medicine,
-        onSave: (updated) async {
-          final success = await _runOperation(
-            () => medicine == null
-                ? ref
-                    .read(pharmacyDashboardProvider.notifier)
-                    .addMedicine(updated)
-                : ref
-                    .read(pharmacyDashboardProvider.notifier)
-                    .updateMedicine(updated),
-            successMessage: medicine == null
+        onSave: (updated, image) async {
+          final success = medicine == null
+              ? await ref
+                  .read(pharmacyDashboardProvider.notifier)
+                  .addMedicine(updated, image: image)
+              : await ref
+                  .read(pharmacyDashboardProvider.notifier)
+                  .updateMedicine(updated, image: image);
+
+          if (!mounted) return;
+
+          if (!success) {
+            throw Exception(
+              'Não foi possível guardar o medicamento. '
+              'Verifica os dados e as permissões.',
+            );
+          }
+
+          _showMessage(
+            medicine == null
                 ? 'Medicamento adicionado com sucesso.'
                 : 'Medicamento actualizado com sucesso.',
-            failureMessage:
-                'Não foi possível guardar o medicamento. Verifica os dados e as permissões.',
           );
-
-          if (!mounted || !dialogContext.mounted) return;
-
-          if (success) {
-            Navigator.of(dialogContext).pop();
-          }
         },
       ),
     );
