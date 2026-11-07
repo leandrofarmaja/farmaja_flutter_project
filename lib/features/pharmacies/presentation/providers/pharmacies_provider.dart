@@ -1,4 +1,6 @@
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/pharmacies_repository.dart';
 import '../../domain/pharmacy_model.dart';
@@ -13,9 +15,34 @@ final pharmaciesRepositoryProvider =
 final pharmaciesSearchQueryProvider =
     StateProvider<String>((ref) => '');
 
+// Escuta alterações na tabela farmacias em tempo real.
+final pharmaciesRealtimeProvider =
+    Provider.autoDispose<void>((ref) {
+  final client = Supabase.instance.client;
+
+  final channel = client
+      .channel('farmacias-public-catalog')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'farmacias',
+        callback: (payload) {
+          ref.invalidate(pharmaciesListProvider);
+        },
+      )
+      .subscribe();
+
+  ref.onDispose(() {
+    client.removeChannel(channel);
+  });
+});
+
 // Lista de farmácias obtida através do Supabase.
 final pharmaciesListProvider =
     FutureProvider<List<PharmacyModel>>((ref) async {
+  // Mantém activa a subscrição de alterações em tempo real.
+  ref.watch(pharmaciesRealtimeProvider);
+
   final repository = ref.watch(pharmaciesRepositoryProvider);
   final filter = ref.watch(medicineFilterProvider);
   final searchQuery = ref.watch(pharmaciesSearchQueryProvider);
