@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -208,7 +207,7 @@ class _PharmacyDashboardScreenState
     );
   }
 
-  void _showQrScannerModal() {
+  Future<void> _showQrScannerModal() async {
     final state = ref.read(pharmacyDashboardProvider);
 
     if (state.isBlockedOrExpired) {
@@ -216,7 +215,7 @@ class _PharmacyDashboardScreenState
       return;
     }
 
-    showDialog<void>(
+    await showDialog<void>(
       context: context,
       builder: (dialogContext) => QrScannerDialog(
         onValidateCode: (code) async {
@@ -226,6 +225,12 @@ class _PharmacyDashboardScreenState
         },
       ),
     );
+
+    if (!mounted) return;
+
+    await ref
+        .read(pharmacyDashboardProvider.notifier)
+        .loadDashboardData();
   }
 
   void _showPaymentModal() {
@@ -1344,6 +1349,14 @@ class _PharmacyDashboardScreenState
                         reservation.farmaciaConfirmouPagamentoEm !=
                             null;
 
+                    final qrValidated =
+                        reservation.qrValidadoEm != null;
+
+                    final canConfirmDelivery = paid &&
+                        clientConfirmed &&
+                        pharmacyConfirmed &&
+                        qrValidated;
+
                     final isProcessing =
                         _processingReservations.contains(
                       reservation.id,
@@ -1431,6 +1444,31 @@ class _PharmacyDashboardScreenState
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    qrValidated
+                                        ? Icons.qr_code_rounded
+                                        : Icons.qr_code_2_rounded,
+                                    size: 17,
+                                    color: qrValidated
+                                        ? Colors.green.shade700
+                                        : Colors.orange.shade800,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'QR Code: '
+                                    '${qrValidated ? "Validado" : "Pendente"}',
+                                    style: TextStyle(
+                                      color: qrValidated
+                                          ? Colors.green.shade700
+                                          : Colors.orange.shade800,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                             if (isProcessing) ...[
                               const SizedBox(height: 12),
@@ -1461,11 +1499,12 @@ class _PharmacyDashboardScreenState
                                     icon: const Icon(
                                       Icons.inventory_2_rounded,
                                     ),
-                                    label: const Text(
-                                      'Confirmar entrega ao cliente',
+                                    label: Text(
+                                      canConfirmDelivery
+                                          ? 'Confirmar entrega ao cliente'
+                                          : 'Aguardar validação e confirmações',
                                     ),
-                                    onPressed: clientConfirmed &&
-                                            pharmacyConfirmed
+                                    onPressed: canConfirmDelivery
                                         ? () =>
                                             _confirmPhysicalDelivery(
                                               reservation,
@@ -1473,6 +1512,18 @@ class _PharmacyDashboardScreenState
                                         : null,
                                   ),
                                 ),
+                                if (!canConfirmDelivery) ...[
+                                  const SizedBox(height: 6),
+                                  const Text(
+                                    'A entrega só pode ser confirmada depois '
+                                    'da validação do QR Code e das duas '
+                                    'confirmações de pagamento.',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ],
                           ],
