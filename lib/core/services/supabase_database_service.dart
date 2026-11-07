@@ -1,6 +1,8 @@
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/medicines/domain/medicine_model.dart';
@@ -21,6 +23,9 @@ class SupabaseDatabaseService {
       'Envio de receitas indisponível. Por enquanto, apresente '
       'a receita médica directamente na farmácia, quando necessário.';
 
+  static const String _medicineImagesBucket = 'medicamentos';
+  static const int _maxMedicineImageSize = 5 * 1024 * 1024;
+
   static const String _reservationSelect =
       'id, medicamento_id, farmacia_id, status, '
       'codigo_reserva, url_foto_receita, criado_em, '
@@ -29,6 +34,133 @@ class SupabaseDatabaseService {
       'farmacia_confirmou_pagamento_em, qr_validado_em, '
       'receita_autorizada, receita_verificada_em, '
       'medicamentos(nome_medicamento), farmacias(nome)';
+
+  // ============================================================
+  // IMAGENS DOS MEDICAMENTOS
+  // ============================================================
+
+  String _medicineImageExtension(XFile image) {
+    final fileName = image.name.trim().toLowerCase();
+
+    final dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex < 0 || dotIndex == fileName.length - 1) {
+      throw ArgumentError(
+        'A imagem deve ter uma extensão JPEG, JPG, PNG ou WebP.',
+      );
+    }
+
+    final extension = fileName.substring(dotIndex + 1);
+
+    const allowedExtensions = <String>{
+      'jpg',
+      'jpeg',
+      'png',
+      'webp',
+    };
+
+    if (!allowedExtensions.contains(extension)) {
+      throw ArgumentError(
+        'Formato de imagem não permitido. '
+        'Utiliza JPEG, PNG ou WebP.',
+      );
+    }
+
+    return extension;
+  }
+
+  String _medicineImageContentType(String extension) {
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      default:
+        throw ArgumentError('Formato de imagem não suportado.');
+    }
+  }
+
+  Future<String> _uploadMedicineImage({
+    required XFile image,
+    required String pharmacyId,
+  }) async {
+    if (pharmacyId.trim().isEmpty) {
+      throw ArgumentError(
+        'O identificador da farmácia é obrigatório para carregar a imagem.',
+      );
+    }
+
+    final extension = _medicineImageExtension(image);
+    final contentType = _medicineImageContentType(extension);
+
+    final bytes = await image.readAsBytes();
+
+    if (bytes.isEmpty) {
+      throw Exception('O ficheiro da imagem está vazio.');
+    }
+
+    if (bytes.length > _maxMedicineImageSize) {
+      throw Exception(
+        'A imagem excede o limite permitido de 5 MB.',
+      );
+    }
+
+    final fileName =
+        '${DateTime.now().microsecondsSinceEpoch}.$extension';
+
+    final storagePath = '${pharmacyId.trim()}/$fileName';
+
+    await _client.storage
+        .from(_medicineImagesBucket)
+        .uploadBinary(
+          storagePath,
+          bytes,
+          fileOptions: FileOptions(
+            contentType: contentType,
+            upsert: false,
+          ),
+        );
+
+    return _client.storage
+        .from(_medicineImagesBucket)
+        .getPublicUrl(storagePath);
+  }
+
+  Future<void> _removeUploadedMedicineImage(
+    String? imageUrl,
+  ) async {
+    if (imageUrl == null || imageUrl.trim().isEmpty) {
+      return;
+    }
+
+    try {
+      final uri = Uri.tryParse(imageUrl);
+
+      if (uri == null) return;
+
+      final marker = '/storage/v1/object/public/'
+          '$_medicineImagesBucket/';
+
+      final pathIndex = uri.path.indexOf(marker);
+
+      if (pathIndex < 0) return;
+
+      final storagePath = Uri.decodeComponent(
+        uri.path.substring(pathIndex + marker.length),
+      );
+
+      if (storagePath.isEmpty) return;
+
+      await _client.storage
+          .from(_medicineImagesBucket)
+          .remove([storagePath]);
+    } catch (_) {
+      // A limpeza é best-effort.
+      // Não substitui o erro original da operação.
+    }
+  }
 
   // ============================================================
   // MEDICAMENTOS
@@ -152,7 +284,6 @@ class SupabaseDatabaseService {
     final available =
         row['disponivel'] == true && stockQuantity > 0;
 
-    // NOVO: suporte à imagem do medicamento.
     final rawImageUrl = row['imagem_url']?.toString().trim();
 
     return MedicineModel(
@@ -175,8 +306,6 @@ class SupabaseDatabaseService {
       dosageInstructions: '',
       pharmacyLatitude: 0.0,
       pharmacyLongitude: 0.0,
-
-      // NOVO: atribuição do URL ao modelo.
       imageUrl: rawImageUrl == null || rawImageUrl.isEmpty
           ? null
           : rawImageUrl,
@@ -968,7 +1097,10 @@ class SupabaseDatabaseService {
   // GESTÃO DE MEDICAMENTOS — RPCs SUPABASE
   // ============================================================
 
-  Future<void> addMedicine(MedicineModel medicine) async {
+  Future<void> addMedicine(
+    MedicineModel medicine, {
+    XFile? image,
+  }) async {
     if (_client.auth.currentUser == null) {
       throw Exception(
         'A sessão expirou. Inicia sessão novamente para guardar o medicamento.',
@@ -989,6 +1121,8 @@ class SupabaseDatabaseService {
       );
     }
 
+    String? uploadedImageUrl;
+
     try {
       final pharmacy = await getOwnedPharmacy().timeout(
         const Duration(seconds: 15),
@@ -1006,15 +1140,23 @@ class SupabaseDatabaseService {
         );
       }
 
+      if (image != null) {
+        uploadedImageUrl = await _uploadMedicineImage(
+          image: image,
+          pharmacyId: pharmacy.id,
+        );
+      }
+
       final result = await _client
           .rpc(
-            'farclik_criar_medicamento',
+            'farclik_criar_medicamento_com_imagem',
             params: {
               'p_nome_medicamento': medicine.name.trim(),
               'p_preco_kwanza': medicine.priceKz,
               'p_quantidade_stock': medicine.stockQuantity,
               'p_receita_obrigatoria':
                   medicine.requiresPrescription,
+              'p_imagem_url': uploadedImageUrl,
             },
           )
           .timeout(
@@ -1029,25 +1171,32 @@ class SupabaseDatabaseService {
       final createdId = result?.toString().trim() ?? '';
 
       if (createdId.isEmpty ||
-          createdId.toLowerCase() == 'false') {
+          createdId.toLowerCase() == 'false' ||
+          createdId.toLowerCase() == 'null') {
         throw Exception(
-          'O Supabase não confirmou a criação do medicamento.',
+          'O Supabase não devolveu o identificador do medicamento criado.',
         );
       }
     } on TimeoutException {
+      await _removeUploadedMedicineImage(uploadedImageUrl);
       rethrow;
     } on PostgrestException catch (e) {
+      await _removeUploadedMedicineImage(uploadedImageUrl);
       throw Exception(
         'O Supabase recusou a criação do medicamento: ${e.message}',
       );
     } catch (e) {
+      await _removeUploadedMedicineImage(uploadedImageUrl);
       throw Exception(
         'Não foi possível criar o medicamento: $e',
       );
     }
   }
 
-  Future<void> updateMedicine(MedicineModel medicine) async {
+  Future<void> updateMedicine(
+    MedicineModel medicine, {
+    XFile? image,
+  }) async {
     if (medicine.id.trim().isEmpty) {
       throw ArgumentError(
         'O identificador do medicamento é obrigatório.',
@@ -1062,27 +1211,58 @@ class SupabaseDatabaseService {
       );
     }
 
+    String? uploadedImageUrl;
+
     try {
+      if (_client.auth.currentUser == null) {
+        throw Exception(
+          'A sessão expirou. Inicia sessão novamente.',
+        );
+      }
+
+      final pharmacy = await getOwnedPharmacy();
+
+      if (pharmacy == null || pharmacy.id.trim().isEmpty) {
+        throw Exception(
+          'Esta conta não tem uma farmácia associada.',
+        );
+      }
+
+      if (image != null) {
+        uploadedImageUrl = await _uploadMedicineImage(
+          image: image,
+          pharmacyId: pharmacy.id,
+        );
+      }
+
       final result = await _client.rpc(
-        'farclik_editar_medicamento',
+        'farclik_editar_medicamento_com_imagem',
         params: {
           'p_medicamento_id': medicine.id.trim(),
           'p_nome_medicamento': medicine.name.trim(),
           'p_preco_kwanza': medicine.priceKz,
           'p_receita_obrigatoria':
               medicine.requiresPrescription,
+          'p_atualizar_imagem': image != null,
+          'p_imagem_url': uploadedImageUrl,
         },
       );
 
       if (result != true) {
+        await _removeUploadedMedicineImage(uploadedImageUrl);
+
         throw Exception(
           'O Supabase não confirmou a edição do medicamento.',
         );
       }
     } on PostgrestException catch (e) {
+      await _removeUploadedMedicineImage(uploadedImageUrl);
       throw Exception(
         'Não foi possível editar o medicamento: ${e.message}',
       );
+    } catch (e) {
+      await _removeUploadedMedicineImage(uploadedImageUrl);
+      rethrow;
     }
   }
 
