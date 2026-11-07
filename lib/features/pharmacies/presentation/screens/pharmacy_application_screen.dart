@@ -27,6 +27,8 @@ class _PharmacyApplicationScreenState
   final _licenseNumber = TextEditingController();
 
   PlatformFile? _licenseFile;
+  PlatformFile? _pharmacyPhotoFile;
+
   bool _loading = false;
   bool _submitted = false;
   String? _error;
@@ -72,14 +74,47 @@ class _PharmacyApplicationScreenState
         _error = null;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = 'Erro ao selecionar o documento: $e');
     }
   }
 
-  String _contentType(PlatformFile file) {
-    final extension = file.extension?.toLowerCase();
+  Future<void> _pickPharmacyPhoto() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+        withData: true,
+      );
 
-    switch (extension) {
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.single;
+
+      if (file.bytes == null) {
+        setState(() => _error =
+            'Não foi possível ler a fotografia. Escolha-a novamente.');
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        setState(() =>
+            _error = 'A fotografia não pode ultrapassar 5 MB.');
+        return;
+      }
+
+      setState(() {
+        _pharmacyPhotoFile = file;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Erro ao selecionar a fotografia: $e');
+    }
+  }
+
+  String _licenseContentType(PlatformFile file) {
+    switch (file.extension?.toLowerCase()) {
       case 'pdf':
         return 'application/pdf';
       case 'jpg':
@@ -92,22 +127,41 @@ class _PharmacyApplicationScreenState
     }
   }
 
+  String _photoContentType(PlatformFile file) {
+    switch (file.extension?.toLowerCase()) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      default:
+        throw Exception('Formato de fotografia não permitido.');
+    }
+  }
+
   Future<void> _submitApplication() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_pharmacyPhotoFile == null ||
+        _pharmacyPhotoFile!.bytes == null) {
+      setState(() =>
+          _error = 'Anexe uma fotografia frontal da farmácia.');
+      return;
+    }
+
     if (_licenseFile == null || _licenseFile!.bytes == null) {
-      setState(
-        () => _error = 'Anexe a licença da farmácia antes de continuar.',
-      );
+      setState(() =>
+          _error = 'Anexe a licença da farmácia antes de continuar.');
       return;
     }
 
     final user = _supabase.auth.currentUser;
 
     if (user == null) {
-      setState(
-        () => _error = 'A sua sessão terminou. Inicie sessão novamente.',
-      );
+      setState(() =>
+          _error = 'A sua sessão terminou. Inicie sessão novamente.');
       return;
     }
 
@@ -116,7 +170,8 @@ class _PharmacyApplicationScreenState
       _error = null;
     });
 
-    String? uploadedPath;
+    String? licensePath;
+    String? photoPath;
 
     try {
       final profile = await _supabase
@@ -131,19 +186,38 @@ class _PharmacyApplicationScreenState
         );
       }
 
-      final file = _licenseFile!;
-      final extension = file.extension!.toLowerCase();
-      final fileName =
-          'licenca_${DateTime.now().microsecondsSinceEpoch}.$extension';
-      uploadedPath = '${user.id}/$fileName';
+      final timestamp = DateTime.now().microsecondsSinceEpoch;
+
+      final license = _licenseFile!;
+      final licenseExtension = license.extension!.toLowerCase();
+
+      licensePath =
+          '${user.id}/licenca_${timestamp}.$licenseExtension';
 
       await _supabase.storage
           .from('pharmacy-licenses')
           .uploadBinary(
-            uploadedPath,
-            file.bytes as Uint8List,
+            licensePath,
+            license.bytes as Uint8List,
             fileOptions: FileOptions(
-              contentType: _contentType(file),
+              contentType: _licenseContentType(license),
+              upsert: false,
+            ),
+          );
+
+      final photo = _pharmacyPhotoFile!;
+      final photoExtension = photo.extension!.toLowerCase();
+
+      photoPath =
+          '${user.id}/farmacia_${timestamp}.$photoExtension';
+
+      await _supabase.storage
+          .from('pharmacy-photos')
+          .uploadBinary(
+            photoPath,
+            photo.bytes as Uint8List,
+            fileOptions: FileOptions(
+              contentType: _photoContentType(photo),
               upsert: false,
             ),
           );
@@ -157,7 +231,8 @@ class _PharmacyApplicationScreenState
         'district': _district.text.trim(),
         'address': _address.text.trim(),
         'license_number': _licenseNumber.text.trim(),
-        'license_document_path': uploadedPath,
+        'license_document_path': licensePath,
+        'pharmacy_photo_path': photoPath,
         'status': 'pending',
       });
 
@@ -169,12 +244,30 @@ class _PharmacyApplicationScreenState
       });
     } on StorageException catch (e) {
       if (!mounted) return;
+
       setState(() {
         _loading = false;
-        _error = 'Não foi possível enviar a licença: ${e.message}';
+        _error = 'Não foi possível enviar o ficheiro: ${e.message}';
       });
     } on PostgrestException catch (e) {
+      if (photoPath != null) {
+        try {
+          await _supabase.storage
+              .from('pharmacy-photos')
+              .remove([photoPath]);
+        } catch (_) {}
+      }
+
+      if (licensePath != null) {
+        try {
+          await _supabase.storage
+              .from('pharmacy-licenses')
+              .remove([licensePath]);
+        } catch (_) {}
+      }
+
       if (!mounted) return;
+
       setState(() {
         _loading = false;
         _error = e.code == '23505'
@@ -183,6 +276,7 @@ class _PharmacyApplicationScreenState
       });
     } catch (e) {
       if (!mounted) return;
+
       setState(() {
         _loading = false;
         _error = e.toString().replaceFirst('Exception: ', '');
@@ -216,6 +310,54 @@ class _PharmacyApplicationScreenState
           return null;
         },
       ),
+    );
+  }
+
+  Widget _buildPhotoSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Fotografia frontal da farmácia',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Envie uma fotografia real, nítida e frontal da fachada. '
+          'Será utilizada como imagem de capa após a aprovação.',
+          style: TextStyle(fontSize: 13),
+        ),
+        const SizedBox(height: 12),
+        if (_pharmacyPhotoFile?.bytes != null) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.memory(
+              _pharmacyPhotoFile!.bytes!,
+              width: double.infinity,
+              height: 190,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        OutlinedButton.icon(
+          onPressed: _loading ? null : _pickPharmacyPhoto,
+          icon: const Icon(Icons.add_a_photo_outlined),
+          label: Text(
+            _pharmacyPhotoFile == null
+                ? 'Selecionar fotografia'
+                : 'Alterar fotografia',
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(top: 8, bottom: 20),
+          child: Text(
+            'Formatos aceites: JPG, JPEG, PNG ou WebP. '
+            'Tamanho máximo: 5 MB.',
+            style: TextStyle(fontSize: 12),
+          ),
+        ),
+      ],
     );
   }
 
@@ -303,7 +445,7 @@ class _PharmacyApplicationScreenState
                         'Número da licença',
                         _licenseNumber,
                       ),
-                      const SizedBox(height: 4),
+                      _buildPhotoSection(),
                       const Text(
                         'Licença da farmácia',
                         style: TextStyle(fontWeight: FontWeight.bold),
