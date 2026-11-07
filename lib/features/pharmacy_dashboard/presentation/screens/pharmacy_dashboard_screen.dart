@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -60,7 +59,6 @@ class _PharmacyDashboardScreenState
 
     _lastTabIndex = _tabController.index;
 
-    // O índice 2 corresponde ao separador Reservas.
     if (_tabController.index == 2) {
       ref
           .read(pharmacyDashboardProvider.notifier)
@@ -176,7 +174,6 @@ class _PharmacyDashboardScreenState
     }
   }
 
-  // Adicionar ou editar medicamento, incluindo a fotografia.
   void _showAddEditMedicineModal([MedicineModel? medicine]) {
     final state = ref.read(pharmacyDashboardProvider);
 
@@ -392,7 +389,6 @@ class _PharmacyDashboardScreenState
           .read(pharmacyDashboardProvider.notifier)
           .confirmarPagamentoComoFarmacia(
             reservationId: reservationId,
-            metodoPagamento: method,
           );
 
       if (mounted) {
