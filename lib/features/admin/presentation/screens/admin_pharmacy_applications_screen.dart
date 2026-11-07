@@ -18,6 +18,8 @@ class _AdminPharmacyApplicationsScreenState
   final SupabaseClient _supabase = Supabase.instance.client;
 
   List<Map<String, dynamic>> _applications = [];
+  final Map<String, Future<String>> _photoUrls = {};
+
   bool _loading = true;
   String? _error;
   final Set<String> _processingIds = {};
@@ -43,12 +45,29 @@ class _AdminPharmacyApplicationsScreenState
           .eq('status', 'pending')
           .order('created_at', ascending: true);
 
+      final applications = List<Map<String, dynamic>>.from(
+        result.map((item) => Map<String, dynamic>.from(item)),
+      );
+
+      final photoUrls = <String, Future<String>>{};
+
+      for (final application in applications) {
+        final path = application['pharmacy_photo_path']?.toString();
+
+        if (path != null && path.isNotEmpty) {
+          photoUrls[path] = _supabase.storage
+              .from('pharmacy-photos')
+              .createSignedUrl(path, 600);
+        }
+      }
+
       if (!mounted) return;
 
       setState(() {
-        _applications = List<Map<String, dynamic>>.from(
-          result.map((item) => Map<String, dynamic>.from(item)),
-        );
+        _applications = applications;
+        _photoUrls
+          ..clear()
+          ..addAll(photoUrls);
         _loading = false;
       });
     } on PostgrestException catch (e) {
@@ -64,6 +83,89 @@ class _AdminPharmacyApplicationsScreenState
         _loading = false;
       });
     }
+  }
+
+  Widget _buildPharmacyPhoto(Map<String, dynamic> application) {
+    final path = application['pharmacy_photo_path']?.toString();
+
+    if (path == null || path.isEmpty) {
+      return Container(
+        width: double.infinity,
+        height: 190,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.image_not_supported_outlined,
+                size: 42, color: Colors.grey),
+            SizedBox(height: 8),
+            Text('Fotografia não disponível'),
+          ],
+        ),
+      );
+    }
+
+    final future = _photoUrls[path];
+
+    if (future == null) {
+      return const SizedBox(
+        height: 190,
+        child: Center(child: Text('Fotografia não carregada.')),
+      );
+    }
+
+    return FutureBuilder<String>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            width: double.infinity,
+            height: 190,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const CircularProgressIndicator(),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Container(
+            width: double.infinity,
+            height: 190,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text('Não foi possível carregar a fotografia.'),
+          );
+        }
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            snapshot.data!,
+            width: double.infinity,
+            height: 210,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                height: 190,
+                alignment: Alignment.center,
+                color: Colors.grey.shade100,
+                child: const Text('Erro ao apresentar a fotografia.'),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _openLicense(Map<String, dynamic> application) async {
@@ -158,13 +260,13 @@ class _AdminPharmacyApplicationsScreenState
           ),
           FilledButton(
             style: decision == 'rejected'
-                ? FilledButton.styleFrom(
-                    backgroundColor: Colors.red,
-                  )
+                ? FilledButton.styleFrom(backgroundColor: Colors.red)
                 : null,
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(
-              decision == 'approved' ? 'Confirmar aprovação' : 'Confirmar rejeição',
+              decision == 'approved'
+                  ? 'Confirmar aprovação'
+                  : 'Confirmar rejeição',
             ),
           ),
         ],
@@ -200,8 +302,8 @@ class _AdminPharmacyApplicationsScreenState
 
       _showMessage(
         decision == 'approved'
-            ? 'Candidatura aprovada. A operação foi confirmada pelo Supabase.'
-            : 'Candidatura rejeitada. A operação foi confirmada pelo Supabase.',
+            ? 'Candidatura aprovada. Operação confirmada pelo Supabase.'
+            : 'Candidatura rejeitada. Operação confirmada pelo Supabase.',
       );
     } on PostgrestException catch (e) {
       if (mounted) {
@@ -277,10 +379,7 @@ class _AdminPharmacyApplicationsScreenState
                           color: Colors.red,
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                        ),
+                        Text(_error!, textAlign: TextAlign.center),
                         const SizedBox(height: 12),
                         FilledButton.icon(
                           onPressed: _loadApplications,
@@ -379,11 +478,18 @@ class _AdminPharmacyApplicationsScreenState
                                           ],
                                         ),
                                       ),
-                                      const Chip(
-                                        label: Text('Pendente'),
-                                      ),
+                                      const Chip(label: Text('Pendente')),
                                     ],
                                   ),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'Fotografia da farmácia',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _buildPharmacyPhoto(application),
                                   const Divider(height: 24),
                                   _detail(
                                     'Responsável',
