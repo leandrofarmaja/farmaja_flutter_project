@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/services/supabase_database_service.dart';
 import '../../../../core/services/pharmacy_notification_service.dart';
@@ -523,7 +524,10 @@ class PharmacyDashboardNotifier
     }
   }
 
-  Future<bool> addMedicine(MedicineModel medicine) async {
+  Future<bool> addMedicine(
+    MedicineModel medicine, {
+    XFile? image,
+  }) async {
     final pharmacy = state.pharmacyDetails;
 
     if (pharmacy == null || pharmacy.id.trim().isEmpty) {
@@ -576,7 +580,10 @@ class PharmacyDashboardNotifier
 
     try {
       await _dbService
-          .addMedicine(medicineForPharmacy)
+          .addMedicine(
+            medicineForPharmacy,
+            image: image,
+          )
           .timeout(_saveTimeout);
 
       if (!mounted) return false;
@@ -610,7 +617,10 @@ class PharmacyDashboardNotifier
     }
   }
 
-  Future<bool> updateMedicine(MedicineModel medicine) async {
+  Future<bool> updateMedicine(
+    MedicineModel medicine, {
+    XFile? image,
+  }) async {
     final pharmacy = state.pharmacyDetails;
 
     if (pharmacy == null) {
@@ -631,7 +641,10 @@ class PharmacyDashboardNotifier
 
     try {
       await _dbService
-          .updateMedicine(medicine)
+          .updateMedicine(
+            medicine,
+            image: image,
+          )
           .timeout(_saveTimeout);
 
       if (!mounted) return false;
