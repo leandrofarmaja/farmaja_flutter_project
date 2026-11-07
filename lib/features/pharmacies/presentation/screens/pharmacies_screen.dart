@@ -1,5 +1,7 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../domain/pharmacy_model.dart';
@@ -9,39 +11,10 @@ import '../providers/pharmacies_provider.dart';
 class PharmaciesScreen extends ConsumerWidget {
   const PharmaciesScreen({super.key});
 
-  Widget _pharmacyImage(
-    String imageUrl, {
-    double size = 64,
-  }) {
-    final url = imageUrl.trim();
-
-    Widget fallback() {
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: Colors.green.shade50,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Icon(
-          Icons.local_pharmacy_rounded,
-          color: AppColors.primary,
-          size: 32,
-        ),
-      );
-    }
-
-    if (url.isEmpty) return fallback();
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.network(
-        url,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => fallback(),
-      ),
+  Widget _pharmacyImage(String imagePath, {double size = 64}) {
+    return _PharmacyImage(
+      imagePath: imagePath,
+      size: size,
     );
   }
 
@@ -408,6 +381,117 @@ class PharmaciesScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PharmacyImage extends StatefulWidget {
+  final String imagePath;
+  final double size;
+
+  const _PharmacyImage({
+    required this.imagePath,
+    required this.size,
+  });
+
+  @override
+  State<_PharmacyImage> createState() => _PharmacyImageState();
+}
+
+class _PharmacyImageState extends State<_PharmacyImage> {
+  Future<String?>? _imageUrlFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PharmacyImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.imagePath != widget.imagePath) {
+      _loadImage();
+    }
+  }
+
+  void _loadImage() {
+    final path = widget.imagePath.trim();
+
+    if (path.isEmpty) {
+      _imageUrlFuture = Future<String?>.value(null);
+      return;
+    }
+
+    if (path.startsWith('https://') || path.startsWith('http://')) {
+      _imageUrlFuture = Future<String?>.value(path);
+      return;
+    }
+
+    _imageUrlFuture = Supabase.instance.client.storage
+        .from('pharmacy-photos')
+        .createSignedUrl(path, 3600);
+  }
+
+  Widget _fallback() {
+    return Container(
+      width: widget.size,
+      height: widget.size,
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Icon(
+        Icons.local_pharmacy_rounded,
+        color: AppColors.primary,
+        size: 32,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: _imageUrlFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            width: widget.size,
+            height: widget.size,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.primary,
+              ),
+            ),
+          );
+        }
+
+        final url = snapshot.data;
+
+        if (snapshot.hasError || url == null || url.isEmpty) {
+          return _fallback();
+        }
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            url,
+            width: widget.size,
+            height: widget.size,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => _fallback(),
+          ),
+        );
+      },
     );
   }
 }
