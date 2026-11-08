@@ -6,6 +6,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../medicines/domain/medicine_model.dart';
 import '../providers/pharmacy_dashboard_provider.dart';
+import 'pharmacy_profile_screen.dart';
 import '../widgets/add_edit_medicine_dialog.dart';
 import '../widgets/qr_scanner_dialog.dart';
 import '../widgets/prescription_review_dialog.dart';
@@ -36,7 +37,7 @@ class _PharmacyDashboardScreenState
   void initState() {
     super.initState();
 
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _tabController.addListener(_handleTabChange);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -538,6 +539,10 @@ class _PharmacyDashboardScreenState
               icon: Icon(Icons.assignment_turned_in_rounded),
               text: 'Receitas',
             ),
+            const Tab(
+              icon: Icon(Icons.storefront_rounded),
+              text: 'Perfil',
+            ),
           ],
         ),
       ),
@@ -609,17 +614,32 @@ class _PharmacyDashboardScreenState
       children: [
         _buildSubscriptionBanner(state),
         Expanded(
-          child: state.isBlockedOrExpired
-              ? _buildBlockedOverlay()
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildStatsTab(state),
-                    _buildMedicinesTab(state),
-                    _buildReservationsTab(state),
-                    _buildPrescriptionsTab(state),
-                  ],
-                ),
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              if (state.isBlockedOrExpired)
+                _buildBlockedOverlay()
+              else
+                _buildStatsTab(state),
+
+              if (state.isBlockedOrExpired)
+                _buildBlockedOverlay()
+              else
+                _buildMedicinesTab(state),
+
+              if (state.isBlockedOrExpired)
+                _buildBlockedOverlay()
+              else
+                _buildReservationsTab(state),
+
+              if (state.isBlockedOrExpired)
+                _buildBlockedOverlay()
+              else
+                _buildPrescriptionsTab(state),
+
+              const PharmacyProfileScreen(),
+            ],
+          ),
         ),
       ],
     );
