@@ -1,5 +1,7 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -28,6 +30,11 @@ class _AdminPharmacyApplicationsScreenState
   void initState() {
     super.initState();
     _loadApplications();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   Future<void> _loadApplications() async {
@@ -72,16 +79,171 @@ class _AdminPharmacyApplicationsScreenState
       });
     } on PostgrestException catch (e) {
       if (!mounted) return;
+
       setState(() {
         _error = 'Erro ao consultar candidaturas: ${e.message}';
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
+
       setState(() {
         _error = 'Não foi possível carregar as candidaturas.';
         _loading = false;
       });
+    }
+  }
+
+  LatLng? _getApplicationLocation(
+    Map<String, dynamic> application,
+  ) {
+    final latitude = application['latitude'];
+    final longitude = application['longitude'];
+
+    if (latitude == null || longitude == null) {
+      return null;
+    }
+
+    final lat = double.tryParse(latitude.toString());
+    final lng = double.tryParse(longitude.toString());
+
+    if (lat == null || lng == null) return null;
+
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return null;
+    }
+
+    return LatLng(lat, lng);
+  }
+
+  Widget _buildLocation(Map<String, dynamic> application) {
+    final location = _getApplicationLocation(application);
+
+    if (location == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.orange.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.orange.shade300),
+        ),
+        child: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.location_off_outlined, color: Colors.orange),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Localização GPS não disponível. '
+                'Esta candidatura não pode ser aprovada até '
+                'ser fornecida uma localização válida.',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Localização GPS da farmácia',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            height: 230,
+            child: FlutterMap(
+              options: MapOptions(
+                initialCenter: location,
+                initialZoom: 17,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all,
+                ),
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'ao.farclik.app',
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: location,
+                      width: 50,
+                      height: 55,
+                      child: const Icon(
+                        Icons.location_on,
+                        size: 48,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+                RichAttributionWidget(
+                  attributions: [
+                    TextSourceAttribution('OpenStreetMap contributors'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SelectableText(
+                'Latitude: ${location.latitude.toStringAsFixed(6)}',
+              ),
+              const SizedBox(height: 4),
+              SelectableText(
+                'Longitude: ${location.longitude.toStringAsFixed(6)}',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () => _openExternalMap(location),
+          icon: const Icon(Icons.open_in_new),
+          label: const Text('Confirmar localização no mapa'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openExternalMap(LatLng location) async {
+    final uri = Uri.parse(
+      'https://www.openstreetmap.org/'
+      '?mlat=${location.latitude}'
+      '&mlon=${location.longitude}'
+      '#map=18/${location.latitude}/${location.longitude}',
+    );
+
+    try {
+      final opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!opened && mounted) {
+        _showMessage('Não foi possível abrir o mapa.');
+      }
+    } catch (_) {
+      _showMessage('Falha ao abrir o mapa. Verifica a ligação.');
     }
   }
 
@@ -100,8 +262,11 @@ class _AdminPharmacyApplicationsScreenState
         child: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.image_not_supported_outlined,
-                size: 42, color: Colors.grey),
+            Icon(
+              Icons.image_not_supported_outlined,
+              size: 42,
+              color: Colors.grey,
+            ),
             SizedBox(height: 8),
             Text('Fotografia não disponível'),
           ],
@@ -143,7 +308,9 @@ class _AdminPharmacyApplicationsScreenState
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text('Não foi possível carregar a fotografia.'),
+            child: const Text(
+              'Não foi possível carregar a fotografia.',
+            ),
           );
         }
 
@@ -159,7 +326,9 @@ class _AdminPharmacyApplicationsScreenState
                 height: 190,
                 alignment: Alignment.center,
                 color: Colors.grey.shade100,
-                child: const Text('Erro ao apresentar a fotografia.'),
+                child: const Text(
+                  'Erro ao apresentar a fotografia.',
+                ),
               );
             },
           ),
@@ -168,11 +337,15 @@ class _AdminPharmacyApplicationsScreenState
     );
   }
 
-  Future<void> _openLicense(Map<String, dynamic> application) async {
+  Future<void> _openLicense(
+    Map<String, dynamic> application,
+  ) async {
     final path = application['license_document_path']?.toString();
 
     if (path == null || path.isEmpty) {
-      _showMessage('O caminho do documento da licença não está disponível.');
+      _showMessage(
+        'O caminho do documento da licença não está disponível.',
+      );
       return;
     }
 
@@ -214,6 +387,14 @@ class _AdminPharmacyApplicationsScreenState
         application['pharmacy_name']?.toString() ?? 'esta farmácia';
 
     if (id == null || id.isEmpty || _processingIds.contains(id)) {
+      return;
+    }
+
+    if (decision == 'approved' &&
+        _getApplicationLocation(application) == null) {
+      _showMessage(
+        'Não é possível aprovar sem uma localização GPS válida.',
+      );
       return;
     }
 
@@ -307,14 +488,19 @@ class _AdminPharmacyApplicationsScreenState
       );
     } on PostgrestException catch (e) {
       if (mounted) {
-        _showMessage('Não foi possível concluir a análise: ${e.message}');
+        _showMessage(
+          'Não foi possível concluir a análise: ${e.message}',
+        );
       }
     } catch (e) {
       if (mounted) {
-        _showMessage('Ocorreu um erro. Atualiza a lista e verifica o estado.');
+        _showMessage(
+          'Ocorreu um erro. Atualiza a lista e verifica o estado.',
+        );
       }
     } finally {
       notesController.dispose();
+
       if (mounted) {
         setState(() => _processingIds.remove(id));
       }
@@ -331,13 +517,17 @@ class _AdminPharmacyApplicationsScreenState
 
   String _value(Map<String, dynamic> item, String key) {
     final value = item[key]?.toString().trim();
-    return value == null || value.isEmpty ? 'Não informado' : value;
+
+    return value == null || value.isEmpty
+        ? 'Não informado'
+        : value;
   }
 
   String _formatDate(dynamic value) {
     if (value == null) return 'Data não disponível';
 
     final date = DateTime.tryParse(value.toString())?.toLocal();
+
     if (date == null) return 'Data não disponível';
 
     final day = date.day.toString().padLeft(2, '0');
@@ -379,7 +569,10 @@ class _AdminPharmacyApplicationsScreenState
                           color: Colors.red,
                         ),
                         const SizedBox(height: 12),
-                        Text(_error!, textAlign: TextAlign.center),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                        ),
                         const SizedBox(height: 12),
                         FilledButton.icon(
                           onPressed: _loadApplications,
@@ -394,7 +587,8 @@ class _AdminPharmacyApplicationsScreenState
                   ? RefreshIndicator(
                       onRefresh: _loadApplications,
                       child: ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
+                        physics:
+                            const AlwaysScrollableScrollPhysics(),
                         children: const [
                           SizedBox(height: 140),
                           Icon(
@@ -422,13 +616,16 @@ class _AdminPharmacyApplicationsScreenState
                   : RefreshIndicator(
                       onRefresh: _loadApplications,
                       child: ListView.builder(
-                        physics: const AlwaysScrollableScrollPhysics(),
+                        physics:
+                            const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.all(16),
                         itemCount: _applications.length,
                         itemBuilder: (context, index) {
                           final application = _applications[index];
-                          final id = application['id']?.toString() ?? '';
-                          final processing = _processingIds.contains(id);
+                          final id =
+                              application['id']?.toString() ?? '';
+                          final processing =
+                              _processingIds.contains(id);
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 16),
@@ -436,7 +633,8 @@ class _AdminPharmacyApplicationsScreenState
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     crossAxisAlignment:
@@ -463,7 +661,8 @@ class _AdminPharmacyApplicationsScreenState
                                               ),
                                               style: const TextStyle(
                                                 fontSize: 17,
-                                                fontWeight: FontWeight.bold,
+                                                fontWeight:
+                                                    FontWeight.bold,
                                               ),
                                             ),
                                             const SizedBox(height: 4),
@@ -478,7 +677,9 @@ class _AdminPharmacyApplicationsScreenState
                                           ],
                                         ),
                                       ),
-                                      const Chip(label: Text('Pendente')),
+                                      const Chip(
+                                        label: Text('Pendente'),
+                                      ),
                                     ],
                                   ),
                                   const SizedBox(height: 16),
@@ -493,7 +694,10 @@ class _AdminPharmacyApplicationsScreenState
                                   const Divider(height: 24),
                                   _detail(
                                     'Responsável',
-                                    _value(application, 'contact_person'),
+                                    _value(
+                                      application,
+                                      'contact_person',
+                                    ),
                                   ),
                                   _detail(
                                     'Telefone',
@@ -501,7 +705,10 @@ class _AdminPharmacyApplicationsScreenState
                                   ),
                                   _detail(
                                     'N.º da licença',
-                                    _value(application, 'license_number'),
+                                    _value(
+                                      application,
+                                      'license_number',
+                                    ),
                                   ),
                                   _detail(
                                     'Província',
@@ -515,15 +722,21 @@ class _AdminPharmacyApplicationsScreenState
                                     'Endereço',
                                     _value(application, 'address'),
                                   ),
+                                  const Divider(height: 24),
+                                  _buildLocation(application),
                                   const SizedBox(height: 12),
                                   OutlinedButton.icon(
                                     onPressed: processing
                                         ? null
-                                        : () => _openLicense(application),
+                                        : () => _openLicense(
+                                              application,
+                                            ),
                                     icon: const Icon(
                                       Icons.description_outlined,
                                     ),
-                                    label: const Text('Consultar licença'),
+                                    label: const Text(
+                                      'Consultar licença',
+                                    ),
                                   ),
                                   const SizedBox(height: 12),
                                   if (processing)
