@@ -40,6 +40,7 @@ dependencies:
   # Geolocalização e mapas
   geolocator: ^13.0.2
   flutter_map: ^7.0.2
+    latlong2: ^0.9.1
 
   # QR Code
   mobile_scanner: ^7.1.3
