@@ -1,4 +1,3 @@
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -16,7 +15,7 @@ final pharmaciesSearchQueryProvider =
     StateProvider<String>((ref) => '');
 
 // Escuta alterações na tabela farmacias em tempo real.
-final pharmaciesRealtimeProvider =
+final AutoDisposeProvider<void> pharmaciesRealtimeProvider =
     Provider.autoDispose<void>((ref) {
   final client = Supabase.instance.client;
 
