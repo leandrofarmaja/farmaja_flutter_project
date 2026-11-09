@@ -3,6 +3,9 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PharmacyApplicationScreen extends StatefulWidget {
@@ -29,8 +32,12 @@ class _PharmacyApplicationScreenState
   PlatformFile? _licenseFile;
   PlatformFile? _pharmacyPhotoFile;
 
+  LatLng? _pharmacyLocation;
+
   bool _loading = false;
+  bool _locationLoading = false;
   bool _submitted = false;
+
   String? _error;
 
   @override
@@ -43,6 +50,68 @@ class _PharmacyApplicationScreenState
     _address.dispose();
     _licenseNumber.dispose();
     super.dispose();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() {
+      _locationLoading = true;
+      _error = null;
+    });
+
+    try {
+      final serviceEnabled =
+          await Geolocator.isLocationServiceEnabled();
+
+      if (!serviceEnabled) {
+        throw Exception(
+          'Active o GPS do dispositivo para continuar.',
+        );
+      }
+
+      LocationPermission permission =
+          await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied) {
+        throw Exception(
+          'A autorização de localização foi recusada.',
+        );
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception(
+          'A localização está bloqueada nas definições. '
+          'Autorize o acesso à localização da aplicação.',
+        );
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 30),
+        ),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _pharmacyLocation = LatLng(
+          position.latitude,
+          position.longitude,
+        );
+        _locationLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _locationLoading = false;
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
   }
 
   Future<void> _pickLicense() async {
@@ -58,14 +127,16 @@ class _PharmacyApplicationScreenState
       final file = result.files.single;
 
       if (file.bytes == null) {
-        setState(() => _error =
-            'Não foi possível ler o ficheiro. Escolha-o novamente.');
+        setState(() {
+          _error = 'Não foi possível ler o ficheiro. Escolha-o novamente.';
+        });
         return;
       }
 
       if (file.size > 10 * 1024 * 1024) {
-        setState(() =>
-            _error = 'O documento não pode ultrapassar 10 MB.');
+        setState(() {
+          _error = 'O documento não pode ultrapassar 10 MB.';
+        });
         return;
       }
 
@@ -75,7 +146,10 @@ class _PharmacyApplicationScreenState
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Erro ao selecionar o documento: $e');
+
+      setState(() {
+        _error = 'Erro ao selecionar o documento: $e';
+      });
     }
   }
 
@@ -92,14 +166,17 @@ class _PharmacyApplicationScreenState
       final file = result.files.single;
 
       if (file.bytes == null) {
-        setState(() => _error =
-            'Não foi possível ler a fotografia. Escolha-a novamente.');
+        setState(() {
+          _error =
+              'Não foi possível ler a fotografia. Escolha-a novamente.';
+        });
         return;
       }
 
       if (file.size > 5 * 1024 * 1024) {
-        setState(() =>
-            _error = 'A fotografia não pode ultrapassar 5 MB.');
+        setState(() {
+          _error = 'A fotografia não pode ultrapassar 5 MB.';
+        });
         return;
       }
 
@@ -109,7 +186,10 @@ class _PharmacyApplicationScreenState
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Erro ao selecionar a fotografia: $e');
+
+      setState(() {
+        _error = 'Erro ao selecionar a fotografia: $e';
+      });
     }
   }
 
@@ -141,27 +221,58 @@ class _PharmacyApplicationScreenState
     }
   }
 
+  Future<void> _removeUploadedFiles(
+    String? licensePath,
+    String? photoPath,
+  ) async {
+    if (photoPath != null) {
+      try {
+        await _supabase.storage
+            .from('pharmacy-photos')
+            .remove([photoPath]);
+      } catch (_) {}
+    }
+
+    if (licensePath != null) {
+      try {
+        await _supabase.storage
+            .from('pharmacy-licenses')
+            .remove([licensePath]);
+      } catch (_) {}
+    }
+  }
+
   Future<void> _submitApplication() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_pharmacyLocation == null) {
+      setState(() {
+        _error = 'Obtenha e confirme a localização GPS da farmácia.';
+      });
+      return;
+    }
+
     if (_pharmacyPhotoFile == null ||
         _pharmacyPhotoFile!.bytes == null) {
-      setState(() =>
-          _error = 'Anexe uma fotografia frontal da farmácia.');
+      setState(() {
+        _error = 'Anexe uma fotografia frontal da farmácia.';
+      });
       return;
     }
 
     if (_licenseFile == null || _licenseFile!.bytes == null) {
-      setState(() =>
-          _error = 'Anexe a licença da farmácia antes de continuar.');
+      setState(() {
+        _error = 'Anexe a licença da farmácia antes de continuar.';
+      });
       return;
     }
 
     final user = _supabase.auth.currentUser;
 
     if (user == null) {
-      setState(() =>
-          _error = 'A sua sessão terminou. Inicie sessão novamente.');
+      setState(() {
+        _error = 'A sua sessão terminou. Inicie sessão novamente.';
+      });
       return;
     }
 
@@ -233,6 +344,8 @@ class _PharmacyApplicationScreenState
         'license_number': _licenseNumber.text.trim(),
         'license_document_path': licensePath,
         'pharmacy_photo_path': photoPath,
+        'latitude': _pharmacyLocation!.latitude,
+        'longitude': _pharmacyLocation!.longitude,
         'status': 'pending',
       });
 
@@ -242,44 +355,26 @@ class _PharmacyApplicationScreenState
         _submitted = true;
         _loading = false;
       });
-    } on StorageException catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _loading = false;
-        _error = 'Não foi possível enviar o ficheiro: ${e.message}';
-      });
-    } on PostgrestException catch (e) {
-      if (photoPath != null) {
-        try {
-          await _supabase.storage
-              .from('pharmacy-photos')
-              .remove([photoPath]);
-        } catch (_) {}
-      }
-
-      if (licensePath != null) {
-        try {
-          await _supabase.storage
-              .from('pharmacy-licenses')
-              .remove([licensePath]);
-        } catch (_) {}
-      }
+    } catch (e) {
+      await _removeUploadedFiles(licensePath, photoPath);
 
       if (!mounted) return;
 
-      setState(() {
-        _loading = false;
-        _error = e.code == '23505'
+      String message;
+
+      if (e is StorageException) {
+        message = 'Não foi possível enviar o ficheiro: ${e.message}';
+      } else if (e is PostgrestException) {
+        message = e.code == '23505'
             ? 'Já existe uma candidatura pendente para esta conta.'
             : 'Não foi possível guardar a candidatura: ${e.message}';
-      });
-    } catch (e) {
-      if (!mounted) return;
+      } else {
+        message = e.toString().replaceFirst('Exception: ', '');
+      }
 
       setState(() {
         _loading = false;
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = message;
       });
     }
   }
@@ -307,9 +402,173 @@ class _PharmacyApplicationScreenState
           if (value == null || value.trim().isEmpty) {
             return 'Este campo é obrigatório.';
           }
+
           return null;
         },
       ),
+    );
+  }
+
+  Widget _buildLocationSection() {
+    const green = Color(0xFF16A34A);
+    final location = _pharmacyLocation;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Localização exacta da farmácia',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Obtenha a posição GPS da farmácia. Depois poderá '
+          'ajustar o marcador no mapa para indicar o local exacto.',
+          style: TextStyle(fontSize: 13),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _loading || _locationLoading
+                ? null
+                : _getCurrentLocation,
+            icon: _locationLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.my_location),
+            label: Text(
+              _locationLoading
+                  ? 'A obter localização...'
+                  : location == null
+                      ? 'Obter localização GPS'
+                      : 'Actualizar localização GPS',
+            ),
+          ),
+        ),
+        if (location != null) ...[
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: SizedBox(
+              height: 280,
+              child: FlutterMap(
+                key: ValueKey(
+                  '${location.latitude}_${location.longitude}',
+                ),
+                options: MapOptions(
+                  initialCenter: location,
+                  initialZoom: 17,
+                  onTap: (tapPosition, point) {
+                    setState(() {
+                      _pharmacyLocation = point;
+                      _error = null;
+                    });
+                  },
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'ao.farclik.app',
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: location,
+                        width: 50,
+                        height: 60,
+                        child: const Icon(
+                          Icons.location_on,
+                          color: Color(0xFFDC2626),
+                          size: 48,
+                        ),
+                      ),
+                    ],
+                  ),
+                  RichAttributionWidget(
+                    attributions: [
+                      TextSourceAttribution('OpenStreetMap contributors'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFDCFCE7),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: green, size: 19),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Localização seleccionada',
+                        style: TextStyle(
+                          color: Color(0xFF166534),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Latitude: ${location.latitude.toStringAsFixed(6)}',
+                  style: const TextStyle(fontSize: 13),
+                ),
+                Text(
+                  'Longitude: ${location.longitude.toStringAsFixed(6)}',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Toque no mapa para ajustar a posição do marcador. '
+            'Confirme que o ponto corresponde à localização real '
+            'da farmácia.',
+            style: TextStyle(fontSize: 12),
+          ),
+        ] else ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Column(
+              children: [
+                Icon(
+                  Icons.location_searching,
+                  size: 36,
+                  color: Colors.blueGrey,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'A localização ainda não foi definida.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+      ],
     );
   }
 
@@ -445,6 +704,7 @@ class _PharmacyApplicationScreenState
                         'Número da licença',
                         _licenseNumber,
                       ),
+                      _buildLocationSection(),
                       _buildPhotoSection(),
                       const Text(
                         'Licença da farmácia',
@@ -478,8 +738,9 @@ class _PharmacyApplicationScreenState
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(
-                          onPressed:
-                              _loading ? null : _submitApplication,
+                          onPressed: _loading
+                              ? null
+                              : _submitApplication,
                           style: FilledButton.styleFrom(
                             backgroundColor: green,
                             padding: const EdgeInsets.symmetric(
