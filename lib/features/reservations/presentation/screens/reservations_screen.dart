@@ -239,6 +239,78 @@ class _ReservationCard extends ConsumerWidget {
     }
   }
 
+  Widget _buildMedicineImage() {
+    final imageUrl = reservation.medicineImageUrl?.trim();
+
+    return Container(
+      width: 88,
+      height: 88,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F7F5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.shade200,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: imageUrl == null || imageUrl.isEmpty
+            ? const Icon(
+                Icons.medication_outlined,
+                size: 38,
+                color: AppColors.primary,
+              )
+            : Image.network(
+                imageUrl,
+                width: 88,
+                height: 88,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(
+                    Icons.medication_outlined,
+                    size: 38,
+                    color: AppColors.primary,
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
+  Widget _buildMedicineDetails() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _buildMedicineImage(),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                reservation.medicineName,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${reservation.totalPriceKz.toStringAsFixed(2)} Kz',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final canConfirmPurchase =
@@ -293,38 +365,19 @@ class _ReservationCard extends ConsumerWidget {
 
             const SizedBox(height: 16),
 
+            _buildMedicineDetails(),
+
             if (_canShowQr) ...[
+              const SizedBox(height: 20),
               Center(
-                child: Column(
-                  children: [
-                    Text(
-                      reservation.medicineName,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${reservation.totalPriceKz.toStringAsFixed(2)} Kz',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    QrCodeWidget(
-                      data: reservation.pickupCode,
-                    ),
-                  ],
+                child: QrCodeWidget(
+                  data: reservation.pickupCode,
                 ),
               ),
             ],
 
             if (_isAwaitingPayment && !_qrWasValidated) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               const Text(
                 'A confirmação da compra ficará disponível após '
                 'a leitura válida deste código pela farmácia.',
