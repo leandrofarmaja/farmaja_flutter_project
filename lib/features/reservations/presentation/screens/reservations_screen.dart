@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -126,55 +127,10 @@ class _ReservationCard extends ConsumerWidget {
   String get _normalizedStatus =>
       reservation.status.trim().toLowerCase();
 
-  Color _statusColor(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'active':
-        return Colors.blue;
-      case 'completed':
-      case 'levantada':
-      case 'entregue':
-      case 'resgatado':
-      case 'pago':
-        return Colors.green;
-      case 'expired':
-      case 'expirada':
-        return Colors.red;
-      case 'pending':
-      case 'aguardando confirmação':
-      case 'aguardando confirmacao':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _statusText(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'active':
-        return 'Ativa';
-      case 'completed':
-      case 'levantada':
-      case 'entregue':
-      case 'resgatado':
-        return 'Levantada';
-      case 'expired':
-      case 'expirada':
-        return 'Expirada';
-      case 'pending':
-        return 'Pendente';
-      case 'aguardando confirmação':
-      case 'aguardando confirmacao':
-        return 'Aguardando confirmação';
-      case 'pago':
-        return 'Pago';
-      default:
-        return status;
-    }
-  }
-
   bool get _isAwaitingPayment =>
       _normalizedStatus == 'aguardando confirmação' ||
-      _normalizedStatus == 'aguardando confirmacao';
+      _normalizedStatus == 'aguardando confirmacao' ||
+      _normalizedStatus == 'pending';
 
   bool get _isPaid => _normalizedStatus == 'pago';
 
@@ -188,25 +144,39 @@ class _ReservationCard extends ConsumerWidget {
       _normalizedStatus == 'entregue' ||
       _normalizedStatus == 'resgatado';
 
-  bool get _showPaymentConfirmation =>
-      _isAwaitingPayment || _isPaid;
+  bool get _qrWasValidated =>
+      reservation.qrValidadoEm != null;
 
   bool get _canRate =>
       _isCompleted && !reservation.isReviewed;
-
-  bool get _qrWasValidated =>
-      reservation.qrValidadoEm != null;
 
   bool get _canShowQr =>
       reservation.pickupCode.isNotEmpty &&
       !_isExpired &&
       !_isCompleted;
 
+  Color get _statusColor {
+    if (_isCompleted || _isPaid) return Colors.green;
+    if (_isExpired) return Colors.red;
+    if (_isAwaitingPayment) return Colors.orange;
+    return Colors.blue;
+  }
+
+  String get _statusText {
+    if (_isCompleted) return 'Levantada';
+    if (_isExpired) return 'Expirada';
+    if (_isPaid) return 'Pago';
+    if (_isAwaitingPayment) return 'Aguardando confirmação';
+    return reservation.status;
+  }
+
   Future<void> _confirmPurchase(
     BuildContext context,
     WidgetRef ref,
   ) async {
-    if (!_isAwaitingPayment || !_qrWasValidated) return;
+    if (!_isAwaitingPayment || !_qrWasValidated || _isExpired) {
+      return;
+    }
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -214,13 +184,9 @@ class _ReservationCard extends ConsumerWidget {
         return AlertDialog(
           title: const Text('Confirmar compra'),
           content: const Text(
-            'Antes de confirmar, verifique cuidadosamente se o '
-            'medicamento apresentado corresponde ao que reservou, '
-            'conferindo o nome, a dosagem, a apresentação e a validade.\n\n'
-            'Efectue o pagamento apenas depois de confirmar que '
-            'recebeu o medicamento pretendido.\n\n'
-            'Já verificou o medicamento e efectuou o pagamento '
-            'presencialmente na farmácia?',
+            'Confirme apenas depois de verificar o medicamento '
+            'e efectuar o pagamento presencialmente na farmácia.\n\n'
+            'Já verificou o medicamento e efectuou o pagamento?',
           ),
           actions: [
             TextButton(
@@ -257,10 +223,7 @@ class _ReservationCard extends ConsumerWidget {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'A confirmação da compra foi registada. '
-            'Aguarda a confirmação da farmácia.',
-          ),
+          content: Text('Pagamento confirmado com sucesso.'),
           backgroundColor: Colors.green,
         ),
       );
@@ -269,9 +232,7 @@ class _ReservationCard extends ConsumerWidget {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Não foi possível confirmar a compra: $e',
-          ),
+          content: Text('Não foi possível confirmar a compra: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -280,18 +241,9 @@ class _ReservationCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statusColor = _statusColor(reservation.status);
-
-    final clientConfirmed =
-        reservation.clienteConfirmouPagamentoEm != null;
-
-    final pharmacyConfirmed =
-        reservation.farmaciaConfirmouPagamentoEm != null;
-
     final canConfirmPurchase =
         _isAwaitingPayment &&
         _qrWasValidated &&
-        !clientConfirmed &&
         !_isExpired;
 
     return Card(
@@ -308,7 +260,6 @@ class _ReservationCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
@@ -325,13 +276,13 @@ class _ReservationCard extends ConsumerWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: _statusColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    _statusText(reservation.status),
+                    _statusText,
                     style: TextStyle(
-                      color: statusColor,
+                      color: _statusColor,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
@@ -339,88 +290,52 @@ class _ReservationCard extends ConsumerWidget {
                 ),
               ],
             ),
+
             const SizedBox(height: 16),
-            _InfoRow(
-              icon: Icons.medication_outlined,
-              label: 'Medicamento',
-              value: reservation.medicineName,
-            ),
-            _InfoRow(
-              icon: Icons.payments_outlined,
-              label: 'Valor',
-              value:
-                  '${reservation.totalPriceKz.toStringAsFixed(2)} Kz',
-            ),
-            _InfoRow(
-              icon: Icons.calendar_today_outlined,
-              label: 'Data da reserva',
-              value: reservation.reservationDate,
-            ),
-            _InfoRow(
-              icon: Icons.access_time_outlined,
-              label: 'Expira em',
-              value: reservation.expiryDate,
-            ),
-            _InfoRow(
-              icon: Icons.qr_code_2_rounded,
-              label: 'Código de levantamento',
-              value: _isExpired
-                  ? 'Código expirado'
-                  : reservation.pickupCode,
-            ),
-            _InfoRow(
-              icon: Icons.description_outlined,
-              label: 'Receita',
-              value:
-                  'Apresentação presencial na farmácia, quando exigida',
-            ),
-            if (reservation.reviewRating != null)
-              _InfoRow(
-                icon: Icons.star_rounded,
-                label: 'Sua avaliação',
-                value:
-                    '${reservation.reviewRating!.toStringAsFixed(1)} / 5',
-              ),
+
             if (_canShowQr) ...[
-              const SizedBox(height: 12),
               Center(
-                child: QrCodeWidget(
-                  data: reservation.pickupCode,
+                child: Column(
+                  children: [
+                    Text(
+                      reservation.medicineName,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${reservation.totalPriceKz.toStringAsFixed(2)} Kz',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    QrCodeWidget(
+                      data: reservation.pickupCode,
+                    ),
+                  ],
                 ),
               ),
             ],
-            if (_isExpired) ...[
-              const SizedBox(height: 12),
-              const Text(
-                'Esta reserva expirou. O código QR já não pode ser utilizado.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-            if (_showPaymentConfirmation) ...[
-              const SizedBox(height: 12),
-              _PurchaseConfirmationStatus(
-                clientConfirmed: clientConfirmed,
-                pharmacyConfirmed: pharmacyConfirmed,
-                purchaseCompleted: _isPaid,
-              ),
-            ],
+
             if (_isAwaitingPayment && !_qrWasValidated) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               const Text(
-                'Apresente o código QR na farmácia. '
-                'Depois da validação e da verificação do medicamento, '
-                'poderá confirmar a compra após efectuar o pagamento.',
+                'A confirmação da compra ficará disponível após '
+                'a leitura válida deste código pela farmácia.',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.orange,
                   fontSize: 12,
                 ),
               ),
             ],
+
             if (canConfirmPurchase) ...[
               const SizedBox(height: 16),
               SizedBox(
@@ -439,29 +354,52 @@ class _ReservationCard extends ConsumerWidget {
                 ),
               ),
             ],
-            if (clientConfirmed && !pharmacyConfirmed) ...[
-              const SizedBox(height: 10),
-              const Text(
-                'A tua confirmação foi registada. '
-                'Aguarda a confirmação da venda pela farmácia.',
-                style: TextStyle(
-                  color: Colors.orange,
-                  fontSize: 12,
+
+            if (_isPaid) ...[
+              const SizedBox(height: 12),
+              const Center(
+                child: Text(
+                  'Pagamento confirmado. Aguarde a entrega do medicamento.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ],
-            if (_isPaid && clientConfirmed && pharmacyConfirmed) ...[
-              const SizedBox(height: 10),
-              const Text(
-                'Compra e venda confirmadas. '
-                'Aguarda a entrega do medicamento.',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
+
+            if (_isCompleted) ...[
+              const SizedBox(height: 12),
+              const Center(
+                child: Text(
+                  'Muito obrigado. Volte sempre!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ],
+
+            if (_isExpired) ...[
+              const SizedBox(height: 12),
+              const Center(
+                child: Text(
+                  'Esta reserva expirou. O código QR já não pode ser utilizado.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+
             if (_canRate) ...[
               const SizedBox(height: 16),
               SizedBox(
@@ -473,6 +411,7 @@ class _ReservationCard extends ConsumerWidget {
                 ),
               ),
             ],
+
             if (reservation.isReviewed) ...[
               const SizedBox(height: 12),
               Container(
@@ -506,130 +445,6 @@ class _ReservationCard extends ConsumerWidget {
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _PurchaseConfirmationStatus extends StatelessWidget {
-  final bool clientConfirmed;
-  final bool pharmacyConfirmed;
-  final bool purchaseCompleted;
-
-  const _PurchaseConfirmationStatus({
-    required this.clientConfirmed,
-    required this.pharmacyConfirmed,
-    required this.purchaseCompleted,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            purchaseCompleted
-                ? 'Compra e venda confirmadas'
-                : 'Confirmação da compra e venda',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _ConfirmationLine(
-            label: 'Compra pelo cliente',
-            confirmed: clientConfirmed,
-          ),
-          const SizedBox(height: 5),
-          _ConfirmationLine(
-            label: 'Venda pela farmácia',
-            confirmed: pharmacyConfirmed,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ConfirmationLine extends StatelessWidget {
-  final String label;
-  final bool confirmed;
-
-  const _ConfirmationLine({
-    required this.label,
-    required this.confirmed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          confirmed ? Icons.check_circle : Icons.hourglass_empty,
-          size: 17,
-          color: confirmed ? Colors.green : Colors.orange,
-        ),
-        const SizedBox(width: 7),
-        Expanded(
-          child: Text(
-            '$label: ${confirmed ? 'Confirmada' : 'Pendente'}',
-            style: TextStyle(
-              fontSize: 12,
-              color: confirmed ? Colors.green : Colors.orange,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _InfoRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            size: 19,
-            color: AppColors.primary,
-          ),
-          const SizedBox(width: 10),
-          Text(
-            '$label: ',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 13),
-            ),
-          ),
-        ],
       ),
     );
   }
