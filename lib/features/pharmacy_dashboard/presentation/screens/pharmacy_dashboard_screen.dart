@@ -292,67 +292,6 @@ class _PharmacyDashboardScreenState
     );
   }
 
-  Future<void> _confirmPharmacyPayment(dynamic reservation) async {
-    final reservationId = reservation.id as String;
-
-    if (_processingReservations.contains(reservationId)) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Confirmar recebimento'),
-        content: Text(
-          'Confirmas que recebeste ${reservation.totalPriceKz.toInt()} Kz '
-          'do cliente, referente a esta reserva?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Confirmar recebimento'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _processingReservations.add(reservationId));
-
-    try {
-      await ref
-          .read(pharmacyDashboardProvider.notifier)
-          .confirmarPagamentoComoFarmacia(
-            reservationId: reservationId,
-          );
-
-      await ref
-          .read(pharmacyDashboardProvider.notifier)
-          .loadDashboardData();
-
-      if (mounted) {
-        _showMessage(
-          'Confirmação de recebimento registada. '
-          'A reserva ficará paga quando o cliente também confirmar.',
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _showMessage(
-          'Não foi possível confirmar o recebimento. Detalhe: $e',
-          isError: true,
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _processingReservations.remove(reservationId));
-      }
-    }
-  }
-
   Future<void> _confirmPhysicalDelivery(dynamic reservation) async {
     final reservationId = reservation.id as String;
 
@@ -621,22 +560,18 @@ class _PharmacyDashboardScreenState
                 _buildBlockedOverlay()
               else
                 _buildStatsTab(state),
-
               if (state.isBlockedOrExpired)
                 _buildBlockedOverlay()
               else
                 _buildMedicinesTab(state),
-
               if (state.isBlockedOrExpired)
                 _buildBlockedOverlay()
               else
                 _buildReservationsTab(state),
-
               if (state.isBlockedOrExpired)
                 _buildBlockedOverlay()
               else
                 _buildPrescriptionsTab(state),
-
               const PharmacyProfileScreen(),
             ],
           ),
@@ -1365,16 +1300,13 @@ class _PharmacyDashboardScreenState
                         reservation.clienteConfirmouPagamentoEm !=
                             null;
 
-                    final pharmacyConfirmed =
-                        reservation.farmaciaConfirmouPagamentoEm !=
-                            null;
-
                     final qrValidated =
                         reservation.qrValidadoEm != null;
 
+                    // A entrega depende apenas do pagamento confirmado
+                    // pelo cliente e da validação prévia do QR Code.
                     final canConfirmDelivery = paid &&
                         clientConfirmed &&
-                        pharmacyConfirmed &&
                         qrValidated;
 
                     final isProcessing =
@@ -1454,17 +1386,6 @@ class _PharmacyDashboardScreenState
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                'Confirmação da farmácia: '
-                                '${pharmacyConfirmed ? "Confirmada" : "Pendente"}',
-                                style: TextStyle(
-                                  color: pharmacyConfirmed
-                                      ? Colors.green.shade700
-                                      : Colors.orange.shade800,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
                               Row(
                                 children: [
                                   Icon(
@@ -1493,57 +1414,37 @@ class _PharmacyDashboardScreenState
                             if (isProcessing) ...[
                               const SizedBox(height: 12),
                               const LinearProgressIndicator(),
-                            ] else if (!completed && !expired) ...[
+                            ] else if (!completed && !expired && paid) ...[
                               const SizedBox(height: 12),
-                              if (!pharmacyConfirmed && !paid)
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: FilledButton.icon(
-                                    icon: const Icon(
-                                      Icons.check_circle_outline_rounded,
-                                    ),
-                                    label: const Text(
-                                      'Confirmar recebimento',
-                                    ),
-                                    onPressed: () =>
-                                        _confirmPharmacyPayment(
-                                      reservation,
-                                    ),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  icon: const Icon(
+                                    Icons.inventory_2_rounded,
+                                  ),
+                                  label: Text(
+                                    canConfirmDelivery
+                                        ? 'Confirmar entrega ao cliente'
+                                        : 'Aguardar validação e confirmação do cliente',
+                                  ),
+                                  onPressed: canConfirmDelivery
+                                      ? () => _confirmPhysicalDelivery(
+                                            reservation,
+                                          )
+                                      : null,
+                                ),
+                              ),
+                              if (!canConfirmDelivery) ...[
+                                const SizedBox(height: 6),
+                                const Text(
+                                  'A entrega só pode ser confirmada depois '
+                                  'da validação do QR Code e da confirmação '
+                                  'do pagamento pelo cliente.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
                                   ),
                                 ),
-                              if (paid) ...[
-                                const SizedBox(height: 4),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: FilledButton.icon(
-                                    icon: const Icon(
-                                      Icons.inventory_2_rounded,
-                                    ),
-                                    label: Text(
-                                      canConfirmDelivery
-                                          ? 'Confirmar entrega ao cliente'
-                                          : 'Aguardar validação e confirmações',
-                                    ),
-                                    onPressed: canConfirmDelivery
-                                        ? () =>
-                                            _confirmPhysicalDelivery(
-                                              reservation,
-                                            )
-                                        : null,
-                                  ),
-                                ),
-                                if (!canConfirmDelivery) ...[
-                                  const SizedBox(height: 6),
-                                  const Text(
-                                    'A entrega só pode ser confirmada depois '
-                                    'da validação do QR Code e das duas '
-                                    'confirmações de pagamento.',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ],
                               ],
                             ],
                           ],
