@@ -54,12 +54,17 @@ class _PharmacyProfileScreenState
   }
 
   Future<void> _saveProfile(PharmacyModel pharmacy) async {
+    if (_isSaving) return;
+
     if (!_formKey.currentState!.validate()) return;
 
     final user = Supabase.instance.client.auth.currentUser;
 
     if (user == null) {
-      _showMessage('Sessão expirada. Inicie sessão novamente.');
+      _showMessage(
+        'Sessão expirada. Inicie sessão novamente.',
+        isSuccess: false,
+      );
       return;
     }
 
@@ -84,24 +89,41 @@ class _PharmacyProfileScreenState
 
       if (response.isEmpty) {
         _showMessage(
-          'Não foi possível actualizar os dados da farmácia.',
+          'Não foi possível actualizar os dados. '
+          'Verifique as permissões da sua farmácia.',
+          isSuccess: false,
         );
         return;
       }
 
-      await ref
-          .read(pharmacyDashboardProvider.notifier)
-          .loadDashboardData();
+      _showMessage(
+        'Dados da farmácia guardados com sucesso!',
+        isSuccess: true,
+      );
 
-      if (!mounted) return;
-
-      _showMessage('Perfil da farmácia actualizado com sucesso.');
+      // Actualiza os dados do painel sem bloquear a confirmação
+      // da gravação já concluída na base de dados.
+      try {
+        await ref
+            .read(pharmacyDashboardProvider.notifier)
+            .loadDashboardData();
+      } catch (_) {
+        // A gravação já foi confirmada pelo Supabase.
+      }
     } on PostgrestException catch (error) {
       if (!mounted) return;
-      _showMessage('Erro ao actualizar: ${error.message}');
-    } catch (error) {
+
+      _showMessage(
+        'Erro ao actualizar os dados: ${error.message}',
+        isSuccess: false,
+      );
+    } catch (_) {
       if (!mounted) return;
-      _showMessage('Ocorreu um erro inesperado ao guardar os dados.');
+
+      _showMessage(
+        'Ocorreu um erro inesperado ao guardar os dados.',
+        isSuccess: false,
+      );
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -109,13 +131,33 @@ class _PharmacyProfileScreenState
     }
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  void _showMessage(
+    String message, {
+    required bool isSuccess,
+  }) {
+    final messenger = ScaffoldMessenger.of(context);
+
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                isSuccess ? Icons.check_circle_outline : Icons.error_outline,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(message)),
+            ],
+          ),
+          backgroundColor: isSuccess
+              ? const Color(0xFF15803D)
+              : Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
   }
 
   String? _validateRequired(String? value) {
