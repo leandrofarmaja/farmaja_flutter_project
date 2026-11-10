@@ -1,6 +1,8 @@
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/services/supabase_database_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -13,35 +15,90 @@ class ReservationsNotifier extends StateNotifier<List<ReservationModel>> {
   ) : super([]) {
     if (_userId != null && _userId!.isNotEmpty) {
       unawaited(fetchReservations());
+      _configureRealtimeSubscription();
     }
   }
 
   final SupabaseDatabaseService _dbService;
   final String? _userId;
 
+  RealtimeChannel? _reservationsChannel;
+
   bool _isFetching = false;
+  bool _refreshRequested = false;
 
   Future<void> fetchReservations() async {
     final userId = _userId;
 
-    if (userId == null || userId.isEmpty) {
-      state = [];
+    if (userId == null || userId.isEmpty || !mounted) {
+      if (mounted) state = [];
       return;
     }
 
-    if (_isFetching) return;
+    if (_isFetching) {
+      _refreshRequested = true;
+      return;
+    }
 
     _isFetching = true;
 
     try {
       final reservations = await _dbService.getReservations(userId);
+
+      if (!mounted) return;
+
       state = reservations;
     } catch (e) {
-      throw Exception(
-        'Não foi possível carregar as reservas: $e',
-      );
+      if (mounted) {
+        throw Exception(
+          'Não foi possível carregar as reservas: $e',
+        );
+      }
     } finally {
       _isFetching = false;
+
+      if (mounted && _refreshRequested) {
+        _refreshRequested = false;
+        unawaited(fetchReservations());
+      }
+    }
+  }
+
+  void _configureRealtimeSubscription() {
+    final userId = _userId;
+
+    if (userId == null || userId.isEmpty || !mounted) {
+      return;
+    }
+
+    _reservationsChannel = _dbService.client
+        .channel('farclik-client-reservations-$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'reservas',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (payload) {
+            if (!mounted) return;
+
+            // A alteração no Supabase é a fonte de verdade.
+            // O provider volta a consultar a reserva completa.
+            unawaited(fetchReservations());
+          },
+        )
+        .subscribe();
+  }
+
+  Future<void> _removeRealtimeSubscription() async {
+    final channel = _reservationsChannel;
+    _reservationsChannel = null;
+
+    if (channel != null) {
+      await _dbService.client.removeChannel(channel);
     }
   }
 
@@ -67,6 +124,8 @@ class ReservationsNotifier extends StateNotifier<List<ReservationModel>> {
       prescriptionPath: prescriptionPath,
     );
 
+    if (!mounted) return newReservation;
+
     state = [newReservation, ...state];
 
     return newReservation;
@@ -87,6 +146,8 @@ class ReservationsNotifier extends StateNotifier<List<ReservationModel>> {
         await _dbService.clienteConfirmarPagamento(
       reservationId: reservationId,
     );
+
+    if (!mounted) return updatedReservation;
 
     state = state.map((reservation) {
       return reservation.id == reservationId
@@ -117,6 +178,12 @@ class ReservationsNotifier extends StateNotifier<List<ReservationModel>> {
 
       return reservation;
     }).toList();
+  }
+
+  @override
+  void dispose() {
+    unawaited(_removeRealtimeSubscription());
+    super.dispose();
   }
 }
 
