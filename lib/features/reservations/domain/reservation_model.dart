@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
 
 class ReservationModel {
   final String id;
   final String medicineName;
+  final String? medicineImageUrl;
   final String pharmacyId;
   final String pharmacyName;
   final String pickupCode;
@@ -29,6 +29,7 @@ class ReservationModel {
   ReservationModel({
     required this.id,
     required this.medicineName,
+    this.medicineImageUrl,
     this.pharmacyId = '',
     required this.pharmacyName,
     required this.pickupCode,
@@ -53,6 +54,11 @@ class ReservationModel {
       medicineName: _stringValue(
         json['medicine_name'] ?? json['medicineName'],
         fallback: 'Medicamento',
+      ),
+      medicineImageUrl: _nullableString(
+        json['imagem_url'] ??
+            json['medicine_image_url'] ??
+            json['medicineImageUrl'],
       ),
       pharmacyId: _stringValue(
         json['pharmacy_id'] ?? json['pharmacyId'],
@@ -123,12 +129,14 @@ class ReservationModel {
     String? status,
     bool? isReviewed,
     double? reviewRating,
+    String? medicineImageUrl,
     String? metodoPagamento,
     DateTime? clienteConfirmouPagamentoEm,
     DateTime? farmaciaConfirmouPagamentoEm,
     DateTime? qrValidadoEm,
     bool? receitaAutorizada,
     DateTime? receitaVerificadaEm,
+    bool limparImagemMedicamento = false,
     bool limparMetodoPagamento = false,
     bool limparConfirmacaoCliente = false,
     bool limparConfirmacaoFarmacia = false,
@@ -140,6 +148,9 @@ class ReservationModel {
     return ReservationModel(
       id: id,
       medicineName: medicineName,
+      medicineImageUrl: limparImagemMedicamento
+          ? null
+          : medicineImageUrl ?? this.medicineImageUrl,
       pharmacyId: pharmacyId,
       pharmacyName: pharmacyName,
       pickupCode: pickupCode,
