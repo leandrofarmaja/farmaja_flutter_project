@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -414,7 +415,7 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Código de reserva válido',
+            'Código lido com sucesso',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
