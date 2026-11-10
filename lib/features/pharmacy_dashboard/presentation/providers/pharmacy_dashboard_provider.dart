@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -119,7 +118,13 @@ class PharmacyDashboardNotifier
   static const Duration _saveTimeout = Duration(seconds: 25);
 
   RealtimeChannel? _notificationChannel;
+  RealtimeChannel? _reservationChannel;
+
   String? _subscribedPharmacyId;
+  String? _subscribedReservationsPharmacyId;
+
+  bool _refreshingReservations = false;
+  bool _reservationRefreshRequested = false;
 
   PharmacyDashboardNotifier(this._dbService)
       : _notificationService =
@@ -129,15 +134,20 @@ class PharmacyDashboardNotifier
   }
 
   Future<void> loadDashboardData() async {
+    if (!mounted) return;
+
     state = state.copyWith(isLoading: true, error: null);
 
     try {
       final pharmacy = await _dbService.getOwnedPharmacy();
 
-      if (pharmacy == null) {
-        if (!mounted) return;
+      if (!mounted) return;
 
+      if (pharmacy == null) {
         await _removeNotificationSubscription();
+        await _removeReservationSubscription();
+
+        if (!mounted) return;
 
         state = PharmacyDashboardState(
           isLoading: false,
@@ -206,6 +216,10 @@ class PharmacyDashboardNotifier
         error: loadingError,
       );
 
+      await _configureReservationSubscription(pharmacy.id);
+
+      if (!mounted) return;
+
       await _configureNotificationSubscription(pharmacy.id);
     } catch (e) {
       if (!mounted) return;
@@ -214,6 +228,116 @@ class PharmacyDashboardNotifier
         isLoading: false,
         error: 'Erro ao carregar o painel da farmácia: $e',
       );
+    }
+  }
+
+  Future<void> _configureReservationSubscription(
+    String pharmacyId,
+  ) async {
+    if (!mounted) return;
+
+    if (_subscribedReservationsPharmacyId == pharmacyId &&
+        _reservationChannel != null) {
+      return;
+    }
+
+    await _removeReservationSubscription();
+
+    if (!mounted) return;
+
+    try {
+      if (state.pharmacyDetails?.id != pharmacyId) return;
+
+      final channel = _dbService.client
+          .channel('farclik-reservations-$pharmacyId')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'reservas',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'farmacia_id',
+              value: pharmacyId,
+            ),
+            callback: (PostgresChangePayload payload) {
+              if (!mounted) return;
+
+              if (state.pharmacyDetails?.id != pharmacyId) {
+                return;
+              }
+
+              unawaited(_refreshPharmacyReservations(pharmacyId));
+            },
+          );
+
+      _reservationChannel = channel;
+      _subscribedReservationsPharmacyId = pharmacyId;
+
+      await channel.subscribe();
+    } catch (e) {
+      if (!mounted) return;
+
+      _reservationChannel = null;
+      _subscribedReservationsPharmacyId = null;
+
+      state = state.copyWith(
+        error:
+            'Não foi possível activar a actualização em tempo real '
+            'das reservas: $e',
+      );
+    }
+  }
+
+  Future<void> _refreshPharmacyReservations(
+    String pharmacyId,
+  ) async {
+    if (!mounted) return;
+
+    if (state.pharmacyDetails?.id != pharmacyId) return;
+
+    if (_refreshingReservations) {
+      _reservationRefreshRequested = true;
+      return;
+    }
+
+    _refreshingReservations = true;
+
+    try {
+      do {
+        _reservationRefreshRequested = false;
+
+        final reservations =
+            await _dbService.getAllReservationsForPharmacy();
+
+        if (!mounted) return;
+
+        if (state.pharmacyDetails?.id != pharmacyId) return;
+
+        state = state.copyWith(
+          reservations: reservations,
+          error: null,
+        );
+      } while (_reservationRefreshRequested && mounted);
+    } catch (e) {
+      if (!mounted) return;
+
+      state = state.copyWith(
+        error:
+            'Não foi possível actualizar as reservas em tempo real: $e',
+      );
+    } finally {
+      _refreshingReservations = false;
+    }
+  }
+
+  Future<void> _removeReservationSubscription() async {
+    final channel = _reservationChannel;
+
+    _reservationChannel = null;
+    _subscribedReservationsPharmacyId = null;
+
+    if (channel != null) {
+      await _dbService.client.removeChannel(channel);
     }
   }
 
@@ -325,6 +449,7 @@ class PharmacyDashboardNotifier
   @override
   void dispose() {
     unawaited(_removeNotificationSubscription());
+    unawaited(_removeReservationSubscription());
     super.dispose();
   }
 
@@ -419,10 +544,11 @@ class PharmacyDashboardNotifier
 
   /// Confirma a entrega física do medicamento ao cliente.
   ///
-  /// Só permite avançar quando:
-  /// - A reserva pertence à farmácia autenticada.
-  /// - O pagamento foi confirmado pelas duas partes.
-  /// - O estado actual da reserva é Pago.
+  /// Exige:
+  /// - Reserva pertencente à farmácia autenticada.
+  /// - QR Code previamente validado.
+  /// - Pagamento confirmado pelo cliente.
+  /// - Estado actual da reserva igual a Pago.
   Future<void> confirmarLevantamento(
     String reservationId,
   ) async {
@@ -455,14 +581,19 @@ class PharmacyDashboardNotifier
     if (reservation.status.trim().toLowerCase() != 'pago') {
       throw Exception(
         'O levantamento só pode ser confirmado depois '
-        'da confirmação do pagamento.',
+        'da confirmação do pagamento pelo cliente.',
       );
     }
 
-    if (reservation.clienteConfirmouPagamentoEm == null ||
-        reservation.farmaciaConfirmouPagamentoEm == null) {
+    if (reservation.qrValidadoEm == null) {
       throw Exception(
-        'O pagamento ainda não foi confirmado pelas duas partes.',
+        'O código QR ainda não foi validado pela farmácia.',
+      );
+    }
+
+    if (reservation.clienteConfirmouPagamentoEm == null) {
+      throw Exception(
+        'O cliente ainda não confirmou o pagamento.',
       );
     }
 
@@ -781,7 +912,7 @@ class PharmacyDashboardNotifier
 
       // A validação do QR Code é apenas de leitura.
       // Não confirma o pagamento nem o levantamento.
-      // Não recarrega nem altera os dados do painel.
+      // O Realtime actualizará a lista após a alteração no Supabase.
       return await _dbService.validateReservationByQrCode(
         normalizedCode,
       );
