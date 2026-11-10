@@ -33,7 +33,7 @@ class SupabaseDatabaseService {
       'metodo_pagamento, cliente_confirmou_pagamento_em, '
       'farmacia_confirmou_pagamento_em, qr_validado_em, '
       'receita_autorizada, receita_verificada_em, '
-      'medicamentos(nome_medicamento), farmacias(nome)';
+      'medicamentos(nome_medicamento, imagem_url), farmacias(nome)';
 
   // ============================================================
   // IMAGENS DOS MEDICAMENTOS
@@ -575,7 +575,7 @@ class SupabaseDatabaseService {
           : List<Map<String, dynamic>>.from(
               await _client
                   .from('medicamentos')
-                  .select('id, nome_medicamento')
+                  .select('id, nome_medicamento, imagem_url')
                   .inFilter('id', medicineIds),
             );
 
@@ -589,6 +589,12 @@ class SupabaseDatabaseService {
         for (final row in medicineRows)
           (row['id'] ?? '').toString():
               (row['nome_medicamento'] ?? '').toString(),
+      };
+
+      final medicineImages = <String, String?>{
+        for (final row in medicineRows)
+          (row['id'] ?? '').toString():
+              row['imagem_url']?.toString(),
       };
 
       final reservations = reservationRows.map((row) {
@@ -605,6 +611,7 @@ class SupabaseDatabaseService {
           'medicamentos': {
             'nome_medicamento':
                 medicineNames[medicineId] ?? '',
+            'imagem_url': medicineImages[medicineId],
           },
         });
       }).toList();
@@ -747,11 +754,16 @@ class SupabaseDatabaseService {
         : <String, dynamic>{};
 
     final price = row['preco_kwanza'];
+    final rawImageUrl = medicine['imagem_url']?.toString().trim();
 
     return ReservationModel(
       id: (row['id'] ?? '').toString(),
       medicineName:
           (medicine['nome_medicamento'] ?? '').toString(),
+      medicineImageUrl:
+          rawImageUrl == null || rawImageUrl.isEmpty
+              ? null
+              : rawImageUrl,
       pharmacyId: (row['farmacia_id'] ?? '').toString(),
       pharmacyName: (pharmacy['nome'] ?? '').toString(),
       pickupCode: (row['codigo_reserva'] ?? '').toString(),
