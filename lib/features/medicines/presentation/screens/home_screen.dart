@@ -92,10 +92,8 @@ class HomeScreen extends ConsumerWidget {
                       color: Colors.blueGrey.shade600,
                     ),
                   ),
-
                   const SizedBox(height: 24),
 
-                  // Registo de farmácias.
                   Material(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(18),
@@ -174,7 +172,6 @@ class HomeScreen extends ConsumerWidget {
 
                   const SizedBox(height: 25),
 
-                  // Pesquisa.
                   const Text(
                     'O que procura hoje?',
                     style: TextStyle(
@@ -219,7 +216,6 @@ class HomeScreen extends ConsumerWidget {
 
                   const SizedBox(height: 13),
 
-                  // Informação sobre localização.
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -252,7 +248,6 @@ class HomeScreen extends ConsumerWidget {
 
                   const SizedBox(height: 23),
 
-                  // Filtro de stock.
                   Row(
                     children: [
                       const Expanded(
@@ -312,7 +307,6 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
 
-          // Lista de medicamentos.
           medicinesAsync.when(
             data: (medicines) {
               if (medicines.isEmpty) {
@@ -405,19 +399,8 @@ class HomeScreen extends ConsumerWidget {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      width: 45,
-                                      height: 45,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primaryLight,
-                                        borderRadius:
-                                            BorderRadius.circular(13),
-                                      ),
-                                      child: const Icon(
-                                        Icons.medication_rounded,
-                                        color: AppColors.primary,
-                                        size: 24,
-                                      ),
+                                    _MedicineImage(
+                                      imageUrl: med.imageUrl,
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
@@ -591,6 +574,71 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MedicineImage extends StatelessWidget {
+  final String? imageUrl;
+
+  const _MedicineImage({
+    required this.imageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl?.trim();
+
+    return Container(
+      width: 70,
+      height: 70,
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(13),
+        child: url == null || url.isEmpty
+            ? const _MedicineImageFallback()
+            : Image.network(
+                url,
+                width: 70,
+                height: 70,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+
+                  return const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return const _MedicineImageFallback();
+                },
+              ),
+      ),
+    );
+  }
+}
+
+class _MedicineImageFallback extends StatelessWidget {
+  const _MedicineImageFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Icon(
+        Icons.medication_rounded,
+        color: AppColors.primary,
+        size: 30,
       ),
     );
   }
