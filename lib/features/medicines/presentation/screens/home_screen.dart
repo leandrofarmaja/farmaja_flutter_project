@@ -93,7 +93,6 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-
                   Material(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(18),
@@ -169,9 +168,7 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 25),
-
                   const Text(
                     'O que procura hoje?',
                     style: TextStyle(
@@ -181,7 +178,6 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 11),
-
                   SearchBar(
                     hintText: 'Nome do medicamento...',
                     hintStyle: WidgetStatePropertyAll(
@@ -213,9 +209,7 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 13),
-
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -245,9 +239,7 @@ class HomeScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 23),
-
                   Row(
                     children: [
                       const Expanded(
@@ -306,7 +298,6 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
           ),
-
           medicinesAsync.when(
             data: (medicines) {
               if (medicines.isEmpty) {
@@ -423,8 +414,8 @@ class HomeScreen extends ConsumerWidget {
                                               med.activeIngredient,
                                               style: TextStyle(
                                                 fontSize: 11,
-                                                color: Colors
-                                                    .blueGrey.shade600,
+                                                color:
+                                                    Colors.blueGrey.shade600,
                                               ),
                                             ),
                                           ],
@@ -442,7 +433,6 @@ class HomeScreen extends ConsumerWidget {
                                     ),
                                   ],
                                 ),
-
                                 const Padding(
                                   padding: EdgeInsets.symmetric(
                                     vertical: 12,
@@ -452,7 +442,6 @@ class HomeScreen extends ConsumerWidget {
                                     color: Color(0xFFEDF0EE),
                                   ),
                                 ),
-
                                 Row(
                                   children: [
                                     const Icon(
@@ -499,7 +488,6 @@ class HomeScreen extends ConsumerWidget {
                                     ),
                                   ],
                                 ),
-
                                 if (med.requiresPrescription) ...[
                                   const SizedBox(height: 10),
                                   Row(
@@ -590,6 +578,14 @@ class _MedicineImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = imageUrl?.trim();
 
+    if (url == null || url.isEmpty) {
+      debugPrint('[FARCLIK IMAGEM] URL vazio ou nulo.');
+
+      return const _MedicineImageFallback();
+    }
+
+    debugPrint('[FARCLIK IMAGEM] A tentar carregar: $url');
+
     return Container(
       width: 70,
       height: 70,
@@ -599,31 +595,57 @@ class _MedicineImage extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(13),
-        child: url == null || url.isEmpty
-            ? const _MedicineImageFallback()
-            : Image.network(
-                url,
-                width: 70,
-                height: 70,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
+        child: Image.network(
+          url,
+          width: 70,
+          height: 70,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
 
-                  return const Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return const _MedicineImageFallback();
-                },
+            return const Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
               ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint(
+              '[FARCLIK IMAGEM] ERRO ao carregar $url: $error',
+            );
+
+            return Container(
+              color: const Color(0xFFFFEEEE),
+              padding: const EdgeInsets.all(4),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.red,
+                    size: 22,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    error.toString(),
+                    textAlign: TextAlign.center,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 7,
+                      color: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -634,11 +656,19 @@ class _MedicineImageFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Icon(
-        Icons.medication_rounded,
-        color: AppColors.primary,
-        size: 30,
+    return Container(
+      width: 70,
+      height: 70,
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.medication_rounded,
+          color: AppColors.primary,
+          size: 30,
+        ),
       ),
     );
   }
