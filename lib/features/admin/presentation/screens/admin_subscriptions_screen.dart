@@ -426,6 +426,155 @@ class _AdminSubscriptionsScreenState
   }
 
   // ============================================================
+  // INDICADORES GERAIS DA PLATAFORMA
+  // ============================================================
+
+  Widget _buildOverviewIndicators(AdminSubscriptionState state) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: Text(
+              'Visão geral da plataforma',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 2.15,
+            children: [
+              _buildOverviewCard(
+                'Clientes registados',
+                state.totalCustomers,
+                Icons.people_alt_outlined,
+                Colors.blue,
+              ),
+              _buildOverviewCard(
+                'Total de farmácias',
+                state.totalPharmacies,
+                Icons.local_pharmacy_outlined,
+                Colors.green,
+              ),
+              _buildOverviewCard(
+                'Total de reservas',
+                state.totalReservations,
+                Icons.receipt_long_outlined,
+                Colors.deepPurple,
+              ),
+              _buildOverviewCard(
+                'Pagamentos confirmados',
+                state.confirmedPaymentsCount,
+                Icons.verified_outlined,
+                Colors.teal,
+              ),
+              _buildOverviewCard(
+                'Clientes com pagamento',
+                state.customersWithConfirmedPayment,
+                Icons.person_pin_circle_outlined,
+                Colors.indigo,
+              ),
+              _buildOverviewCard(
+                'Valor recebido',
+                state.confirmedPaymentsValue,
+                Icons.payments_outlined,
+                Colors.orange.shade800,
+                suffix: ' Kz',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverviewCard(
+    String label,
+    num value,
+    IconData icon,
+    Color color, {
+    String suffix = '',
+  }) {
+    final formattedValue = value is double
+        ? value.toStringAsFixed(0)
+        : value.toString();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: color.withOpacity(0.22),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.035),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$formattedValue$suffix',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
   // SEPARADOR FARMÁCIAS
   // ============================================================
 
@@ -448,205 +597,231 @@ class _AdminSubscriptionsScreenState
 
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          color: Colors.grey.shade50,
-          child: Row(
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.zero,
             children: [
-              _buildKpiChip('Trial (3M)', state.trialCount, Colors.blue),
-              const SizedBox(width: 8),
-              _buildKpiChip('Ativos', state.activeCount, Colors.green),
-              const SizedBox(width: 8),
-              _buildKpiChip(
-                'Expirados',
-                state.expiredCount,
-                Colors.amber.shade800,
-              ),
-              const SizedBox(width: 8),
-              _buildKpiChip(
-                'Bloqueados',
-                state.blockedCount,
-                Colors.red,
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 8,
-          ),
-          child: Column(
-            children: [
-              TextField(
-                decoration: InputDecoration(
-                  hintText:
-                      'Pesquisar farmácia por nome ou província...',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            setState(() => _searchQuery = '');
-                          },
-                        )
-                      : null,
+              _buildOverviewIndicators(state),
+              Container(
+                margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                onChanged: (val) {
-                  setState(() => _searchQuery = val);
-                },
-              ),
-              const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    FilterChip(
-                      label: const Text('Todos'),
-                      selected: _selectedFilter == 'Todos',
-                      onSelected: (_) {
-                        setState(() => _selectedFilter = 'Todos');
-                      },
+                    _buildKpiChip(
+                      'Trial (3M)',
+                      state.trialCount,
+                      Colors.blue,
                     ),
                     const SizedBox(width: 8),
-                    FilterChip(
-                      label: const Text('Trial Gratuito (3M)'),
-                      selected: _selectedFilter == 'trial',
-                      onSelected: (_) {
-                        setState(() => _selectedFilter = 'trial');
-                      },
+                    _buildKpiChip(
+                      'Ativos',
+                      state.activeCount,
+                      Colors.green,
                     ),
                     const SizedBox(width: 8),
-                    FilterChip(
-                      label: const Text('Ativos (15.000 Kz)'),
-                      selected: _selectedFilter == 'active',
-                      onSelected: (_) {
-                        setState(() => _selectedFilter = 'active');
-                      },
+                    _buildKpiChip(
+                      'Expirados',
+                      state.expiredCount,
+                      Colors.amber.shade800,
                     ),
                     const SizedBox(width: 8),
-                    FilterChip(
-                      label: const Text('Expirados'),
-                      selected: _selectedFilter == 'expired',
-                      onSelected: (_) {
-                        setState(() => _selectedFilter = 'expired');
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    FilterChip(
-                      label: const Text('Bloqueados'),
-                      selected: _selectedFilter == 'blocked',
-                      onSelected: (_) {
-                        setState(() => _selectedFilter = 'blocked');
-                      },
+                    _buildKpiChip(
+                      'Bloqueados',
+                      state.blockedCount,
+                      Colors.red,
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: filtered.length,
-            itemBuilder: (context, index) {
-              final pharm = filtered[index];
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: _getStatusColor(
-                      pharm.subscriptionStatus,
-                    ).withOpacity(0.15),
-                    child: Icon(
-                      _getStatusIcon(pharm.subscriptionStatus),
-                      color: _getStatusColor(pharm.subscriptionStatus),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: InputDecoration(
+                        hintText:
+                            'Pesquisar farmácia por nome ou província...',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  setState(() => _searchQuery = '');
+                                },
+                              )
+                            : null,
+                      ),
+                      onChanged: (val) {
+                        setState(() => _searchQuery = val);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          FilterChip(
+                            label: const Text('Todos'),
+                            selected: _selectedFilter == 'Todos',
+                            onSelected: (_) {
+                              setState(() => _selectedFilter = 'Todos');
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          FilterChip(
+                            label: const Text('Trial Gratuito (3M)'),
+                            selected: _selectedFilter == 'trial',
+                            onSelected: (_) {
+                              setState(() => _selectedFilter = 'trial');
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          FilterChip(
+                            label: const Text('Ativos (15.000 Kz)'),
+                            selected: _selectedFilter == 'active',
+                            onSelected: (_) {
+                              setState(() => _selectedFilter = 'active');
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          FilterChip(
+                            label: const Text('Expirados'),
+                            selected: _selectedFilter == 'expired',
+                            onSelected: (_) {
+                              setState(() => _selectedFilter = 'expired');
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          FilterChip(
+                            label: const Text('Bloqueados'),
+                            selected: _selectedFilter == 'blocked',
+                            onSelected: (_) {
+                              setState(() => _selectedFilter = 'blocked');
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (filtered.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(
+                    child: Text(
+                      'Não foram encontradas farmácias.',
                     ),
                   ),
-                  title: Text(
-                    pharm.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${pharm.province} • ${pharm.district}'),
-                      if (pharm.subscriptionStatus == 'trial')
-                        Text(
-                          'Trial de 3 Meses: Restam '
-                          '${pharm.daysLeftInTrial} dias',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      else if (pharm.subscriptionStatus == 'active')
-                        Text(
-                          'Próximo Pagamento: em '
-                          '${pharm.daysUntilPaymentDue} dias '
-                          '(15.000 Kz/mês)',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      else
-                        const Text(
-                          'Subscrição Expirada / Acesso Suspenso',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
+                )
+              else
+                ...filtered.map((pharm) {
+                  return Card(
+                    margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: _getStatusColor(
+                          pharm.subscriptionStatus,
+                        ).withOpacity(0.15),
+                        child: Icon(
+                          _getStatusIcon(pharm.subscriptionStatus),
                           color: _getStatusColor(
                             pharm.subscriptionStatus,
-                          ).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _getStatusLabel(pharm.subscriptionStatus),
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: _getStatusColor(
-                              pharm.subscriptionStatus,
-                            ),
                           ),
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.edit_note_rounded,
-                          color: AppColors.primary,
+                      title: Text(
+                        pharm.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
                         ),
-                        tooltip: 'Gerir Subscrição',
-                        onPressed: () {
-                          _showChangeStatusDialog(pharm);
-                        },
                       ),
-                    ],
-                  ),
-                ),
-              );
-            },
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${pharm.province} • ${pharm.district}',
+                          ),
+                          if (pharm.subscriptionStatus == 'trial')
+                            Text(
+                              'Trial de 3 Meses: Restam '
+                              '${pharm.daysLeftInTrial} dias',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          else if (pharm.subscriptionStatus == 'active')
+                            Text(
+                              'Próximo Pagamento: em '
+                              '${pharm.daysUntilPaymentDue} dias '
+                              '(15.000 Kz/mês)',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          else
+                            const Text(
+                              'Subscrição Expirada / Acesso Suspenso',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getStatusColor(
+                                pharm.subscriptionStatus,
+                              ).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _getStatusLabel(pharm.subscriptionStatus),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: _getStatusColor(
+                                  pharm.subscriptionStatus,
+                                ),
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.edit_note_rounded,
+                              color: AppColors.primary,
+                            ),
+                            tooltip: 'Gerir Subscrição',
+                            onPressed: () {
+                              _showChangeStatusDialog(pharm);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+            ],
           ),
         ),
       ],
@@ -744,7 +919,7 @@ class _AdminSubscriptionsScreenState
   }
 
   // ============================================================
-  // INDICADORES
+  // INDICADORES DE SUBSCRIÇÃO
   // ============================================================
 
   Widget _buildKpiChip(String label, int count, Color color) {
@@ -752,7 +927,7 @@ class _AdminSubscriptionsScreenState
       child: Container(
         padding: const EdgeInsets.symmetric(
           vertical: 8,
-          horizontal: 8,
+          horizontal: 4,
         ),
         decoration: BoxDecoration(
           color: color.withOpacity(0.12),
@@ -773,8 +948,10 @@ class _AdminSubscriptionsScreenState
             ),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: FontWeight.bold,
                 color: color.withOpacity(0.8),
               ),
