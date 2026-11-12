@@ -42,6 +42,8 @@ class _RateExperienceDialogState
   }
 
   Future<void> _handleSubmit() async {
+    if (_isSubmitting) return;
+
     final user = ref.read(authProvider).user;
 
     if (user == null) {
@@ -57,7 +59,7 @@ class _RateExperienceDialogState
 
     try {
       final review = ReviewModel(
-        id: 'rev-${DateTime.now().millisecondsSinceEpoch}',
+        id: 'pending',
         reservationId: widget.reservation.id,
         userId: user.id,
         userName: user.fullName,
@@ -76,48 +78,20 @@ class _RateExperienceDialogState
         createdAt: DateTime.now(),
       );
 
-      final db = SupabaseDatabaseService();
-
-      await db.submitReview(review);
+      await SupabaseDatabaseService().submitReview(review);
 
       if (!mounted) return;
 
-      Navigator.of(context).pop();
+      final messenger = ScaffoldMessenger.of(context);
+      final navigator = Navigator.of(context);
+
+      navigator.pop();
       widget.onSubmitted();
 
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          icon: const Icon(
-            Icons.check_circle_rounded,
-            size: 48,
-            color: Colors.green,
-          ),
-          title: const Text(
-            'Avaliação submetida',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: const Text(
-            'O pedido de submissão foi concluído.',
-            textAlign: TextAlign.center,
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Concluído'),
-            ),
-          ],
-        ),
-      );
-    } on UnsupportedError catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'A submissão de avaliações ainda não está implementada: $e',
-          ),
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Avaliação submetida com sucesso.'),
+          backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
@@ -126,6 +100,7 @@ class _RateExperienceDialogState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Não foi possível enviar a avaliação: $e'),
+          backgroundColor: Colors.red,
         ),
       );
     } finally {
@@ -137,7 +112,8 @@ class _RateExperienceDialogState
 
   @override
   Widget build(BuildContext context) {
-    final isLowRating = _pharmacyRating <= 2 || _appRating <= 2;
+    final isLowRating =
+        _pharmacyRating <= 2 || _appRating <= 2;
 
     return Dialog(
       shape: RoundedRectangleBorder(
@@ -226,7 +202,9 @@ class _RateExperienceDialogState
                   decoration: BoxDecoration(
                     color: Colors.amber.shade50,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.amber.shade300),
+                    border: Border.all(
+                      color: Colors.amber.shade300,
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -265,13 +243,16 @@ class _RateExperienceDialogState
                       )
                     : const Icon(Icons.send_rounded),
                 label: Text(
-                  _isSubmitting ? 'A submeter...' : 'Enviar Avaliação',
+                  _isSubmitting
+                      ? 'A submeter...'
+                      : 'Enviar Avaliação',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
                 ),
-                onPressed: _isSubmitting ? null : _handleSubmit,
+                onPressed:
+                    _isSubmitting ? null : _handleSubmit,
               ),
             ],
           ),
