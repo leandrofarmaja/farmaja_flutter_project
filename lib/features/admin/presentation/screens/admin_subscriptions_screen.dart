@@ -40,6 +40,25 @@ class _AdminSubscriptionsScreenState
     super.dispose();
   }
 
+  void _showMessage(String message, {bool isError = false}) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red.shade700 : null,
+      ),
+    );
+  }
+
+  String _operationMessage(String operation, String? error) {
+    if (error != null && error.trim().isNotEmpty) {
+      return '$operation. Atenção: alguns dados não foram actualizados. '
+          'Actualize o painel para confirmar.';
+    }
+    return operation;
+  }
+
   // ============================================================
   // TERMINAR SESSÃO
   // ============================================================
@@ -71,17 +90,11 @@ class _AdminSubscriptionsScreenState
       await ref.read(authProvider.notifier).logout();
 
       if (!mounted) return;
-
       context.go('/login');
     } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Não foi possível terminar a sessão: $e',
-          ),
-        ),
+      _showMessage(
+        'Não foi possível terminar a sessão: $e',
+        isError: true,
       );
     }
   }
@@ -93,9 +106,12 @@ class _AdminSubscriptionsScreenState
   void _showChangeStatusDialog(PharmacyModel pharm) {
     String selectedStatus = pharm.subscriptionStatus;
     int extendMonths = 1;
+    bool isSaving = false;
+    String? dialogError;
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -130,11 +146,16 @@ class _AdminSubscriptionsScreenState
                         child: Text('Bloqueado (Acesso Suspenso)'),
                       ),
                     ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setModalState(() => selectedStatus = val);
-                      }
-                    },
+                    onChanged: isSaving
+                        ? null
+                        : (val) {
+                            if (val != null) {
+                              setModalState(() {
+                                selectedStatus = val;
+                                dialogError = null;
+                              });
+                            }
+                          },
                   ),
                   const SizedBox(height: 12),
                   if (selectedStatus == 'active') ...[
@@ -162,55 +183,105 @@ class _AdminSubscriptionsScreenState
                           child: Text('12 Meses (180.000 Kz)'),
                         ),
                       ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setModalState(() => extendMonths = val);
-                        }
-                      },
+                      onChanged: isSaving
+                          ? null
+                          : (val) {
+                              if (val != null) {
+                                setModalState(() {
+                                  extendMonths = val;
+                                });
+                              }
+                            },
+                    ),
+                  ],
+                  if (dialogError != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      dialogError!,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ],
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
+                  onPressed: isSaving
+                      ? null
+                      : () => Navigator.pop(dialogContext),
                   child: const Text('Cancelar'),
                 ),
                 FilledButton(
-                  onPressed: () async {
-                    DateTime? newDueDate;
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          setModalState(() {
+                            isSaving = true;
+                            dialogError = null;
+                          });
 
-                    if (selectedStatus == 'active') {
-                      newDueDate = DateTime.now().add(
-                        Duration(days: 30 * extendMonths),
-                      );
-                    } else if (selectedStatus == 'trial') {
-                      newDueDate = DateTime.now().add(
-                        const Duration(days: 90),
-                      );
-                    }
+                          DateTime? newDueDate;
 
-                    await ref
-                        .read(adminSubscriptionProvider.notifier)
-                        .setPharmacyStatus(
-                          pharm.id,
-                          selectedStatus,
-                          customDueDate: newDueDate,
-                        );
+                          if (selectedStatus == 'active') {
+                            newDueDate = DateTime.now().add(
+                              Duration(days: 30 * extendMonths),
+                            );
+                          } else if (selectedStatus == 'trial') {
+                            newDueDate = DateTime.now().add(
+                              const Duration(days: 90),
+                            );
+                          }
 
-                    if (!mounted) return;
+                          try {
+                            final success = await ref
+                                .read(adminSubscriptionProvider.notifier)
+                                .setPharmacyStatus(
+                                  pharm.id,
+                                  selectedStatus,
+                                  customDueDate: newDueDate,
+                                );
 
-                    Navigator.pop(dialogContext);
+                            if (!mounted) return;
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Subscrição de ${pharm.name} atualizada!',
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Text('Guardar Alterações'),
+                            final currentState =
+                                ref.read(adminSubscriptionProvider);
+
+                            if (!success) {
+                              setModalState(() {
+                                isSaving = false;
+                                dialogError = currentState.error ??
+                                    'Não foi possível actualizar a subscrição.';
+                              });
+                              return;
+                            }
+
+                            Navigator.pop(dialogContext);
+
+                            _showMessage(
+                              _operationMessage(
+                                'Subscrição de ${pharm.name} actualizada.',
+                                currentState.error,
+                              ),
+                            );
+                          } catch (e) {
+                            setModalState(() {
+                              isSaving = false;
+                              dialogError = 'Erro ao guardar: $e';
+                            });
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Guardar Alterações'),
                 ),
               ],
             );
@@ -226,88 +297,152 @@ class _AdminSubscriptionsScreenState
 
   void _showProofDialog(PharmacyPaymentModel pay) {
     int extendMonths = pay.periodMonths;
+    bool isProcessing = false;
+    String? dialogError;
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: Text('Validar Comprovativo: ${pay.pharmacyName}'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Valor: ${pay.amount.toInt()} Kz',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
-                ),
-                Text('Método: ${pay.paymentMethod}'),
-                Text('Referência: ${pay.referenceNumber ?? 'N/A'}'),
-                if (pay.notes != null) Text('Obs: ${pay.notes}'),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    pay.proofUrl ?? '',
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stack) {
-                      return Container(
-                        height: 120,
-                        color: Colors.grey.shade200,
-                        child: const Center(
-                          child: Text(
-                            'Comprovativo de transferência em anexo',
-                          ),
-                        ),
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> processPayment({required bool approve}) async {
+              if (isProcessing) return;
+
+              setModalState(() {
+                isProcessing = true;
+                dialogError = null;
+              });
+
+              try {
+                final notifier =
+                    ref.read(adminSubscriptionProvider.notifier);
+
+                final success = approve
+                    ? await notifier.approvePayment(
+                        pay.id,
+                        pay.pharmacyId,
+                        extendMonths,
+                      )
+                    : await notifier.rejectPayment(
+                        pay.id,
+                        'Comprovativo inválido ou valor incorreto',
                       );
-                    },
+
+                if (!mounted) return;
+
+                final currentState =
+                    ref.read(adminSubscriptionProvider);
+
+                if (!success) {
+                  setModalState(() {
+                    isProcessing = false;
+                    dialogError = currentState.error ??
+                        'Não foi possível processar o pagamento.';
+                  });
+                  return;
+                }
+
+                Navigator.pop(dialogContext);
+
+                _showMessage(
+                  _operationMessage(
+                    approve
+                        ? 'Pagamento aprovado com sucesso.'
+                        : 'Comprovativo rejeitado.',
+                    currentState.error,
                   ),
+                );
+              } catch (e) {
+                setModalState(() {
+                  isProcessing = false;
+                  dialogError = 'Erro ao processar o pagamento: $e';
+                });
+              }
+            }
+
+            return AlertDialog(
+              title: Text('Validar Comprovativo: ${pay.pharmacyName}'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Valor: ${pay.amount.toInt()} Kz',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                    Text('Método: ${pay.paymentMethod}'),
+                    Text('Referência: ${pay.referenceNumber ?? 'N/A'}'),
+                    if (pay.notes != null) Text('Obs: ${pay.notes}'),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        pay.proofUrl ?? '',
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stack) {
+                          return Container(
+                            height: 120,
+                            color: Colors.grey.shade200,
+                            child: const Center(
+                              child: Text(
+                                'Comprovativo de transferência em anexo',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    if (dialogError != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        dialogError!,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: isProcessing
+                      ? null
+                      : () => processPayment(approve: false),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                  ),
+                  child: const Text('Rejeitar'),
+                ),
+                FilledButton(
+                  onPressed: isProcessing
+                      ? null
+                      : () => processPayment(approve: true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.green,
+                  ),
+                  child: isProcessing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Aprovar'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            OutlinedButton(
-              onPressed: () async {
-                await ref
-                    .read(adminSubscriptionProvider.notifier)
-                    .rejectPayment(
-                      pay.id,
-                      'Comprovativo inválido ou valor incorreto',
-                    );
-
-                if (!mounted) return;
-                Navigator.pop(dialogContext);
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
-              child: const Text('Rejeitar'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                await ref
-                    .read(adminSubscriptionProvider.notifier)
-                    .approvePayment(
-                      pay.id,
-                      pay.pharmacyId,
-                      extendMonths,
-                    );
-
-                if (!mounted) return;
-                Navigator.pop(dialogContext);
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.green,
-              ),
-              child: const Text('Aprovar (15.000 Kz)'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -355,7 +490,7 @@ class _AdminSubscriptionsScreenState
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Atualizar Dados',
+            tooltip: 'Actualizar Dados',
             onPressed: () {
               ref
                   .read(adminSubscriptionProvider.notifier)
@@ -411,9 +546,41 @@ class _AdminSubscriptionsScreenState
           ],
         ),
       ),
-      body: state.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
+      body: Column(
+        children: [
+          if (state.isLoading)
+            const LinearProgressIndicator(minHeight: 2),
+          if (state.error != null && state.error!.trim().isNotEmpty)
+            Material(
+              color: Colors.orange.shade50,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.orange.shade900,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        state.error!,
+                        style: TextStyle(
+                          color: Colors.orange.shade900,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          Expanded(
+            child: TabBarView(
               controller: _tabController,
               children: [
                 _buildPharmaciesTab(state),
@@ -422,6 +589,9 @@ class _AdminSubscriptionsScreenState
                 const AdminReviewsAnalyticsTab(),
               ],
             ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -513,9 +683,7 @@ class _AdminSubscriptionsScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: color.withOpacity(0.22),
-        ),
+        border: Border.all(color: color.withOpacity(0.22)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.035),
@@ -533,11 +701,7 @@ class _AdminSubscriptionsScreenState
               color: color.withOpacity(0.12),
               borderRadius: BorderRadius.circular(11),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 21,
-            ),
+            child: Icon(icon, color: color, size: 21),
           ),
           const SizedBox(width: 9),
           Expanded(
@@ -595,235 +759,217 @@ class _AdminSubscriptionsScreenState
       return true;
     }).toList();
 
-    return Column(
+    if (state.isLoading && state.pharmacies.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return ListView(
+      padding: EdgeInsets.zero,
       children: [
-        Expanded(
-          child: ListView(
-            padding: EdgeInsets.zero,
+        _buildOverviewIndicators(state),
+        Container(
+          margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
             children: [
-              _buildOverviewIndicators(state),
-              Container(
-                margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
+              _buildKpiChip('Trial (3M)', state.trialCount, Colors.blue),
+              const SizedBox(width: 8),
+              _buildKpiChip('Ativos', state.activeCount, Colors.green),
+              const SizedBox(width: 8),
+              _buildKpiChip(
+                'Expirados',
+                state.expiredCount,
+                Colors.amber.shade800,
+              ),
+              const SizedBox(width: 8),
+              _buildKpiChip('Bloqueados', state.blockedCount, Colors.red),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+          child: Column(
+            children: [
+              TextField(
+                decoration: InputDecoration(
+                  hintText:
+                      'Pesquisar farmácia por nome ou província...',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
                 ),
+                onChanged: (val) {
+                  setState(() => _searchQuery = val);
+                },
+              ),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    _buildKpiChip(
-                      'Trial (3M)',
-                      state.trialCount,
-                      Colors.blue,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildKpiChip(
-                      'Ativos',
-                      state.activeCount,
-                      Colors.green,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildKpiChip(
-                      'Expirados',
-                      state.expiredCount,
-                      Colors.amber.shade800,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildKpiChip(
-                      'Bloqueados',
-                      state.blockedCount,
-                      Colors.red,
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Column(
-                  children: [
-                    TextField(
-                      decoration: InputDecoration(
-                        hintText:
-                            'Pesquisar farmácia por nome ou província...',
-                        prefixIcon: const Icon(Icons.search_rounded),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  setState(() => _searchQuery = '');
-                                },
-                              )
-                            : null,
-                      ),
-                      onChanged: (val) {
-                        setState(() => _searchQuery = val);
+                    FilterChip(
+                      label: const Text('Todos'),
+                      selected: _selectedFilter == 'Todos',
+                      onSelected: (_) {
+                        setState(() => _selectedFilter = 'Todos');
                       },
                     ),
-                    const SizedBox(height: 8),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          FilterChip(
-                            label: const Text('Todos'),
-                            selected: _selectedFilter == 'Todos',
-                            onSelected: (_) {
-                              setState(() => _selectedFilter = 'Todos');
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          FilterChip(
-                            label: const Text('Trial Gratuito (3M)'),
-                            selected: _selectedFilter == 'trial',
-                            onSelected: (_) {
-                              setState(() => _selectedFilter = 'trial');
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          FilterChip(
-                            label: const Text('Ativos (15.000 Kz)'),
-                            selected: _selectedFilter == 'active',
-                            onSelected: (_) {
-                              setState(() => _selectedFilter = 'active');
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          FilterChip(
-                            label: const Text('Expirados'),
-                            selected: _selectedFilter == 'expired',
-                            onSelected: (_) {
-                              setState(() => _selectedFilter = 'expired');
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          FilterChip(
-                            label: const Text('Bloqueados'),
-                            selected: _selectedFilter == 'blocked',
-                            onSelected: (_) {
-                              setState(() => _selectedFilter = 'blocked');
-                            },
-                          ),
-                        ],
-                      ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: const Text('Trial Gratuito (3M)'),
+                      selected: _selectedFilter == 'trial',
+                      onSelected: (_) {
+                        setState(() => _selectedFilter = 'trial');
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: const Text('Ativos (15.000 Kz)'),
+                      selected: _selectedFilter == 'active',
+                      onSelected: (_) {
+                        setState(() => _selectedFilter = 'active');
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: const Text('Expirados'),
+                      selected: _selectedFilter == 'expired',
+                      onSelected: (_) {
+                        setState(() => _selectedFilter = 'expired');
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: const Text('Bloqueados'),
+                      selected: _selectedFilter == 'blocked',
+                      onSelected: (_) {
+                        setState(() => _selectedFilter = 'blocked');
+                      },
                     ),
                   ],
                 ),
               ),
-              if (filtered.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(
-                    child: Text(
-                      'Não foram encontradas farmácias.',
-                    ),
+            ],
+          ),
+        ),
+        if (filtered.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(32),
+            child: Center(
+              child: Text(
+                state.pharmacies.isEmpty
+                    ? 'Não existem farmácias registadas.'
+                    : 'Não foram encontradas farmácias.',
+              ),
+            ),
+          )
+        else
+          ...filtered.map((pharm) {
+            return Card(
+              margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: _getStatusColor(
+                    pharm.subscriptionStatus,
+                  ).withOpacity(0.15),
+                  child: Icon(
+                    _getStatusIcon(pharm.subscriptionStatus),
+                    color: _getStatusColor(pharm.subscriptionStatus),
                   ),
-                )
-              else
-                ...filtered.map((pharm) {
-                  return Card(
-                    margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: _getStatusColor(
+                ),
+                title: Text(
+                  pharm.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${pharm.province} • ${pharm.district}'),
+                    if (pharm.subscriptionStatus == 'trial')
+                      Text(
+                        'Trial de 3 Meses: Restam '
+                        '${pharm.daysLeftInTrial} dias',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    else if (pharm.subscriptionStatus == 'active')
+                      Text(
+                        'Próximo Pagamento: em '
+                        '${pharm.daysUntilPaymentDue} dias '
+                        '(15.000 Kz/mês)',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    else
+                      const Text(
+                        'Subscrição Expirada / Acesso Suspenso',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                  ],
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(
                           pharm.subscriptionStatus,
                         ).withOpacity(0.15),
-                        child: Icon(
-                          _getStatusIcon(pharm.subscriptionStatus),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _getStatusLabel(pharm.subscriptionStatus),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
                           color: _getStatusColor(
                             pharm.subscriptionStatus,
                           ),
                         ),
                       ),
-                      title: Text(
-                        pharm.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${pharm.province} • ${pharm.district}',
-                          ),
-                          if (pharm.subscriptionStatus == 'trial')
-                            Text(
-                              'Trial de 3 Meses: Restam '
-                              '${pharm.daysLeftInTrial} dias',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.blue,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          else if (pharm.subscriptionStatus == 'active')
-                            Text(
-                              'Próximo Pagamento: em '
-                              '${pharm.daysUntilPaymentDue} dias '
-                              '(15.000 Kz/mês)',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.green,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          else
-                            const Text(
-                              'Subscrição Expirada / Acesso Suspenso',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.red,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                        ],
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _getStatusColor(
-                                pharm.subscriptionStatus,
-                              ).withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _getStatusLabel(pharm.subscriptionStatus),
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: _getStatusColor(
-                                  pharm.subscriptionStatus,
-                                ),
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.edit_note_rounded,
-                              color: AppColors.primary,
-                            ),
-                            tooltip: 'Gerir Subscrição',
-                            onPressed: () {
-                              _showChangeStatusDialog(pharm);
-                            },
-                          ),
-                        ],
-                      ),
                     ),
-                  );
-                }),
-            ],
-          ),
-        ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.edit_note_rounded,
+                        color: AppColors.primary,
+                      ),
+                      tooltip: 'Gerir Subscrição',
+                      onPressed: () {
+                        _showChangeStatusDialog(pharm);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
       ],
     );
   }
@@ -833,6 +979,10 @@ class _AdminSubscriptionsScreenState
   // ============================================================
 
   Widget _buildPaymentsTab(AdminSubscriptionState state) {
+    if (state.isLoading && state.payments.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     if (state.payments.isEmpty) {
       return const Center(
         child: Text(
@@ -859,11 +1009,13 @@ class _AdminSubscriptionsScreenState
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      pay.pharmacyName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                    Expanded(
+                      child: Text(
+                        pay.pharmacyName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                     Chip(
@@ -932,9 +1084,7 @@ class _AdminSubscriptionsScreenState
         decoration: BoxDecoration(
           color: color.withOpacity(0.12),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: color.withOpacity(0.3),
-          ),
+          border: Border.all(color: color.withOpacity(0.3)),
         ),
         child: Column(
           children: [
