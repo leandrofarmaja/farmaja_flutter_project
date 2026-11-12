@@ -110,7 +110,6 @@ class AdminReviewsNotifier extends StateNotifier<AdminReviewsState> {
     try {
       final results = await Future.wait<dynamic>([
         _db.getAllReviews(),
-        _db.getAdminNotifications(),
         _db.getPharmacies(),
       ]).timeout(
         const Duration(seconds: 20),
@@ -123,8 +122,12 @@ class AdminReviewsNotifier extends StateNotifier<AdminReviewsState> {
       );
 
       final allReviews = results[0] as List<ReviewModel>;
-      final notifs = results[1] as List<AdminNotificationModel>;
-      final pharmacies = results[2] as List<PharmacyModel>;
+      final pharmacies = results[1] as List<PharmacyModel>;
+
+      // Apenas avaliações aprovadas entram nas estatísticas públicas.
+      final approvedReviews = allReviews
+          .where((review) => review.status == 'approved')
+          .toList();
 
       double totalApp = 0;
       double totalPharm = 0;
@@ -132,7 +135,7 @@ class AdminReviewsNotifier extends StateNotifier<AdminReviewsState> {
       final appStars = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
       final pharmStars = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
 
-      for (final review in allReviews) {
+      for (final review in approvedReviews) {
         totalApp += review.appRating;
         totalPharm += review.pharmacyRating;
 
@@ -143,10 +146,13 @@ class AdminReviewsNotifier extends StateNotifier<AdminReviewsState> {
         pharmStars[pharmKey] = (pharmStars[pharmKey] ?? 0) + 1;
       }
 
-      final avgApp =
-          allReviews.isNotEmpty ? totalApp / allReviews.length : 0.0;
-      final avgPharm =
-          allReviews.isNotEmpty ? totalPharm / allReviews.length : 0.0;
+      final avgApp = approvedReviews.isNotEmpty
+          ? totalApp / approvedReviews.length
+          : 0.0;
+
+      final avgPharm = approvedReviews.isNotEmpty
+          ? totalPharm / approvedReviews.length
+          : 0.0;
 
       final pharmacyNames = <String, String>{
         for (final pharmacy in pharmacies) pharmacy.id: pharmacy.name,
@@ -154,15 +160,12 @@ class AdminReviewsNotifier extends StateNotifier<AdminReviewsState> {
 
       final ratingsByPharmacy = <String, List<double>>{};
 
-      for (final review in allReviews) {
-        if (review.status == 'approved' ||
-            review.status == 'pending_moderation') {
-          ratingsByPharmacy
-              .putIfAbsent(review.pharmacyId, () => [])
-              .add(review.pharmacyRating);
+      for (final review in approvedReviews) {
+        ratingsByPharmacy
+            .putIfAbsent(review.pharmacyId, () => [])
+            .add(review.pharmacyRating);
 
-          pharmacyNames[review.pharmacyId] = review.pharmacyName;
-        }
+        pharmacyNames[review.pharmacyId] = review.pharmacyName;
       }
 
       final stats = <PharmacyRatingStat>[];
@@ -197,10 +200,11 @@ class AdminReviewsNotifier extends StateNotifier<AdminReviewsState> {
 
       state = state.copyWith(
         reviews: allReviews,
-        notifications: notifs,
+        notifications: [],
         isLoading: false,
         averageAppRating: double.parse(avgApp.toStringAsFixed(1)),
-        averagePharmacyRating: double.parse(avgPharm.toStringAsFixed(1)),
+        averagePharmacyRating:
+            double.parse(avgPharm.toStringAsFixed(1)),
         bestPharmacies: best,
         lowestPharmacies: lowest.take(5).toList(),
         appStarDistribution: appStars,
@@ -236,14 +240,9 @@ class AdminReviewsNotifier extends StateNotifier<AdminReviewsState> {
   }
 
   Future<void> markNotificationRead(String id) async {
-    try {
-      await _db.markAdminNotificationRead(id);
-      await loadReviewsData();
-    } catch (e) {
-      state = state.copyWith(
-        error: 'Não foi possível actualizar a notificação: $e',
-      );
-    }
+    state = state.copyWith(
+      error: 'A gestão de notificações administrativas ainda não está implementada.',
+    );
   }
 }
 
