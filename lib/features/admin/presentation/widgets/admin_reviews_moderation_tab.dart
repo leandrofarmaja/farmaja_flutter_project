@@ -1,5 +1,7 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/constants/app_colors.dart';
 import '../../../reviews/domain/review_model.dart';
 import '../providers/admin_reviews_provider.dart';
@@ -7,102 +9,200 @@ import '../providers/admin_reviews_provider.dart';
 class AdminReviewsModerationTab extends ConsumerWidget {
   const AdminReviewsModerationTab({super.key});
 
-  void _showModerationNoteDialog(
+  Future<void> _showModerationNoteDialog(
     BuildContext context,
     WidgetRef ref,
     ReviewModel rev,
     String newStatus,
-  ) {
+  ) async {
     final noteController = TextEditingController();
     final isApprove = newStatus == 'approved';
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          isApprove
-              ? 'Aprovar Avaliação ⭐'
-              : 'Rejeitar / Ocultar Avaliação 🚫',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Avaliação de ${rev.userName} sobre ${rev.pharmacyName}:',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '• Farmácia: ${rev.pharmacyRating}★ '
-              '${rev.pharmacyComment != null ? "(\"${rev.pharmacyComment}\")" : ""}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            Text(
-              '• App: ${rev.appRating}★ '
-              '${rev.appComment != null ? "(\"${rev.appComment}\")" : ""}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: noteController,
-              maxLines: 2,
-              decoration: InputDecoration(
-                labelText: isApprove
-                    ? 'Nota de Aprovação (Opcional)'
-                    : 'Motivo da Rejeição / Ocultação',
-                hintText: isApprove
-                    ? 'Ex: Verificado com a farmácia, crítica legítima.'
-                    : 'Ex: Linguagem inadequada ou informação falsa.',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: isApprove ? Colors.green : Colors.red,
-            ),
-            onPressed: () async {
-              await ref
-                  .read(adminReviewsProvider.notifier)
-                  .moderateReview(
-                    rev.id,
-                    newStatus,
-                    note: noteController.text.trim().isNotEmpty
-                        ? noteController.text.trim()
-                        : null,
-                  );
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          bool isSubmitting = false;
+          String? dialogError;
 
-              if (context.mounted) {
-                Navigator.pop(context);
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              Future<void> submitModeration() async {
+                if (isSubmitting) return;
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      isApprove
-                          ? 'Avaliação aprovada e publicada!'
-                          : 'Avaliação rejeitada.',
-                    ),
-                  ),
-                );
+                setDialogState(() {
+                  isSubmitting = true;
+                  dialogError = null;
+                });
+
+                try {
+                  await ref
+                      .read(adminReviewsProvider.notifier)
+                      .moderateReview(
+                        rev.id,
+                        newStatus,
+                        note: noteController.text.trim().isNotEmpty
+                            ? noteController.text.trim()
+                            : null,
+                      );
+
+                  if (!dialogContext.mounted) return;
+
+                  final refreshError =
+                      ref.read(adminReviewsProvider).error;
+
+                  Navigator.of(dialogContext).pop();
+
+                  if (context.mounted) {
+                    final message = isApprove
+                        ? 'Avaliação aprovada e publicada!'
+                        : 'Avaliação rejeitada.';
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          refreshError == null
+                              ? message
+                              : '$message A lista não foi actualizada; '
+                                  'recarregue os dados.',
+                        ),
+                        backgroundColor: refreshError == null
+                            ? Colors.green
+                            : Colors.orange,
+                      ),
+                    );
+                  }
+                } catch (error) {
+                  if (!dialogContext.mounted) return;
+
+                  setDialogState(() {
+                    isSubmitting = false;
+                    dialogError =
+                        'Não foi possível concluir a moderação: $error';
+                  });
+                }
               }
+
+              return AlertDialog(
+                title: Text(
+                  isApprove
+                      ? 'Aprovar Avaliação ⭐'
+                      : 'Rejeitar / Ocultar Avaliação 🚫',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Avaliação de ${rev.userName} '
+                        'sobre ${rev.pharmacyName}:',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '• Farmácia: ${rev.pharmacyRating}★ '
+                        '${rev.pharmacyComment != null ? '("${rev.pharmacyComment}")' : ''}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      Text(
+                        '• App: ${rev.appRating}★ '
+                        '${rev.appComment != null ? '("${rev.appComment}")' : ''}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: noteController,
+                        enabled: !isSubmitting,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          labelText: isApprove
+                              ? 'Nota de Aprovação (Opcional)'
+                              : 'Motivo da Rejeição / Ocultação',
+                          hintText: isApprove
+                              ? 'Ex: Verificado com a farmácia, crítica legítima.'
+                              : 'Ex: Linguagem inadequada ou informação falsa.',
+                        ),
+                      ),
+                      if (dialogError != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          dialogError!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                      if (isSubmitting) ...[
+                        const SizedBox(height: 16),
+                        const Row(
+                          children: [
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'A processar a decisão...',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: isSubmitting
+                        ? null
+                        : () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Cancelar'),
+                  ),
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor:
+                          isApprove ? Colors.green : Colors.red,
+                    ),
+                    onPressed:
+                        isSubmitting ? null : submitModeration,
+                    child: isSubmitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            isApprove
+                                ? 'Aprovar e Publicar'
+                                : 'Confirmar Rejeição',
+                          ),
+                  ),
+                ],
+              );
             },
-            child: Text(
-              isApprove ? 'Aprovar e Publicar' : 'Confirmar Rejeição',
-            ),
-          ),
-        ],
-      ),
-    );
+          );
+        },
+      );
+    } finally {
+      noteController.dispose();
+    }
   }
 
   @override
@@ -121,7 +221,6 @@ class AdminReviewsModerationTab extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Notifications / Low Rating Alert Banner
           if (state.notifications.isNotEmpty) ...[
             Card(
               color: Colors.red.shade50,
@@ -131,7 +230,7 @@ class AdminReviewsModerationTab extends ConsumerWidget {
                 side: BorderSide(color: Colors.red.shade200),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -206,9 +305,7 @@ class AdminReviewsModerationTab extends ConsumerWidget {
                                 tooltip: 'Marcar como Lido',
                                 onPressed: () {
                                   ref
-                                      .read(
-                                        adminReviewsProvider.notifier,
-                                      )
+                                      .read(adminReviewsProvider.notifier)
                                       .markNotificationRead(notif.id);
                                 },
                               ),
@@ -222,7 +319,6 @@ class AdminReviewsModerationTab extends ConsumerWidget {
             ),
           ],
 
-          // Pending Moderation Section Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -390,7 +486,6 @@ class AdminReviewsModerationTab extends ConsumerWidget {
 
                         const SizedBox(height: 12),
 
-                        // Pharmacy Rating Box
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -444,7 +539,6 @@ class AdminReviewsModerationTab extends ConsumerWidget {
 
                         const SizedBox(height: 8),
 
-                        // App Rating Box
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -498,7 +592,6 @@ class AdminReviewsModerationTab extends ConsumerWidget {
 
                         const SizedBox(height: 16),
 
-                        // Actions
                         Row(
                           children: [
                             Expanded(
@@ -560,7 +653,6 @@ class AdminReviewsModerationTab extends ConsumerWidget {
           const Divider(),
           const SizedBox(height: 12),
 
-          // Approved Reviews Archive
           const Text(
             'Histórico de Avaliações Aprovadas & Públicas',
             style: TextStyle(
