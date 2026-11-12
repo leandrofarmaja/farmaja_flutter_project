@@ -1,4 +1,6 @@
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/services/supabase_database_service.dart';
 import '../../../pharmacies/domain/pharmacy_model.dart';
 import '../../../reviews/domain/review_model.dart';
@@ -22,6 +24,7 @@ class AdminReviewsState {
   final List<ReviewModel> reviews;
   final List<AdminNotificationModel> notifications;
   final bool isLoading;
+  final String? error;
   final double averageAppRating;
   final double averagePharmacyRating;
   final List<PharmacyRatingStat> bestPharmacies;
@@ -33,8 +36,9 @@ class AdminReviewsState {
     required this.reviews,
     required this.notifications,
     this.isLoading = false,
-    this.averageAppRating = 5.0,
-    this.averagePharmacyRating = 5.0,
+    this.error,
+    this.averageAppRating = 0,
+    this.averagePharmacyRating = 0,
     required this.bestPharmacies,
     required this.lowestPharmacies,
     required this.appStarDistribution,
@@ -44,12 +48,15 @@ class AdminReviewsState {
   List<ReviewModel> get pendingModerationReviews =>
       reviews.where((r) => r.status == 'pending_moderation').toList();
 
-  int get unreadNotificationsCount => notifications.where((n) => !n.isRead).length;
+  int get unreadNotificationsCount =>
+      notifications.where((n) => !n.isRead).length;
 
   AdminReviewsState copyWith({
     List<ReviewModel>? reviews,
     List<AdminNotificationModel>? notifications,
     bool? isLoading,
+    String? error,
+    bool clearError = false,
     double? averageAppRating,
     double? averagePharmacyRating,
     List<PharmacyRatingStat>? bestPharmacies,
@@ -61,12 +68,16 @@ class AdminReviewsState {
       reviews: reviews ?? this.reviews,
       notifications: notifications ?? this.notifications,
       isLoading: isLoading ?? this.isLoading,
+      error: clearError ? null : (error ?? this.error),
       averageAppRating: averageAppRating ?? this.averageAppRating,
-      averagePharmacyRating: averagePharmacyRating ?? this.averagePharmacyRating,
+      averagePharmacyRating:
+          averagePharmacyRating ?? this.averagePharmacyRating,
       bestPharmacies: bestPharmacies ?? this.bestPharmacies,
       lowestPharmacies: lowestPharmacies ?? this.lowestPharmacies,
-      appStarDistribution: appStarDistribution ?? this.appStarDistribution,
-      pharmacyStarDistribution: pharmacyStarDistribution ?? this.pharmacyStarDistribution,
+      appStarDistribution:
+          appStarDistribution ?? this.appStarDistribution,
+      pharmacyStarDistribution:
+          pharmacyStarDistribution ?? this.pharmacyStarDistribution,
     );
   }
 }
@@ -75,101 +86,164 @@ class AdminReviewsNotifier extends StateNotifier<AdminReviewsState> {
   final SupabaseDatabaseService _db;
 
   AdminReviewsNotifier(this._db)
-      : super(AdminReviewsState(
-          reviews: [],
-          notifications: [],
-          bestPharmacies: [],
-          lowestPharmacies: [],
-          appStarDistribution: {5: 0, 4: 0, 3: 0, 2: 0, 1: 0},
-          pharmacyStarDistribution: {5: 0, 4: 0, 3: 0, 2: 0, 1: 0},
-        )) {
+      : super(
+          AdminReviewsState(
+            reviews: [],
+            notifications: [],
+            bestPharmacies: [],
+            lowestPharmacies: [],
+            appStarDistribution: {5: 0, 4: 0, 3: 0, 2: 0, 1: 0},
+            pharmacyStarDistribution: {5: 0, 4: 0, 3: 0, 2: 0, 1: 0},
+          ),
+        ) {
     loadReviewsData();
   }
 
   Future<void> loadReviewsData() async {
-    state = state.copyWith(isLoading: true);
-
-    final allReviews = await _db.getAllReviews();
-    final notifs = await _db.getAdminNotifications();
-    final pharmacies = await _db.getPharmacies();
-
-    // Calculate App Rating & Pharmacy Ratings
-    double totalApp = 0;
-    double totalPharm = 0;
-
-    Map<int, int> appStars = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
-    Map<int, int> pharmStars = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
-
-    for (var r in allReviews) {
-      totalApp += r.appRating;
-      totalPharm += r.pharmacyRating;
-
-      final appKey = r.appRating.round().clamp(1, 5);
-      final pharmKey = r.pharmacyRating.round().clamp(1, 5);
-
-      appStars[appKey] = (appStars[appKey] ?? 0) + 1;
-      pharmStars[pharmKey] = (pharmStars[pharmKey] ?? 0) + 1;
-    }
-
-    final avgApp = allReviews.isNotEmpty ? totalApp / allReviews.length : 4.8;
-    final avgPharm = allReviews.isNotEmpty ? totalPharm / allReviews.length : 4.7;
-
-    // Aggregate Ratings per Pharmacy
-    Map<String, List<double>> pharmRatingsMap = {};
-    Map<String, String> pharmNamesMap = {};
-
-    for (var p in pharmacies) {
-      pharmNamesMap[p.id] = p.name;
-    }
-
-    for (var r in allReviews) {
-      if (r.status == 'approved' || r.status == 'pending_moderation') {
-        pharmRatingsMap.putIfAbsent(r.pharmacyId, () => []).add(r.pharmacyRating);
-        pharmNamesMap[r.pharmacyId] = r.pharmacyName;
-      }
-    }
-
-    List<PharmacyRatingStat> statsList = [];
-    pharmRatingsMap.forEach((id, ratings) {
-      final name = pharmNamesMap[id] ?? 'Farmácia';
-      final avg = ratings.fold(0.0, (s, e) => s + e) / ratings.length;
-      statsList.add(PharmacyRatingStat(
-        pharmacyId: id,
-        pharmacyName: name,
-        averageRating: double.parse(avg.toStringAsFixed(1)),
-        totalReviews: ratings.length,
-      ));
-    });
-
-    // Sort Best & Lowest
-    statsList.sort((a, b) => b.averageRating.compareTo(a.averageRating));
-    final best = List<PharmacyRatingStat>.from(statsList.take(5));
-
-    final lowestSorted = List<PharmacyRatingStat>.from(statsList);
-    lowestSorted.sort((a, b) => a.averageRating.compareTo(b.averageRating));
-    final lowest = List<PharmacyRatingStat>.from(lowestSorted.take(5));
+    if (state.isLoading) return;
 
     state = state.copyWith(
-      reviews: allReviews,
-      notifications: notifs,
-      isLoading: false,
-      averageAppRating: double.parse(avgApp.toStringAsFixed(1)),
-      averagePharmacyRating: double.parse(avgPharm.toStringAsFixed(1)),
-      bestPharmacies: best,
-      lowestPharmacies: lowest,
-      appStarDistribution: appStars,
-      pharmacyStarDistribution: pharmStars,
+      isLoading: true,
+      clearError: true,
     );
+
+    try {
+      final results = await Future.wait<dynamic>([
+        _db.getAllReviews(),
+        _db.getAdminNotifications(),
+        _db.getPharmacies(),
+      ]).timeout(
+        const Duration(seconds: 20),
+        onTimeout: () {
+          throw Exception(
+            'O carregamento excedeu 20 segundos. '
+            'Verifica a ligação ao Supabase.',
+          );
+        },
+      );
+
+      final allReviews = results[0] as List<ReviewModel>;
+      final notifs = results[1] as List<AdminNotificationModel>;
+      final pharmacies = results[2] as List<PharmacyModel>;
+
+      double totalApp = 0;
+      double totalPharm = 0;
+
+      final appStars = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
+      final pharmStars = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
+
+      for (final review in allReviews) {
+        totalApp += review.appRating;
+        totalPharm += review.pharmacyRating;
+
+        final appKey = review.appRating.round().clamp(1, 5);
+        final pharmKey = review.pharmacyRating.round().clamp(1, 5);
+
+        appStars[appKey] = (appStars[appKey] ?? 0) + 1;
+        pharmStars[pharmKey] = (pharmStars[pharmKey] ?? 0) + 1;
+      }
+
+      final avgApp =
+          allReviews.isNotEmpty ? totalApp / allReviews.length : 0.0;
+      final avgPharm =
+          allReviews.isNotEmpty ? totalPharm / allReviews.length : 0.0;
+
+      final pharmacyNames = <String, String>{
+        for (final pharmacy in pharmacies) pharmacy.id: pharmacy.name,
+      };
+
+      final ratingsByPharmacy = <String, List<double>>{};
+
+      for (final review in allReviews) {
+        if (review.status == 'approved' ||
+            review.status == 'pending_moderation') {
+          ratingsByPharmacy
+              .putIfAbsent(review.pharmacyId, () => [])
+              .add(review.pharmacyRating);
+
+          pharmacyNames[review.pharmacyId] = review.pharmacyName;
+        }
+      }
+
+      final stats = <PharmacyRatingStat>[];
+
+      ratingsByPharmacy.forEach((id, ratings) {
+        if (ratings.isEmpty) return;
+
+        final average =
+            ratings.fold<double>(0, (sum, rating) => sum + rating) /
+                ratings.length;
+
+        stats.add(
+          PharmacyRatingStat(
+            pharmacyId: id,
+            pharmacyName: pharmacyNames[id] ?? 'Farmácia',
+            averageRating: double.parse(average.toStringAsFixed(1)),
+            totalReviews: ratings.length,
+          ),
+        );
+      });
+
+      stats.sort(
+        (a, b) => b.averageRating.compareTo(a.averageRating),
+      );
+
+      final best = stats.take(5).toList();
+
+      final lowest = List<PharmacyRatingStat>.from(stats)
+        ..sort(
+          (a, b) => a.averageRating.compareTo(b.averageRating),
+        );
+
+      state = state.copyWith(
+        reviews: allReviews,
+        notifications: notifs,
+        isLoading: false,
+        averageAppRating: double.parse(avgApp.toStringAsFixed(1)),
+        averagePharmacyRating: double.parse(avgPharm.toStringAsFixed(1)),
+        bestPharmacies: best,
+        lowestPharmacies: lowest.take(5).toList(),
+        appStarDistribution: appStars,
+        pharmacyStarDistribution: pharmStars,
+        clearError: true,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Não foi possível carregar os dados administrativos: $e',
+      );
+    }
   }
 
-  Future<void> moderateReview(String reviewId, String status, {String? note}) async {
-    await _db.moderateReview(reviewId: reviewId, status: status, note: note);
-    await loadReviewsData();
+  Future<void> moderateReview(
+    String reviewId,
+    String status, {
+    String? note,
+  }) async {
+    try {
+      await _db.moderateReview(
+        reviewId: reviewId,
+        status: status,
+        note: note,
+      );
+
+      await loadReviewsData();
+    } catch (e) {
+      state = state.copyWith(
+        error: 'Não foi possível moderar a avaliação: $e',
+      );
+    }
   }
 
   Future<void> markNotificationRead(String id) async {
-    await _db.markAdminNotificationRead(id);
-    await loadReviewsData();
+    try {
+      await _db.markAdminNotificationRead(id);
+      await loadReviewsData();
+    } catch (e) {
+      state = state.copyWith(
+        error: 'Não foi possível actualizar a notificação: $e',
+      );
+    }
   }
 }
 
