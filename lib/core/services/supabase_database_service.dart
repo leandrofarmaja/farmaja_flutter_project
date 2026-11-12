@@ -41,8 +41,8 @@ class SupabaseDatabaseService {
 
   String _medicineImageExtension(XFile image) {
     final fileName = image.name.trim().toLowerCase();
-
     final dotIndex = fileName.lastIndexOf('.');
+
     if (dotIndex < 0 || dotIndex == fileName.length - 1) {
       throw ArgumentError(
         'A imagem deve ter uma extensão JPEG, JPG, PNG ou WebP.',
@@ -94,7 +94,6 @@ class SupabaseDatabaseService {
 
     final extension = _medicineImageExtension(image);
     final contentType = _medicineImageContentType(extension);
-
     final bytes = await image.readAsBytes();
 
     if (bytes.isEmpty) {
@@ -109,7 +108,6 @@ class SupabaseDatabaseService {
 
     final fileName =
         '${DateTime.now().microsecondsSinceEpoch}.$extension';
-
     final storagePath = '${pharmacyId.trim()}/$fileName';
 
     await _client.storage
@@ -128,21 +126,15 @@ class SupabaseDatabaseService {
         .getPublicUrl(storagePath);
   }
 
-  Future<void> _removeUploadedMedicineImage(
-    String? imageUrl,
-  ) async {
-    if (imageUrl == null || imageUrl.trim().isEmpty) {
-      return;
-    }
+  Future<void> _removeUploadedMedicineImage(String? imageUrl) async {
+    if (imageUrl == null || imageUrl.trim().isEmpty) return;
 
     try {
       final uri = Uri.tryParse(imageUrl);
-
       if (uri == null) return;
 
-      final marker = '/storage/v1/object/public/'
-          '$_medicineImagesBucket/';
-
+      final marker =
+          '/storage/v1/object/public/$_medicineImagesBucket/';
       final pathIndex = uri.path.indexOf(marker);
 
       if (pathIndex < 0) return;
@@ -157,8 +149,7 @@ class SupabaseDatabaseService {
           .from(_medicineImagesBucket)
           .remove([storagePath]);
     } catch (_) {
-      // A limpeza é best-effort.
-      // Não substitui o erro original da operação.
+      // Limpeza best-effort; não substitui o erro original.
     }
   }
 
@@ -212,13 +203,10 @@ class SupabaseDatabaseService {
         final stockValue = row['quantidade_stock'];
         final stockQuantity =
             stockValue is num ? stockValue.toInt() : 0;
-
         final available =
             row['disponivel'] == true && stockQuantity > 0;
 
-        if (onlyInStock == true && !available) {
-          return false;
-        }
+        if (onlyInStock == true && !available) return false;
 
         if (query != null && query.trim().isNotEmpty) {
           final name = (row['nome_medicamento'] ?? '')
@@ -266,24 +254,18 @@ class SupabaseDatabaseService {
     }
   }
 
-  MedicineModel _medicineFromDatabase(
-    Map<String, dynamic> row,
-  ) {
+  MedicineModel _medicineFromDatabase(Map<String, dynamic> row) {
     final pharmacyValue = row['farmacias'];
-
     final pharmacy = pharmacyValue is Map
         ? Map<String, dynamic>.from(pharmacyValue)
         : <String, dynamic>{};
 
     final price = row['preco_kwanza'];
     final stockValue = row['quantidade_stock'];
-
     final stockQuantity =
         stockValue is num ? stockValue.toInt() : 0;
-
     final available =
         row['disponivel'] == true && stockQuantity > 0;
-
     final rawImageUrl = row['imagem_url']?.toString().trim();
 
     return MedicineModel(
@@ -418,9 +400,7 @@ class SupabaseDatabaseService {
     }
   }
 
-  PharmacyModel _pharmacyFromDatabase(
-    Map<String, dynamic> row,
-  ) {
+  PharmacyModel _pharmacyFromDatabase(Map<String, dynamic> row) {
     double toDouble(dynamic value) {
       if (value is num) return value.toDouble();
       return double.tryParse(value?.toString() ?? '') ?? 0.0;
@@ -438,7 +418,6 @@ class SupabaseDatabaseService {
 
     final rating = row['avaliacao'];
     final monthlyFee = row['monthly_fee'];
-
     final rawStatus =
         (row['subscription_status'] ?? 'trial')
             .toString()
@@ -686,9 +665,7 @@ class SupabaseDatabaseService {
         },
       );
 
-      final createdReservation =
-          _mapFromRpcResult(rpcResult);
-
+      final createdReservation = _mapFromRpcResult(rpcResult);
       final reservationId =
           createdReservation?['id']?.toString();
 
@@ -1406,17 +1383,108 @@ class SupabaseDatabaseService {
   // ============================================================
 
   Future<void> submitReview(ReviewModel review) async {
-    _unsupported('Submissão de avaliações');
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception(
+        'Inicia sessão para submeter uma avaliação.',
+      );
+    }
+
+    if (review.reservationId.trim().isEmpty) {
+      throw ArgumentError(
+        'O identificador da reserva é obrigatório.',
+      );
+    }
+
+    if (!review.pharmacyRating.isFinite ||
+        review.pharmacyRating < 1 ||
+        review.pharmacyRating > 5 ||
+        !review.appRating.isFinite ||
+        review.appRating < 1 ||
+        review.appRating > 5) {
+      throw ArgumentError(
+        'As avaliações devem estar entre 1 e 5.',
+      );
+    }
+
+    try {
+      await _client.rpc(
+        'farclik_submeter_avaliacao',
+        params: {
+          'p_reservation_id': review.reservationId.trim(),
+          'p_pharmacy_rating': review.pharmacyRating,
+          'p_pharmacy_comment': review.pharmacyComment,
+          'p_app_rating': review.appRating,
+          'p_app_comment': review.appComment,
+        },
+      );
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'O Supabase não aceitou a avaliação: ${e.message}',
+      );
+    } catch (e) {
+      throw Exception(
+        'Não foi possível submeter a avaliação: $e',
+      );
+    }
   }
 
   Future<List<ReviewModel>> getReviewsForPharmacy(
     String pharmacyId,
   ) async {
-    _unsupported('Consulta de avaliações da farmácia');
+    if (pharmacyId.trim().isEmpty) {
+      throw ArgumentError(
+        'O identificador da farmácia é obrigatório.',
+      );
+    }
+
+    try {
+      final response = await _client
+          .from('avaliacoes')
+          .select()
+          .eq('pharmacy_id', pharmacyId.trim())
+          .order('created_at', ascending: false);
+
+      return List<Map<String, dynamic>>.from(response)
+          .map(ReviewModel.fromJson)
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível carregar as avaliações da farmácia: ${e.message}',
+      );
+    } catch (e) {
+      throw Exception(
+        'Falha ao consultar as avaliações da farmácia: $e',
+      );
+    }
   }
 
   Future<List<ReviewModel>> getAllReviews() async {
-    _unsupported('Consulta de todas as avaliações');
+    if (_client.auth.currentUser == null) {
+      throw Exception(
+        'Inicia sessão para consultar as avaliações.',
+      );
+    }
+
+    try {
+      final response = await _client
+          .from('avaliacoes')
+          .select()
+          .order('created_at', ascending: false);
+
+      return List<Map<String, dynamic>>.from(response)
+          .map(ReviewModel.fromJson)
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível carregar as avaliações: ${e.message}',
+      );
+    } catch (e) {
+      throw Exception(
+        'Falha ao consultar as avaliações: $e',
+      );
+    }
   }
 
   Future<void> moderateReview({
@@ -1424,13 +1492,59 @@ class SupabaseDatabaseService {
     required String status,
     String? note,
   }) async {
-    _unsupported('Moderação de avaliações');
+    if (_client.auth.currentUser == null) {
+      throw Exception(
+        'Inicia sessão com a conta de administrador.',
+      );
+    }
+
+    if (reviewId.trim().isEmpty) {
+      throw ArgumentError(
+        'O identificador da avaliação é obrigatório.',
+      );
+    }
+
+    if (status != 'approved' && status != 'rejected') {
+      throw ArgumentError(
+        'O estado de moderação deve ser approved ou rejected.',
+      );
+    }
+
+    try {
+      final result = await _client.rpc(
+        'farclik_moderar_avaliacao',
+        params: {
+          'p_review_id': reviewId.trim(),
+          'p_status': status,
+          'p_note': note?.trim().isEmpty == true ? null : note?.trim(),
+        },
+      );
+
+      if (result != true) {
+        throw Exception(
+          'O Supabase não confirmou a moderação da avaliação.',
+        );
+      }
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'Não foi possível moderar a avaliação: ${e.message}',
+      );
+    } catch (e) {
+      throw Exception(
+        'Falha ao moderar a avaliação: $e',
+      );
+    }
   }
 
   Future<void> _updatePharmacyAverageRating(
     String pharmacyId,
   ) async {
-    _unsupported('Actualização da avaliação média da farmácia');
+    // O recálculo é executado internamente pelas funções
+    // farclik_submeter_avaliacao e farclik_moderar_avaliacao.
+    // Não chamar directamente a função protegida no Flutter.
+    throw UnsupportedError(
+      'A média da farmácia é recalculada automaticamente pelo Supabase.',
+    );
   }
 
   // ============================================================
