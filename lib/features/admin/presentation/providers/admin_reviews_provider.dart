@@ -124,7 +124,6 @@ class AdminReviewsNotifier extends StateNotifier<AdminReviewsState> {
       final allReviews = results[0] as List<ReviewModel>;
       final pharmacies = results[1] as List<PharmacyModel>;
 
-      // Apenas avaliações aprovadas entram nas estatísticas públicas.
       final approvedReviews = allReviews
           .where((review) => review.status == 'approved')
           .toList();
@@ -224,19 +223,24 @@ class AdminReviewsNotifier extends StateNotifier<AdminReviewsState> {
     String status, {
     String? note,
   }) async {
+    if (status != 'approved' && status != 'rejected') {
+      throw ArgumentError('Estado de moderação inválido.');
+    }
+
     try {
       await _db.moderateReview(
         reviewId: reviewId,
         status: status,
         note: note,
       );
-
-      await loadReviewsData();
     } catch (e) {
       state = state.copyWith(
         error: 'Não foi possível moderar a avaliação: $e',
       );
+      rethrow;
     }
+
+    await loadReviewsData();
   }
 
   Future<void> markNotificationRead(String id) async {
