@@ -55,32 +55,28 @@ class AdminSubscriptionState {
   double get confirmedPaymentsValue =>
       _indicatorDouble('valor_pagamentos_confirmados_kwanza');
 
-  int get activeCount =>
-      _indicatorInt(
+  int get activeCount => _indicatorInt(
         'farmacias_activas',
         fallback: pharmacies
             .where((p) => p.subscriptionStatus == 'active')
             .length,
       );
 
-  int get trialCount =>
-      _indicatorInt(
+  int get trialCount => _indicatorInt(
         'farmacias_trial',
         fallback: pharmacies
             .where((p) => p.subscriptionStatus == 'trial')
             .length,
       );
 
-  int get expiredCount =>
-      _indicatorInt(
+  int get expiredCount => _indicatorInt(
         'farmacias_expiradas',
         fallback: pharmacies
             .where((p) => p.subscriptionStatus == 'expired')
             .length,
       );
 
-  int get blockedCount =>
-      _indicatorInt(
+  int get blockedCount => _indicatorInt(
         'farmacias_bloqueadas',
         fallback: pharmacies
             .where((p) => p.subscriptionStatus == 'blocked')
@@ -116,7 +112,21 @@ class AdminSubscriptionNotifier
     loadAdminData();
   }
 
+  /// Carrega os dados administrativos.
+  ///
+  /// Cada fonte é carregada independentemente.
+  /// Uma falha não impede a tentativa de carregar as restantes.
   Future<void> loadAdminData() async {
+    await _reloadAdminData();
+  }
+
+  /// Devolve true apenas quando todas as fontes foram actualizadas.
+  ///
+  /// Se uma operação anterior já tiver sido gravada, uma falha
+  /// nesta recarga não invalida o sucesso dessa operação.
+  Future<bool> _reloadAdminData({
+    String? completedOperation,
+  }) async {
     state = state.copyWith(
       isLoading: true,
       clearError: true,
@@ -138,7 +148,7 @@ class AdminSubscriptionNotifier
           'Não foi possível carregar as farmácias: $e';
     }
 
-    // 2. Carregar pagamentos.
+    // 2. Carregar pagamentos de subscrições.
     try {
       final payList = await _dbService.getAllPharmacyPayments();
 
@@ -147,13 +157,13 @@ class AdminSubscriptionNotifier
       );
     } on UnsupportedError catch (e) {
       paymentError =
-          'Os pagamentos ainda não estão implementados: $e';
+          'Os pagamentos de subscrições ainda não estão implementados: $e';
     } catch (e) {
       paymentError =
-          'Os pagamentos não estão disponíveis: $e';
+          'Os pagamentos de subscrições não estão disponíveis: $e';
     }
 
-    // 3. Carregar indicadores através da função SQL.
+    // 3. Carregar indicadores administrativos.
     try {
       final result = await _dbService.client.rpc(
         'farclik_obter_indicadores_admin',
@@ -179,19 +189,37 @@ class AdminSubscriptionNotifier
       if (indicatorError != null) indicatorError,
     ];
 
+    String? finalError;
+
+    if (errors.isNotEmpty) {
+      final details = errors.join('\n');
+
+      if (completedOperation != null) {
+        finalError =
+            '$completedOperation foi concluída, mas alguns dados '
+            'não puderam ser actualizados:\n$details';
+      } else {
+        finalError = details;
+      }
+    }
+
     state = state.copyWith(
       isLoading: false,
-      error: errors.isEmpty ? null : errors.join('\n'),
-      clearError: errors.isEmpty,
+      error: finalError,
+      clearError: finalError == null,
     );
+
+    return errors.isEmpty;
   }
 
-  /// Aprovação de pagamentos.
+  /// Aprovação de pagamentos de subscrições.
   Future<bool> approvePayment(
     String paymentId,
     String pharmacyId,
     int months,
   ) async {
+    state = state.copyWith(clearError: true);
+
     try {
       await _dbService.approvePharmacyPayment(
         paymentId: paymentId,
@@ -199,7 +227,12 @@ class AdminSubscriptionNotifier
         periodMonths: months,
       );
 
-      await loadAdminData();
+      await _reloadAdminData(
+        completedOperation: 'A aprovação do pagamento',
+      );
+
+      // A escrita foi concluída. Uma falha na recarga
+      // não transforma a operação numa falha.
       return true;
     } on UnsupportedError catch (e) {
       state = state.copyWith(
@@ -215,18 +248,23 @@ class AdminSubscriptionNotifier
     }
   }
 
-  /// Rejeição de pagamentos.
+  /// Rejeição de pagamentos de subscrições.
   Future<bool> rejectPayment(
     String paymentId,
     String? reason,
   ) async {
+    state = state.copyWith(clearError: true);
+
     try {
       await _dbService.rejectPharmacyPayment(
         paymentId,
         reason,
       );
 
-      await loadAdminData();
+      await _reloadAdminData(
+        completedOperation: 'A rejeição do pagamento',
+      );
+
       return true;
     } on UnsupportedError catch (e) {
       state = state.copyWith(
@@ -242,12 +280,14 @@ class AdminSubscriptionNotifier
     }
   }
 
-  /// Alteração do estado da subscrição.
+  /// Alteração do estado da subscrição de uma farmácia.
   Future<bool> setPharmacyStatus(
     String pharmacyId,
     String status, {
     DateTime? customDueDate,
   }) async {
+    state = state.copyWith(clearError: true);
+
     try {
       await _dbService.updatePharmacySubscription(
         pharmacyId: pharmacyId,
@@ -255,7 +295,10 @@ class AdminSubscriptionNotifier
         nextDueDate: customDueDate,
       );
 
-      await loadAdminData();
+      await _reloadAdminData(
+        completedOperation: 'A alteração da subscrição',
+      );
+
       return true;
     } on UnsupportedError catch (e) {
       state = state.copyWith(
