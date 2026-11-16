@@ -1,0 +1,40 @@
+
+name: Gerar Gradle Wrapper
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gerar-wrapper:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Preparar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Instalar Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Gerar ficheiro Wrapper
+        run: |
+          mkdir -p "$RUNNER_TEMP/wrapper-generator"
+          cd "$RUNNER_TEMP/wrapper-generator"
+          touch settings.gradle
+          touch build.gradle
+          gradle :wrapper --gradle-version 9.3.1 --distribution-type all
+          mkdir -p "$GITHUB_WORKSPACE/output"
+          cp gradle/wrapper/gradle-wrapper.jar "$GITHUB_WORKSPACE/output/"
+
+      - name: Disponibilizar ficheiro gerado
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-wrapper-9.3.1
+          path: output/gradle-wrapper.jar
