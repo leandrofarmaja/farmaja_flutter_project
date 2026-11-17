@@ -486,7 +486,7 @@ class _AddEditMedicineDialogState
                       style: TextStyle(fontSize: 12),
                     ),
                     value: _requiresPrescription,
-                    activeColor: AppColors.primary,
+                    activeThumbColor: AppColors.primary,
                     onChanged: _isSaving
                         ? null
                         : (value) {
