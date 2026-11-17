@@ -183,7 +183,7 @@ class _SubscriptionPaymentDialogState
 
                   // Método de pagamento
                   DropdownButtonFormField<String>(
-                    value: _paymentMethod,
+                    initialValue: _paymentMethod,
                     decoration: const InputDecoration(
                       labelText: 'Método de Pagamento',
                       prefixIcon:
