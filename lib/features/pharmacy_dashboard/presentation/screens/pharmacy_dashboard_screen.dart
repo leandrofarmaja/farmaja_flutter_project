@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../medicines/domain/medicine_model.dart';
+import '../../../reservations/domain/reservation_model.dart';
 import '../providers/pharmacy_dashboard_provider.dart';
 import 'pharmacy_profile_screen.dart';
 import '../widgets/add_edit_medicine_dialog.dart';
@@ -745,7 +746,75 @@ class _PharmacyDashboardScreenState
     return _getReservationStatusLabel(status) == 'Levantada';
   }
 
+  DateTime? _getFinalPaymentConfirmationDate(
+    ReservationModel reservation,
+  ) {
+    final clientConfirmation =
+        reservation.clienteConfirmouPagamentoEm;
+    final pharmacyConfirmation =
+        reservation.farmaciaConfirmouPagamentoEm;
+
+    // A confirmação final exige a confirmação das duas partes.
+    if (clientConfirmation == null || pharmacyConfirmation == null) {
+      return null;
+    }
+
+    final clientLocal = clientConfirmation.toLocal();
+    final pharmacyLocal = pharmacyConfirmation.toLocal();
+
+    return clientLocal.isAfter(pharmacyLocal)
+        ? clientLocal
+        : pharmacyLocal;
+  }
+
+  DateTime _getStatsPeriodStart(DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+
+    switch (_selectedStatsPeriod) {
+      case 'Semana':
+        return today.subtract(Duration(days: today.weekday - 1));
+      case 'Mês':
+        return DateTime(now.year, now.month, 1);
+      case 'Dia':
+      default:
+        return today;
+    }
+  }
+
+  DateTime _getStatsPeriodEnd(DateTime start) {
+    switch (_selectedStatsPeriod) {
+      case 'Semana':
+        return start.add(const Duration(days: 7));
+      case 'Mês':
+        return DateTime(start.year, start.month + 1, 1);
+      case 'Dia':
+      default:
+        return start.add(const Duration(days: 1));
+    }
+  }
+
   Widget _buildStatsTab(PharmacyDashboardState state) {
+    final now = DateTime.now();
+    final periodStart = _getStatsPeriodStart(now);
+    final periodEnd = _getStatsPeriodEnd(periodStart); 
+        final completedReservationsInPeriod =
+        state.reservations.where((reservation) {
+      if (!_isCompleted(reservation.status)) return false;
+
+      final paymentConfirmedAt =
+          _getFinalPaymentConfirmationDate(reservation);
+
+      if (paymentConfirmedAt == null) return false;
+
+      return !paymentConfirmedAt.isBefore(periodStart) &&
+          paymentConfirmedAt.isBefore(periodEnd);
+    }).toList();
+
+    final revenueInPeriod = completedReservationsInPeriod.fold<double>(
+      0,
+      (total, reservation) => total + reservation.totalPriceKz,
+    );
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -781,15 +850,15 @@ class _PharmacyDashboardScreenState
             physics: const NeverScrollableScrollPhysics(),
             children: [
               _buildStatCard(
-                title: 'Faturação carregada',
-                value: '${state.totalRevenue.toInt()} Kz',
+                title: 'Faturação confirmada',
+                value: '${revenueInPeriod.toInt()} Kz',
                 icon: Icons.payments_rounded,
                 color: Colors.green.shade700,
                 bgColor: Colors.green.shade50,
               ),
               _buildStatCard(
                 title: 'Reservas concluídas',
-                value: '${state.completedReservationsCount}',
+                value: '${completedReservationsInPeriod.length}',
                 icon: Icons.check_circle_rounded,
                 color: Colors.blue.shade700,
                 bgColor: Colors.blue.shade50,
@@ -800,13 +869,6 @@ class _PharmacyDashboardScreenState
                 icon: Icons.inventory_2_rounded,
                 color: Colors.amber.shade800,
                 bgColor: Colors.amber.shade50,
-              ),
-              _buildStatCard(
-                title: 'Receitas pendentes',
-                value: '${state.pendingPrescriptionsCount}',
-                icon: Icons.assignment_late_rounded,
-                color: Colors.purple.shade700,
-                bgColor: Colors.purple.shade50,
               ),
             ],
           ),
