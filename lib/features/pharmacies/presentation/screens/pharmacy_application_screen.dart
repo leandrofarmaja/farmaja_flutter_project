@@ -489,11 +489,14 @@ class _PharmacyApplicationScreenState
                       ),
                     ],
                   ),
-                  RichAttributionWidget(
-                    attributions: [
+                  const RichAttributionWidget(
+                  attributions: [
                       TextSourceAttribution('OpenStreetMap contributors'),
-                    ],
-                  ),
+                        ],
+                       ),
+                    
+                      
+                  
                 ],
               ),
             ),
