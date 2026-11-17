@@ -1731,7 +1731,7 @@ try {
 }
 
 }
-
+// ignore: unused_element
 Future<void> _updatePharmacyAverageRating(
 String pharmacyId,
 ) async {
