@@ -97,7 +97,7 @@ class WelcomeScreen extends StatelessWidget {
               const SizedBox(height: 12),
 
               Center(
-                child: Text(
+                child: const Text(
                   'É necessária uma conta real Supabase para aceder à aplicação.',
                   style: TextStyle(
                     color: AppColors.textSecondaryLight,
