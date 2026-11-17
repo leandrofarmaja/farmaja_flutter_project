@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/services/supabase_auth_service.dart';
 import '../providers/auth_provider.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
