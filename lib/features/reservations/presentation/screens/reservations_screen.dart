@@ -277,7 +277,7 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
         margin: const EdgeInsets.only(top: 16),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.08),
+          color: Colors.red.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: Colors.red.withOpacity(0.25),
