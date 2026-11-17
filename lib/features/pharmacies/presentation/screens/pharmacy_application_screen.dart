@@ -303,7 +303,7 @@ class _PharmacyApplicationScreenState
       final licenseExtension = license.extension!.toLowerCase();
 
       licensePath =
-          '${user.id}/licenca_${timestamp}.$licenseExtension';
+        '${user.id}/licenca_$timestamp.$licenseExtension';
 
       await _supabase.storage
           .from('pharmacy-licenses')
