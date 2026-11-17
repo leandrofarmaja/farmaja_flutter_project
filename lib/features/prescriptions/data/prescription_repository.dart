@@ -8,6 +8,7 @@ class PrescriptionRepository {
 
   final SupabaseClient _client;
 
+  // ignore: unused_field
   static const String _bucket = 'receitas-medicas';
 
   /// O envio de receitas está temporariamente indisponível.
