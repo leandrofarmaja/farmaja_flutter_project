@@ -32,19 +32,11 @@ class ProfileScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.account_circle_outlined,
-                  size: 76,
-                  color: _muted,
-                ),
+                const Icon(Icons.account_circle_outlined, size: 76, color: _muted),
                 const SizedBox(height: 16),
                 const Text(
                   'Sessão não iniciada',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: _text,
-                  ),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: _text),
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -107,11 +99,7 @@ class ProfileScreen extends ConsumerWidget {
         elevation: 0,
         title: const Text(
           'O meu perfil',
-          style: TextStyle(
-            color: _text,
-            fontWeight: FontWeight.w700,
-            fontSize: 21,
-          ),
+          style: TextStyle(color: _text, fontWeight: FontWeight.w700, fontSize: 21),
         ),
       ),
       body: SingleChildScrollView(
@@ -119,12 +107,8 @@ class ProfileScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Identificação do utilizador
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 26,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 26),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
@@ -137,42 +121,25 @@ class ProfileScreen extends ConsumerWidget {
                     backgroundColor: roleBackground,
                     child: Text(
                       initials.isEmpty ? 'F' : initials,
-                      style: TextStyle(
-                        color: roleColor,
-                        fontSize: 25,
-                        fontWeight: FontWeight.w800,
-                      ),
+                      style: TextStyle(color: roleColor, fontSize: 25, fontWeight: FontWeight.w800),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     fullName,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: _text,
-                    ),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _text),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     user.email,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: _muted,
-                    ),
+                    style: const TextStyle(fontSize: 14, color: _muted),
                   ),
                   const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 9,
-                    ),
-                    decoration: BoxDecoration(
-                      color: roleBackground,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                    decoration: BoxDecoration(color: roleBackground, borderRadius: BorderRadius.circular(30)),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -189,11 +156,7 @@ class ProfileScreen extends ConsumerWidget {
                         Flexible(
                           child: Text(
                             roleLabel,
-                            style: TextStyle(
-                              color: roleColor,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: TextStyle(color: roleColor, fontSize: 13, fontWeight: FontWeight.w700),
                           ),
                         ),
                       ],
@@ -202,19 +165,12 @@ class ProfileScreen extends ConsumerWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
-
             const Text(
               'Os meus dados',
-              style: TextStyle(
-                color: _text,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(color: _text, fontSize: 17, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
-
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -223,18 +179,12 @@ class ProfileScreen extends ConsumerWidget {
               ),
               child: Column(
                 children: [
-                  _ProfileInfoTile(
-                    icon: Icons.email_outlined,
-                    title: 'E-mail',
-                    value: user.email,
-                  ),
+                  _ProfileInfoTile(icon: Icons.email_outlined, title: 'E-mail', value: user.email),
                   const Divider(height: 1, indent: 60),
                   _ProfileInfoTile(
                     icon: Icons.phone_outlined,
                     title: 'Telefone',
-                    value: user.phone.trim().isNotEmpty
-                        ? user.phone
-                        : 'Não indicado',
+                    value: user.phone.trim().isNotEmpty ? user.phone : 'Não indicado',
                   ),
                   const Divider(height: 1, indent: 60),
                   _ProfileInfoTile(
@@ -260,8 +210,7 @@ class ProfileScreen extends ConsumerWidget {
                       value: user.insuranceProvider!,
                     ),
                   ],
-                  if (isPharmacy &&
-                      (user.pharmacyName?.trim().isNotEmpty ?? false)) ...[
+                  if (isPharmacy && (user.pharmacyName?.trim().isNotEmpty ?? false)) ...[
                     const Divider(height: 1, indent: 60),
                     _ProfileInfoTile(
                       icon: Icons.storefront_outlined,
@@ -272,56 +221,42 @@ class ProfileScreen extends ConsumerWidget {
                 ],
               ),
             ),
-
-            // Acesso exclusivo da farmácia
             if (isPharmacy) ...[
               const SizedBox(height: 24),
               _AccessCard(
                 icon: Icons.storefront_rounded,
                 title: 'Painel da minha farmácia',
-                description:
-                    'Gerir medicamentos, preços, stock e reservas autorizadas.',
+                description: 'Gerir medicamentos, preços, stock e reservas autorizadas.',
                 color: const Color(0xFF0F766E),
                 background: const Color(0xFFE6F5F2),
                 onTap: () => context.push('/pharmacy-dashboard'),
               ),
             ],
-
-            // Acesso exclusivo do administrador
             if (isAdmin) ...[
               const SizedBox(height: 24),
               _AccessCard(
                 icon: Icons.admin_panel_settings_rounded,
                 title: 'Gestão de subscrições',
-                description:
-                    'Aceder às ferramentas administrativas autorizadas.',
+                description: 'Aceder às ferramentas administrativas autorizadas.',
                 color: const Color(0xFF1D4ED8),
                 background: const Color(0xFFEFF6FF),
                 onTap: () => context.push('/admin/subscriptions'),
               ),
             ],
-
             const SizedBox(height: 28),
-
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFFDC2626),
                 side: const BorderSide(color: Color(0xFFF2CACA)),
                 backgroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
               icon: const Icon(Icons.logout_rounded),
-              label: const Text(
-                'Terminar sessão',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
+              label: const Text('Terminar sessão', style: TextStyle(fontWeight: FontWeight.w700)),
               onPressed: () async {
                 try {
                   await ref.read(authProvider.notifier).logout();
-
                   if (context.mounted) {
                     context.go('/login');
                   }
@@ -329,9 +264,7 @@ class ProfileScreen extends ConsumerWidget {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text(
-                          'Não foi possível terminar a sessão. Tente novamente.',
-                        ),
+                        content: Text('Não foi possível terminar a sessão. Tente novamente.'),
                       ),
                     );
                   }
@@ -342,11 +275,7 @@ class ProfileScreen extends ConsumerWidget {
             const Center(
               child: Text(
                 'FARCLIK • A sua saúde a um clik',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _muted,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: 12, color: _muted, fontWeight: FontWeight.w500),
               ),
             ),
           ],
@@ -370,39 +299,19 @@ class _ProfileInfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 5,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       leading: Container(
         width: 40,
         height: 40,
-        decoration: BoxDecoration(
-          color: const Color(0xFFE8F7ED),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(
-          icon,
-          color: const Color(0xFF15803D),
-          size: 21,
-        ),
+        decoration: BoxDecoration(color: const Color(0xFFE8F7ED), borderRadius: BorderRadius.circular(12)),
+        child: Icon(icon, color: const Color(0xFF15803D), size: 21),
       ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 13,
-          color: Color(0xFF748091),
-        ),
-      ),
+      title: Text(title, style: const TextStyle(fontSize: 13, color: Color(0xFF748091))),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 3),
         child: Text(
           value,
-          style: const TextStyle(
-            fontSize: 15,
-            color: Color(0xFF17212B),
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(fontSize: 15, color: Color(0xFF17212B), fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -444,22 +353,11 @@ class _AccessCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: color,
-                      ),
-                    ),
+                    Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
                     const SizedBox(height: 5),
                     Text(
                       description,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        color: Color(0xFF465467),
-                      ),
+                      style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF465467)),
                     ),
                   ],
                 ),
