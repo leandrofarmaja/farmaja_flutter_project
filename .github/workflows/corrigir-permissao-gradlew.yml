@@ -18,13 +18,10 @@ jobs:
           ref: master
 
       - name: Corrigir permissao de execucao
-        run: |
-          chmod +x android/gradlew
+        run: chmod +x android/gradlew
 
       - name: Confirmar permissao
-        run: |
-          git diff --summary
-          git diff --exit-code -- android/gradlew
+        run: git diff --summary
 
       - name: Criar commit
         run: |
