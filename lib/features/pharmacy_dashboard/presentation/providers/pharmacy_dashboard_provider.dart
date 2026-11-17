@@ -273,7 +273,7 @@ class PharmacyDashboardNotifier
       _reservationChannel = channel;
       _subscribedReservationsPharmacyId = pharmacyId;
 
-      await channel.subscribe();
+      channel.subscribe();
     } catch (e) {
       if (!mounted) return;
 
