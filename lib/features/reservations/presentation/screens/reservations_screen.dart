@@ -1,4 +1,6 @@
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -115,7 +117,7 @@ class _EmptyReservations extends StatelessWidget {
   }
 }
 
-class _ReservationCard extends ConsumerWidget {
+class _ReservationCard extends ConsumerStatefulWidget {
   final ReservationModel reservation;
   final VoidCallback onRating;
 
@@ -123,6 +125,17 @@ class _ReservationCard extends ConsumerWidget {
     required this.reservation,
     required this.onRating,
   });
+
+  @override
+  ConsumerState<_ReservationCard> createState() =>
+      _ReservationCardState();
+}
+
+class _ReservationCardState extends ConsumerState<_ReservationCard> {
+  Timer? _timer;
+  DateTime _now = DateTime.now();
+
+  ReservationModel get reservation => widget.reservation;
 
   String get _normalizedStatus =>
       reservation.status.trim().toLowerCase();
@@ -150,33 +163,204 @@ class _ReservationCard extends ConsumerWidget {
   bool get _canRate =>
       _isCompleted && !reservation.isReviewed;
 
+  DateTime? get _expiryDate {
+    final value = DateTime.tryParse(reservation.expiryDate);
+    return value?.toLocal();
+  }
+
+  Duration? get _remainingTime {
+    final expiry = _expiryDate;
+    if (expiry == null) return null;
+
+    final difference = expiry.difference(_now);
+    return difference.isNegative ? Duration.zero : difference;
+  }
+
+  bool get _deadlineReached {
+    final remaining = _remainingTime;
+    return remaining != null && remaining == Duration.zero;
+  }
+
+  bool get _hasValidExpiry => _expiryDate != null;
+
   bool get _canShowQr =>
       reservation.pickupCode.isNotEmpty &&
       !_isExpired &&
-      !_isCompleted;
+      !_isCompleted &&
+      !_deadlineReached;
+
+  bool get _canConfirmPurchase =>
+      _isAwaitingPayment &&
+      _qrWasValidated &&
+      !_isExpired &&
+      !_deadlineReached;
 
   Color get _statusColor {
     if (_isCompleted || _isPaid) return Colors.green;
-    if (_isExpired) return Colors.red;
+    if (_isExpired || _deadlineReached) return Colors.red;
     if (_isAwaitingPayment) return Colors.orange;
     return Colors.blue;
   }
 
   String get _statusText {
     if (_isCompleted) return 'Levantada';
-    if (_isExpired) return 'Expirada';
+    if (_isExpired || _deadlineReached) return 'Expirada';
     if (_isPaid) return 'Pago';
     if (_isAwaitingPayment) return 'Aguardando confirmação';
     return reservation.status;
   }
 
-  Future<void> _confirmPurchase(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    if (!_isAwaitingPayment || !_qrWasValidated || _isExpired) {
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ReservationCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.reservation.expiryDate !=
+        widget.reservation.expiryDate) {
+      _now = DateTime.now();
+      _startCountdown();
+    }
+  }
+
+  void _startCountdown() {
+    _timer?.cancel();
+
+    if (_expiryDate == null || _isExpired || _isCompleted) {
       return;
     }
+
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) {
+        if (!mounted) return;
+
+        setState(() {
+          _now = DateTime.now();
+        });
+
+        if (_deadlineReached) {
+          _timer?.cancel();
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+
+    return '${hours.toString().padLeft(2, '0')}:'
+        '${minutes.toString().padLeft(2, '0')}:'
+        '${seconds.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildCountdown() {
+    if (!_hasValidExpiry || _isExpired || _isCompleted) {
+      return const SizedBox.shrink();
+    }
+
+    if (_deadlineReached) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 16),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.red.withOpacity(0.25),
+          ),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.timer_off_outlined, color: Colors.red),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'O prazo desta reserva terminou. '
+                'O código QR já não pode ser utilizado.',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final remaining = _remainingTime;
+    if (remaining == null) return const SizedBox.shrink();
+
+    final isUrgent = remaining.inMinutes < 15;
+
+    final color = isUrgent ? Colors.red : Colors.orange;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.timer_outlined, color: color, size: 25),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isUrgent
+                      ? 'A reserva está quase a expirar'
+                      : 'Tempo restante da reserva',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _formatDuration(remaining),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    fontFeatures: const [
+                      FontFeature.tabularFigures(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmPurchase() async {
+    if (!_canConfirmPurchase) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -206,7 +390,7 @@ class _ReservationCard extends ConsumerWidget {
       },
     );
 
-    if (confirmed != true || !context.mounted) return;
+    if (confirmed != true || !mounted) return;
 
     try {
       await ref
@@ -219,7 +403,7 @@ class _ReservationCard extends ConsumerWidget {
           .read(reservationsProvider.notifier)
           .fetchReservations();
 
-      if (!context.mounted) return;
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -228,7 +412,7 @@ class _ReservationCard extends ConsumerWidget {
         ),
       );
     } catch (e) {
-      if (!context.mounted) return;
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -312,11 +496,8 @@ class _ReservationCard extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final canConfirmPurchase =
-        _isAwaitingPayment &&
-        _qrWasValidated &&
-        !_isExpired;
+  Widget build(BuildContext context) {
+    final canConfirmPurchase = _canConfirmPurchase;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -367,6 +548,8 @@ class _ReservationCard extends ConsumerWidget {
 
             _buildMedicineDetails(),
 
+            _buildCountdown(),
+
             if (_canShowQr) ...[
               const SizedBox(height: 20),
               Center(
@@ -376,7 +559,8 @@ class _ReservationCard extends ConsumerWidget {
               ),
             ],
 
-            if (_isAwaitingPayment && !_qrWasValidated) ...[
+            if (_isAwaitingPayment && !_qrWasValidated &&
+                !_deadlineReached && !_isExpired) ...[
               const SizedBox(height: 12),
               const Text(
                 'A confirmação da compra ficará disponível após '
@@ -394,9 +578,7 @@ class _ReservationCard extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () {
-                    _confirmPurchase(context, ref);
-                  },
+                  onPressed: _confirmPurchase,
                   icon: const Icon(Icons.shopping_bag_outlined),
                   label: const Text('Confirmar compra'),
                   style: FilledButton.styleFrom(
@@ -458,7 +640,7 @@ class _ReservationCard extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: onRating,
+                  onPressed: widget.onRating,
                   icon: const Icon(Icons.star_rate_rounded),
                   label: const Text('Avaliar experiência'),
                 ),
