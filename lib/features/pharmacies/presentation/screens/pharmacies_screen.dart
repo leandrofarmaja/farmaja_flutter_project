@@ -412,11 +412,15 @@ class PharmaciesScreen extends ConsumerWidget {
                                       label: pharm.openingHours,
                                     ),
                                   if (pharm.isOpen24h)
-                                    _InfoBadge(
+                                    const _InfoBadge(
                                       icon: Icons.check_circle_outline,
                                       label: '24 horas',
                                       green: true,
                                     ),
+                                      
+                                      
+                                      
+                                    
                                 ],
                               ),
                             ],
