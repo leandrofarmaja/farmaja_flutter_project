@@ -351,7 +351,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       borderRadius: BorderRadius.circular(26),
                       boxShadow: [
                         BoxShadow(
-                          color: _green.withOpacity(0.09),
+                          color: _green.withValues(alpha: 0.09),
                           blurRadius: 24,
                           offset: const Offset(0, 8),
                         ),
