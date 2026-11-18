@@ -269,7 +269,7 @@ class MainNavigationShell extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.035),
+              color: Colors.black.withValues(alpha: 0.035),
               blurRadius: 18,
               offset: const Offset(0, -5),
             ),
