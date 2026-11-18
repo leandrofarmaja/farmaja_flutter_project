@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -683,9 +682,11 @@ class _AdminSubscriptionsScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.22)),  boxShadow: [
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+        boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.035),
+            blurRadius: 8,
             offset: const Offset(0, 3),
           ),
         ],
@@ -696,7 +697,8 @@ class _AdminSubscriptionsScreenState
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-             color: color.withValues(alpha: 0.12), 
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(11),
             ),
             child: Icon(icon, color: color, size: 21),
           ),
@@ -881,8 +883,8 @@ class _AdminSubscriptionsScreenState
                 leading: CircleAvatar(
                   backgroundColor: _getStatusColor(
                     pharm.subscriptionStatus,
-                   .withValues(alpha: 0.15)
-                  withValues(alpha: 0.15),
+                  ).withValues(alpha: 0.15),
+                  child: Icon(
                     _getStatusIcon(pharm.subscriptionStatus),
                     color: _getStatusColor(pharm.subscriptionStatus),
                   ),
@@ -939,7 +941,7 @@ class _AdminSubscriptionsScreenState
                         color: _getStatusColor(
                           pharm.subscriptionStatus,
                         ).withValues(alpha: 0.15),
-                        .withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         _getStatusLabel(pharm.subscriptionStatus),
@@ -1080,7 +1082,7 @@ class _AdminSubscriptionsScreenState
         ),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.12),
-           color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
