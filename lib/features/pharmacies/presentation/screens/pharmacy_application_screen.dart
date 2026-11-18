@@ -319,8 +319,8 @@ class _PharmacyApplicationScreenState
       final photo = _pharmacyPhotoFile!;
       final photoExtension = photo.extension!.toLowerCase();
 
-      photoPath =
-          '${user.id}/farmacia_${timestamp}.$photoExtension';
+                photoPath =
+          '${user.id}/farmacia_$timestamp.$photoExtension';
 
       await _supabase.storage
           .from('pharmacy-photos')
