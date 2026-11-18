@@ -685,7 +685,6 @@ class _AdminSubscriptionsScreenState
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withValues(alpha: 0.22)),  boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.035),
             color: Colors.black.withValues(alpha: 0.035),
             offset: const Offset(0, 3),
           ),
@@ -697,7 +696,6 @@ class _AdminSubscriptionsScreenState
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
              color: color.withValues(alpha: 0.12), 
             ),
             child: Icon(icon, color: color, size: 21),
@@ -883,7 +881,7 @@ class _AdminSubscriptionsScreenState
                 leading: CircleAvatar(
                   backgroundColor: _getStatusColor(
                     pharm.subscriptionStatus,
-                  ).withOpacity(0.15),
+                   .withValues(alpha: 0.15)
                   withValues(alpha: 0.15),
                     _getStatusIcon(pharm.subscriptionStatus),
                     color: _getStatusColor(pharm.subscriptionStatus),
