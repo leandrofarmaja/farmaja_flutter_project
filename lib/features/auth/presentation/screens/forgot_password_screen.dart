@@ -147,7 +147,7 @@ class _ForgotPasswordScreenState
                   padding: const EdgeInsets.all(16),
                   margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryLight.withOpacity(0.15),
+                    color: AppColors.primaryLight.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: AppColors.primary,
