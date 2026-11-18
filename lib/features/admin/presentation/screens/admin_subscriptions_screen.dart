@@ -163,7 +163,7 @@ class _AdminSubscriptionsScreenState
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     DropdownButtonFormField<int>(
-                      value: extendMonths,
+                                            initialValue: extendMonths,
                       items: const [
                         DropdownMenuItem(
                           value: 1,
