@@ -242,7 +242,7 @@ class _AdminSubscriptionsScreenState
                                   customDueDate: newDueDate,
                                 );
 
-                            if (!mounted) return;
+                                                        if (!mounted || !dialogContext.mounted) return;
 
                             final currentState =
                                 ref.read(adminSubscriptionProvider);
