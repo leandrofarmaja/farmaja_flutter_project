@@ -150,8 +150,9 @@ try {
 
   if (uri == null) return;  
 
-  final marker =  
-      '/storage/v1/object/public/$_medicineImagesBucket/';  
+    const marker =
+      '/storage/v1/object/public/$_medicineImagesBucket/';
+     
 
   final pathIndex = uri.path.indexOf(marker);  
 
