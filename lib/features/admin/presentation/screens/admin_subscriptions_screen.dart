@@ -126,7 +126,7 @@ class _AdminSubscriptionsScreenState
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: selectedStatus,
+                                        initialValue: selectedStatus,
                     items: const [
                       DropdownMenuItem(
                         value: 'trial',
