@@ -683,11 +683,10 @@ class _AdminSubscriptionsScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.22)),
-        boxShadow: [
+        border: Border.all(color: color.withValues(alpha: 0.22)),  boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.035),
-            blurRadius: 8,
+            color: Colors.black.withValues(alpha: 0.035),
             offset: const Offset(0, 3),
           ),
         ],
@@ -699,7 +698,7 @@ class _AdminSubscriptionsScreenState
             height: 38,
             decoration: BoxDecoration(
               color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(11),
+             color: color.withValues(alpha: 0.12), 
             ),
             child: Icon(icon, color: color, size: 21),
           ),
@@ -885,7 +884,7 @@ class _AdminSubscriptionsScreenState
                   backgroundColor: _getStatusColor(
                     pharm.subscriptionStatus,
                   ).withOpacity(0.15),
-                  child: Icon(
+                  withValues(alpha: 0.15),
                     _getStatusIcon(pharm.subscriptionStatus),
                     color: _getStatusColor(pharm.subscriptionStatus),
                   ),
@@ -942,7 +941,7 @@ class _AdminSubscriptionsScreenState
                         color: _getStatusColor(
                           pharm.subscriptionStatus,
                         ).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(8),
+                        .withValues(alpha: 0.15),
                       ),
                       child: Text(
                         _getStatusLabel(pharm.subscriptionStatus),
@@ -1083,8 +1082,8 @@ class _AdminSubscriptionsScreenState
         ),
         decoration: BoxDecoration(
           color: color.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.3)),
+           color: color.withValues(alpha: 0.12),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           children: [
@@ -1103,7 +1102,7 @@ class _AdminSubscriptionsScreenState
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.bold,
-                color: color.withOpacity(0.8),
+                color: color.withValues(alpha: 0.8),
               ),
             ),
           ],
