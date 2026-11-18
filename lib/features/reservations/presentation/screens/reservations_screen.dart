@@ -315,11 +315,10 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
+      color: color.withValues(alpha: 0.08),        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: color.withOpacity(0.25),
-        ),
+          color: color.withValues(alpha: 0.25),
+       )
       ),
       child: Row(
         children: [
@@ -529,8 +528,7 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: _statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
+                      color: _statusColor.withValues(alpha: 0.1),                  borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     _statusText,
@@ -653,8 +651,7 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(10),
+                    color: Colors.green.withValues(alpha: 0.08),                borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Row(
                   children: [
