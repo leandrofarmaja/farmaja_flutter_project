@@ -1,1135 +1,333 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../pharmacies/domain/pharmacy_model.dart';
-import '../../../pharmacies/domain/pharmacy_payment_model.dart';
-import '../providers/admin_subscription_provider.dart';
 import '../providers/admin_reviews_provider.dart';
-import '../widgets/admin_reviews_moderation_tab.dart';
-import '../widgets/admin_reviews_analytics_tab.dart';
 
-class AdminSubscriptionsScreen extends ConsumerStatefulWidget {
-  const AdminSubscriptionsScreen({super.key});
+class AdminReviewsAnalyticsTab extends ConsumerWidget {
+  const AdminReviewsAnalyticsTab({super.key});
 
-  @override
-  ConsumerState<AdminSubscriptionsScreen> createState() =>
-      _AdminSubscriptionsScreenState();
-}
+  Widget _buildStarBar(int star, int count, int total) {
+    final pct = total > 0 ? count / total : 0.0;
 
-class _AdminSubscriptionsScreenState
-    extends ConsumerState<AdminSubscriptionsScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  String _selectedFilter = 'Todos';
-  String _searchQuery = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  void _showMessage(String message, {bool isError = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red.shade700 : null,
-      ),
-    );
-  }
-
-  String _operationMessage(String operation, String? error) {
-    if (error != null && error.trim().isNotEmpty) {
-      return '$operation. Atenção: alguns dados não foram actualizados. '
-          'Actualize o painel para confirmar.';
-    }
-    return operation;
-  }
-
-  // ============================================================
-  // TERMINAR SESSÃO
-  // ============================================================
-
-  Future<void> _logout() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Terminar sessão'),
-        content: const Text(
-          'Queres sair do painel de administração do FARCLIK?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Sair'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true || !mounted) return;
-    try {
-      await ref.read(authProvider.notifier).logout();
-      if (!mounted) return;
-      context.go('/login');
-    } catch (e) {
-      _showMessage(
-        'Não foi possível terminar a sessão: $e',
-        isError: true,
-      );
-    }
-  }
-
-  // ============================================================
-  // GERIR SUBSCRIÇÃO
-  // ============================================================
-
-  void _showChangeStatusDialog(PharmacyModel pharm) {
-    String selectedStatus = pharm.subscriptionStatus;
-    int extendMonths = 1;
-    bool isSaving = false;
-    String? dialogError;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return AlertDialog(
-              title: Text('Gerir Subscrição: ${pharm.name}'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Estado da Subscrição:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: selectedStatus,
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'trial',
-                        child: Text('Trial Gratuito (3 Meses)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'active',
-                        child: Text('Ativo (Mensalidade Paga)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'expired',
-                        child: Text('Expirado (Aguarda Pagamento)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'blocked',
-                        child: Text('Bloqueado (Acesso Suspenso)'),
-                      ),
-                    ],
-                    onChanged: isSaving
-                        ? null
-                        : (val) {
-                            if (val != null) {
-                              setModalState(() {
-                                selectedStatus = val;
-                                dialogError = null;
-                              });
-                            }
-                          },
-                  ),
-                  const SizedBox(height: 12),
-                  if (selectedStatus == 'active') ...[
-                    const Text(
-                      'Período de Renovação:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    DropdownButtonFormField<int>(
-                      value: extendMonths,
-                      items: const [
-                        DropdownMenuItem(
-                          value: 1,
-                          child: Text('1 Mês (15.000 Kz)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 3,
-                          child: Text('3 Meses (45.000 Kz)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 6,
-                          child: Text('6 Meses (90.000 Kz)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 12,
-                          child: Text('12 Meses (180.000 Kz)'),
-                        ),
-                      ],
-                      onChanged: isSaving
-                          ? null
-                          : (val) {
-                              if (val != null) {
-                                setModalState(() {
-                                  extendMonths = val;
-                                });
-                              }
-                            },
-                    ),
-                  ],
-                  if (dialogError != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      dialogError!,
-                      style: const TextStyle(
-                        color: Colors.red,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isSaving
-                      ? null
-                      : () => Navigator.pop(dialogContext),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(
-                  onPressed: isSaving
-                      ? null
-                      : () async {
-                          setModalState(() {
-                            isSaving = true;
-                            dialogError = null;
-                          });
-                          DateTime? newDueDate;
-                          if (selectedStatus == 'active') {
-                            newDueDate = DateTime.now().add(
-                              Duration(days: 30 * extendMonths),
-                            );
-                          } else if (selectedStatus == 'trial') {
-                            newDueDate = DateTime.now().add(
-                              const Duration(days: 90),
-                            );
-                          }
-                          try {
-                            final success = await ref
-                                .read(adminSubscriptionProvider.notifier)
-                                .setPharmacyStatus(
-                                  pharm.id,
-                                  selectedStatus,
-                                  customDueDate: newDueDate,
-                                );
-                            if (!mounted) return;
-                            final currentState =
-                                ref.read(adminSubscriptionProvider);
-                            if (!success) {
-                              setModalState(() {
-                                isSaving = false;
-                                dialogError = currentState.error ??
-                                    'Não foi possível actualizar a subscrição.';
-                              });
-                              return;
-                            }
-                            Navigator.pop(dialogContext);
-                            _showMessage(
-                              _operationMessage(
-                                'Subscrição de ${pharm.name} actualizada.',
-                                currentState.error,
-                              ),
-                            );
-                          } catch (e) {
-                            setModalState(() {
-                              isSaving = false;
-                              dialogError = 'Erro ao guardar: $e';
-                            });
-                          }
-                        },
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Guardar Alterações'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // VALIDAR COMPROVATIVO
-  // ============================================================
-
-  void _showProofDialog(PharmacyPaymentModel pay) {
-    int extendMonths = pay.periodMonths;
-    bool isProcessing = false;
-    String? dialogError;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            Future<void> processPayment({required bool approve}) async {
-              if (isProcessing) return;
-              setModalState(() {
-                isProcessing = true;
-                dialogError = null;
-              });
-              try {
-                final notifier =
-                    ref.read(adminSubscriptionProvider.notifier);
-                final success = approve
-                    ? await notifier.approvePayment(
-                        pay.id,
-                        pay.pharmacyId,
-                        extendMonths,
-                      )
-                    : await notifier.rejectPayment(
-                        pay.id,
-                        'Comprovativo inválido ou valor incorreto',
-                      );
-                if (!mounted) return;
-                final currentState =
-                    ref.read(adminSubscriptionProvider);
-                if (!success) {
-                  setModalState(() {
-                    isProcessing = false;
-                    dialogError = currentState.error ??
-                        'Não foi possível processar o pagamento.';
-                  });
-                  return;
-                }
-                Navigator.pop(dialogContext);
-                _showMessage(
-                  _operationMessage(
-                    approve
-                        ? 'Pagamento aprovado com sucesso.'
-                        : 'Comprovativo rejeitado.',
-                    currentState.error,
-                  ),
-                );
-              } catch (e) {
-                setModalState(() {
-                  isProcessing = false;
-                  dialogError = 'Erro ao processar o pagamento: $e';
-                });
-              }
-            }
-
-            return AlertDialog(
-              title: Text('Validar Comprovativo: ${pay.pharmacyName}'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Valor: ${pay.amount.toInt()} Kz',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
-                      ),
-                    ),
-                    Text('Método: ${pay.paymentMethod}'),
-                    Text('Referência: ${pay.referenceNumber ?? 'N/A'}'),
-                    if (pay.notes != null) Text('Obs: ${pay.notes}'),
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        pay.proofUrl ?? '',
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stack) {
-                          return Container(
-                            height: 120,
-                            color: Colors.grey.shade200,
-                            child: const Center(
-                              child: Text(
-                                'Comprovativo de transferência em anexo',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    if (dialogError != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        dialogError!,
-                        style: const TextStyle(
-                          color: Colors.red,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                OutlinedButton(
-                  onPressed: isProcessing
-                      ? null
-                      : () => processPayment(approve: false),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                  ),
-                  child: const Text('Rejeitar'),
-                ),
-                FilledButton(
-                  onPressed: isProcessing
-                      ? null
-                      : () => processPayment(approve: true),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.green,
-                  ),
-                  child: isProcessing
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Aprovar'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // ECRÃ PRINCIPAL
-  // ============================================================
-
-  @override
-  Widget build(BuildContext context) {
-    final state = ref.watch(adminSubscriptionProvider);
-    final reviewsState = ref.watch(adminReviewsProvider);
-    final pendingModCount =
-        reviewsState.pendingModerationReviews.length;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Painel Geral de Administração',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            Text(
-              'FARCLIK Angola 🇦🇴 • Subscrições & Moderação',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.textSecondaryLight,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.local_pharmacy_outlined),
-            tooltip: 'Candidaturas de Farmácias',
-            onPressed: () {
-              context.push('/admin/pharmacy-applications');
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Actualizar Dados',
-            onPressed: () {
-              ref
-                  .read(adminSubscriptionProvider.notifier)
-                  .loadAdminData();
-              ref
-                  .read(adminReviewsProvider.notifier)
-                  .loadReviewsData();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Terminar sessão',
-            onPressed: _logout,
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: AppColors.primary,
-          tabs: [
-            Tab(text: 'Farmácias (${state.totalPharmacies})'),
-            Tab(
-              child: Row(
-                children: [
-                  const Text('Pagamentos'),
-                  if (state.pendingPaymentsCount > 0) ...[
-                    const SizedBox(width: 6),
-                    Badge(
-                      label: Text('${state.pendingPaymentsCount}'),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Tab(
-              child: Row(
-                children: [
-                  const Text('Moderação'),
-                  if (pendingModCount > 0) ...[
-                    const SizedBox(width: 6),
-                    Badge(
-                      label: Text('$pendingModCount'),
-                      backgroundColor: Colors.amber.shade900,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const Tab(text: 'Relatório & Analytics 📊'),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          if (state.isLoading)
-            const LinearProgressIndicator(minHeight: 2),
-          if (state.error != null && state.error!.trim().isNotEmpty)
-            Material(
-              color: Colors.orange.shade50,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.warning_amber_rounded,
-                      color: Colors.orange.shade900,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        state.error!,
-                        style: TextStyle(
-                          color: Colors.orange.shade900,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildPharmaciesTab(state),
-                _buildPaymentsTab(state),
-                const AdminReviewsModerationTab(),
-                const AdminReviewsAnalyticsTab(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // INDICADORES GERAIS DA PLATAFORMA
-  // ============================================================
-
-  Widget _buildOverviewIndicators(AdminSubscriptionState state) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 30,
+            child: Text(
+              '$star★',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 10,
+                backgroundColor: Colors.grey.shade200,
+                color: star >= 4
+                    ? Colors.green
+                    : (star == 3 ? Colors.amber : Colors.red),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 45,
+            child: Text(
+              '$count (${(pct * 100).toStringAsFixed(0)}%)',
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(adminReviewsProvider);
+
+    if (state.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final totalAppStars =
+        state.appStarDistribution.values.fold(0, (sum, count) => sum + count);
+    final totalPharmStars = state.pharmacyStarDistribution.values
+        .fold(0, (sum, count) => sum + count);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(bottom: 10),
-            child: Text(
-              'Visão geral da plataforma',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 2.15,
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildOverviewCard(
-                'Clientes registados',
-                state.totalCustomers,
-                Icons.people_alt_outlined,
-                Colors.blue,
+              Text(
+                'Relatório & Analytics de Avaliações 📊',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
               ),
-              _buildOverviewCard(
-                'Total de farmácias',
-                state.totalPharmacies,
-                Icons.local_pharmacy_outlined,
-                Colors.green,
-              ),
-              _buildOverviewCard(
-                'Total de reservas',
-                state.totalReservations,
-                Icons.receipt_long_outlined,
-                Colors.deepPurple,
-              ),
-              _buildOverviewCard(
-                'Pagamentos confirmados',
-                state.confirmedPaymentsCount,
-                Icons.verified_outlined,
-                Colors.teal,
-              ),
-              _buildOverviewCard(
-                'Clientes com pagamento',
-                state.customersWithConfirmedPayment,
-                Icons.person_pin_circle_outlined,
-                Colors.indigo,
-              ),
-              _buildOverviewCard(
-                'Valor recebido',
-                state.confirmedPaymentsValue,
-                Icons.payments_outlined,
-                Colors.orange.shade800,
-                suffix: ' Kz',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOverviewCard(
-    String label,
-    num value,
-    IconData icon,
-    Color color, {
-    String suffix = '',
-  }) {
-    final formattedValue = value is double
-        ? value.toStringAsFixed(0)
-        : value.toString();
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: color.withValues(alpha: 0.22),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.035),
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-            ),
-            child: Icon(icon, color: color, size: 21),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$formattedValue$suffix',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black54,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // SEPARADOR FARMÁCIAS
-  // ============================================================
-
-  Widget _buildPharmaciesTab(AdminSubscriptionState state) {
-    final filtered = state.pharmacies.where((p) {
-      if (_selectedFilter != 'Todos' &&
-          p.subscriptionStatus != _selectedFilter) {
-        return false;
-      }
-
-      if (_searchQuery.isNotEmpty) {
-        final q = _searchQuery.toLowerCase();
-        return p.name.toLowerCase().contains(q) ||
-            p.province.toLowerCase().contains(q);
-      }
-      return true;
-    }).toList();
-
-    if (state.isLoading && state.pharmacies.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return ListView(
-      padding: EdgeInsets.zero,
-      children: [
-        _buildOverviewIndicators(state),
-        Container(
-          margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              _buildKpiChip('Trial (3M)', state.trialCount, Colors.blue),
-              const SizedBox(width: 8),
-              _buildKpiChip('Ativos', state.activeCount, Colors.green),
-              const SizedBox(width: 8),
-              _buildKpiChip(
-                'Expirados',
-                state.expiredCount,
-                Colors.amber.shade800,
-              ),
-              const SizedBox(width: 8),
-              _buildKpiChip('Bloqueados', state.blockedCount, Colors.red),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 8,
-          ),
-          child: Column(
-            children: [
-              TextField(
-                decoration: InputDecoration(
-                  hintText:
-                      'Pesquisar farmácia por nome ou província...',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            setState(() => _searchQuery = '');
-                          },
-                        )
-                      : null,
-                ),
-                onChanged: (val) {
-                  setState(() => _searchQuery = val);
-                },
-              ),
-              const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    FilterChip(
-                      label: const Text('Todos'),
-                      selected: _selectedFilter == 'Todos',
-                      onSelected: (_) {
-                        setState(() => _selectedFilter = 'Todos');
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    FilterChip(
-                      label: const Text('Trial Gratuito (3M)'),
-                      selected: _selectedFilter == 'trial',
-                      onSelected: (_) {
-                        setState(() => _selectedFilter = 'trial');
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    FilterChip(
-                      label: const Text('Ativos (15.000 Kz)'),
-                      selected: _selectedFilter == 'active',
-                      onSelected: (_) {
-                        setState(() => _selectedFilter = 'active');
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    FilterChip(
-                      label: const Text('Expirados'),
-                      selected: _selectedFilter == 'expired',
-                      onSelected: (_) {
-                        setState(() => _selectedFilter = 'expired');
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    FilterChip(
-                      label: const Text('Bloqueados'),
-                      selected: _selectedFilter == 'blocked',
-                      onSelected: (_) {
-                        setState(() => _selectedFilter = 'blocked');
-                      },
-                    ),
-                  ],
+              Text(
+                'Desempenho da aplicação FarmaJá e reputação das farmácias parceiras em Angola.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondaryLight,
                 ),
               ),
             ],
           ),
-        ),
-        if (filtered.isEmpty)
-          Padding(
-            padding: const EdgeInsets.all(32),
-            child: Center(
-              child: Text(
-                state.pharmacies.isEmpty
-                    ? 'Não existem farmácias registadas.'
-                    : 'Não foram encontradas farmácias.',
-              ),
-            ),
-          )
-        else
-          ...filtered.map((pharm) {
-            return Card(
-              margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: _getStatusColor(
-                    pharm.subscriptionStatus,
-                  ).withValues(alpha: 0.15),
-                  child: Icon(
-                    _getStatusIcon(pharm.subscriptionStatus),
-                    color: _getStatusColor(pharm.subscriptionStatus),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                    ),
                   ),
-                ),
-                title: Text(
-                  pharm.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${pharm.province} • ${pharm.district}'),
-                    if (pharm.subscriptionStatus == 'trial')
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.smartphone_rounded,
+                        color: AppColors.primaryDark,
+                        size: 28,
+                      ),
+                      const SizedBox(height: 6),
                       Text(
-                        'Trial de 3 Meses: Restam '
-                        '${pharm.daysLeftInTrial} dias',
+                        state.averageAppRating.toStringAsFixed(1),
                         style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    else if (pharm.subscriptionStatus == 'active')
-                      Text(
-                        'Próximo Pagamento: em '
-                        '${pharm.daysUntilPaymentDue} dias '
-                        '(15.000 Kz/mês)',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    else
-                      const Text(
-                        'Subscrição Expirada / Acesso Suspenso',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.red,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primaryDark,
                         ),
                       ),
-                  ],
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(
-                          pharm.subscriptionStatus,
-                        ).withValues(alpha: 0.15),
-                      ),
-                      child: Text(
-                        _getStatusLabel(pharm.subscriptionStatus),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: _getStatusColor(
-                            pharm.subscriptionStatus,
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                          SizedBox(width: 4),
+                          Text(
+                            'Média App FarmaJá',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.edit_note_rounded,
-                        color: AppColors.primary,
-                      ),
-                      tooltip: 'Gerir Subscrição',
-                      onPressed: () {
-                        _showChangeStatusDialog(pharm);
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            );
-          }),
-      ],
-    );
-  }
-
-  // ============================================================
-  // SEPARADOR PAGAMENTOS
-  // ============================================================
-
-  Widget _buildPaymentsTab(AdminSubscriptionState state) {
-    if (state.isLoading && state.payments.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (state.payments.isEmpty) {
-      return const Center(
-        child: Text(
-          'Nenhum comprovativo de pagamento registado.',
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: state.payments.length,
-      itemBuilder: (context, index) {
-        final pay = state.payments[index];
-        final isPending = pay.status == 'pending';
-        final isApproved = pay.status == 'approved';
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        pay.pharmacyName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.amber.shade300),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.storefront_rounded,
+                        color: Colors.amber.shade900,
+                        size: 28,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        state.averagePharmacyRating.toStringAsFixed(1),
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.amber.shade900,
                         ),
                       ),
-                    ),
-                    Chip(
-                      label: Text(
-                        isApproved
-                            ? 'Aprovado'
-                            : (isPending ? 'Pendente' : 'Rejeitado'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                        ),
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                          SizedBox(width: 4),
+                          Text(
+                            'Média Farmácias',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                      backgroundColor: isApproved
-                          ? Colors.green
-                          : (isPending ? Colors.amber.shade900 : Colors.red),
-                    ),
-                  ],
-                ),
-                Text(
-                  'Valor: ${pay.amount.toInt()} Kz (Mensalidade)',
-                  style: const TextStyle(
-                    color: Colors.green,
-                    fontWeight: FontWeight.bold,
+                    ],
                   ),
                 ),
-                Text('Método: ${pay.paymentMethod}'),
-                Text('Referência: ${pay.referenceNumber ?? 'N/A'}'),
-                if (pay.notes != null)
-                  Text(
-                    'Obs: ${pay.notes}',
-                    style: const TextStyle(
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Distribuição de Estrelas (App vs Farmácias)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '⭐ Avaliações da Aplicação FarmaJá:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
                       fontSize: 12,
-                      fontStyle: FontStyle.italic,
+                      color: AppColors.primaryDark,
                     ),
                   ),
-                const SizedBox(height: 12),
-                if (isPending)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton.icon(
-                      icon: const Icon(Icons.fact_check_rounded),
-                      label: const Text('Analisar & Aprovar Pagamento'),
-                      onPressed: () => _showProofDialog(pay),
+                  const SizedBox(height: 6),
+                  for (int star = 5; star >= 1; star--)
+                    _buildStarBar(
+                      star,
+                      state.appStarDistribution[star] ?? 0,
+                      totalAppStars,
+                    ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '🏥 Avaliações de Serviço das Farmácias:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.amber,
                     ),
                   ),
-              ],
+                  const SizedBox(height: 6),
+                  for (int star = 5; star >= 1; star--)
+                    _buildStarBar(
+                      star,
+                      state.pharmacyStarDistribution[star] ?? 0,
+                      totalPharmStars,
+                    ),
+                ],
+              ),
             ),
           ),
-        );
-      },
+          const SizedBox(height: 20),
+          _buildPharmacyRankingCard(
+            title: 'Farmácias Mais Bem Avaliadas 🥇',
+            pharmacies: state.bestPharmacies,
+            isBest: true,
+          ),
+          const SizedBox(height: 16),
+          _buildPharmacyRankingCard(
+            title: 'Farmácias Com Menor Avaliação (Atenção Operacional) ⚠️',
+            pharmacies: state.lowestPharmacies,
+            isBest: false,
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
     );
   }
 
-  // ============================================================
-  // INDICADORES DE SUBSCRIÇÃO
-  // ============================================================
+  Widget _buildPharmacyRankingCard({
+    required String title,
+    required List<PharmacyRatingStat> pharmacies,
+    required bool isBest,
+  }) {
+    final emptyMessage = isBest
+        ? 'Sem dados suficientes de avaliação.'
+        : 'Nenhuma farmácia com nota baixa registada.';
 
-  Widget _buildKpiChip(String label, int count, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          vertical: 8,
-          horizontal: 4,
-        ),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          border: Border.all(
-            color: color.withValues(alpha: 0.3),
-          ),
-        ),
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '$count',
+              title,
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                color: color,
-              ),
-            ),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 9,
                 fontWeight: FontWeight.bold,
-                color: color.withValues(alpha: 0.8),
+                fontSize: 15,
+                color: isBest ? null : Colors.red,
               ),
             ),
+            const SizedBox(height: 12),
+            if (pharmacies.isEmpty)
+              Text(
+                emptyMessage,
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              )
+            else
+              ...pharmacies.map((stat) {
+                final isVeryLow = stat.averageRating <= 2.5;
+                final accent = isBest
+                    ? Colors.green
+                    : (isVeryLow ? Colors.red : Colors.orange);
+
+                return ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    backgroundColor: accent.shade100,
+                    child: Icon(
+                      isBest
+                          ? Icons.verified
+                          : (isVeryLow
+                              ? Icons.error_outline_rounded
+                              : Icons.warning_rounded),
+                      color: accent.shade900,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    stat.pharmacyName,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text('${stat.totalReviews} avaliações'),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accent.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: accent.shade300),
+                    ),
+                    child: Text(
+                      '${stat.averageRating}★',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: accent.shade900,
+                      ),
+                    ),
+                  ),
+                );
+              }),
           ],
         ),
       ),
     );
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'active':
-        return Colors.green;
-      case 'trial':
-        return Colors.blue;
-      case 'expired':
-        return Colors.amber.shade900;
-      case 'blocked':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getStatusIcon(String status) {
-    switch (status) {
-      case 'active':
-        return Icons.verified_rounded;
-      case 'trial':
-        return Icons.timer_rounded;
-      case 'expired':
-        return Icons.warning_rounded;
-      case 'blocked':
-        return Icons.lock_rounded;
-      default:
-        return Icons.help_outline;
-    }
-  }
-
-  String _getStatusLabel(String status) {
-    switch (status) {
-      case 'active':
-        return 'Ativo';
-      case 'trial':
-        return 'Trial 3M';
-      case 'expired':
-        return 'Expirado';
-      case 'blocked':
-        return 'Bloqueado';
-      default:
-        return status;
-    }
   }
 }
