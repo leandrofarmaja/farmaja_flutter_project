@@ -938,7 +938,7 @@ class _AdminSubscriptionsScreenState
                       decoration: BoxDecoration(
                         color: _getStatusColor(
                           pharm.subscriptionStatus,
-                        ).withOpacity(0.15),
+                        ).withValues(alpha: 0.15),
                         .withValues(alpha: 0.15),
                       ),
                       child: Text(
@@ -1079,7 +1079,7 @@ class _AdminSubscriptionsScreenState
           horizontal: 4,
         ),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
            color: color.withValues(alpha: 0.12),
           border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
