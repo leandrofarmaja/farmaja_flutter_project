@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -110,149 +109,306 @@ class _RateExperienceDialogState
     }
   }
 
+  InputDecoration _commentDecoration({
+    required String label,
+    required String hint,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(icon, color: AppColors.primary),
+      filled: true,
+      fillColor: const Color(0xFFF8FBF9),
+      alignLabelWithHint: true,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 14,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFE3EBE5)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFE3EBE5)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(
+          color: AppColors.primary,
+          width: 1.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(
+                icon,
+                color: AppColors.primary,
+                size: 19,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF173B57),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 7),
+        Padding(
+          padding: const EdgeInsets.only(left: 46),
+          child: Text(
+            description,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: AppColors.textSecondaryLight,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLowRating =
         _pharmacyRating <= 2 || _appRating <= 2;
 
     return Dialog(
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 24,
+      ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 500),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(22),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Flexible(
-                    child: Text(
-                      'Avaliar Experiência ⭐',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Avaliar experiência',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF173B57),
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          'Partilhe a sua opinião connosco.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    tooltip: 'Fechar',
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFFF3F7F4),
+                    ),
+                    icon: const Icon(Icons.close_rounded),
                     onPressed: _isSubmitting
                         ? null
                         : () => Navigator.pop(context),
                   ),
                 ],
               ),
-              Text(
-                'Reserva concluída na ${widget.reservation.pharmacyName}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondaryLight,
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F7F2),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.local_pharmacy_rounded,
+                      color: AppColors.primary,
+                      size: 21,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Reserva concluída na ${widget.reservation.pharmacyName}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF315B43),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              StarRatingInput(
-                label: '1. Atendimento da Farmácia',
+              const SizedBox(height: 22),
+              _buildSectionHeader(
+                icon: Icons.local_pharmacy_rounded,
+                title: '1. Atendimento da farmácia',
                 description:
                     'Qualidade do serviço, rapidez e simpatia no balcão.',
+              ),
+              const SizedBox(height: 12),
+              StarRatingInput(
+                label: 'Classificação do atendimento',
+                description:
+                    'Seleccione o número de estrelas correspondente.',
                 rating: _pharmacyRating,
                 onRatingChanged: (val) {
                   setState(() => _pharmacyRating = val);
                 },
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextField(
                 controller: _pharmacyCommentController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Comentário sobre a Farmácia (Opcional)',
-                  hintText:
-                      'Ex: Atendimento atencioso e medicamento pronto a tempo.',
-                  prefixIcon: Icon(Icons.rate_review_outlined),
+                maxLines: 3,
+                minLines: 2,
+                decoration: _commentDecoration(
+                  label: 'Comentário sobre a farmácia (opcional)',
+                  hint:
+                      'Ex.: Atendimento atencioso e medicamento pronto a tempo.',
+                  icon: Icons.rate_review_outlined,
                 ),
               ),
+              const SizedBox(height: 24),
+              const Divider(color: Color(0xFFEDF1EE)),
               const SizedBox(height: 20),
-              StarRatingInput(
-                label: '2. Aplicação FARCLIK 📱',
+              _buildSectionHeader(
+                icon: Icons.phone_android_rounded,
+                title: '2. Aplicação FARCLIK',
                 description:
                     'Facilidade de busca, reserva, navegação e rapidez da aplicação.',
+              ),
+              const SizedBox(height: 12),
+              StarRatingInput(
+                label: 'Classificação da aplicação',
+                description:
+                    'Avalie a sua experiência ao utilizar a FARCLIK.',
                 rating: _appRating,
                 onRatingChanged: (val) {
                   setState(() => _appRating = val);
                 },
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextField(
                 controller: _appCommentController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Comentário sobre a aplicação (Opcional)',
-                  hintText: 'Ex: Encontrei facilmente o medicamento.',
-                  prefixIcon: Icon(Icons.smartphone_rounded),
+                maxLines: 3,
+                minLines: 2,
+                decoration: _commentDecoration(
+                  label: 'Comentário sobre a aplicação (opcional)',
+                  hint: 'Ex.: Encontrei facilmente o medicamento.',
+                  icon: Icons.smartphone_rounded,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               if (isLowRating)
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(13),
                   decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFFFFF8E8),
+                    borderRadius: BorderRadius.circular(13),
                     border: Border.all(
-                      color: Colors.amber.shade300,
+                      color: const Color(0xFFF3D48B),
                     ),
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.shield_outlined,
-                        color: Colors.amber.shade900,
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        color: Color(0xFF9A6700),
+                        size: 20,
                       ),
                       const SizedBox(width: 10),
-                      Expanded(
+                      const Expanded(
                         child: Text(
                           'Avaliações com 1 ou 2 estrelas devem ser analisadas antes de serem publicadas.',
                           style: TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.amber.shade900,
+                            height: 1.4,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF805500),
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  backgroundColor: AppColors.primary,
-                ),
-                icon: _isSubmitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Icon(Icons.send_rounded),
-                label: Text(
-                  _isSubmitting
-                      ? 'A submeter...'
-                      : 'Enviar Avaliação',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+              const SizedBox(height: 22),
+              SizedBox(
+                height: 52,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor:
+                        AppColors.primary.withValues(alpha: 0.55),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
+                  icon: _isSubmitting
+                      ? const SizedBox(
+                          width: 19,
+                          height: 19,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded, size: 19),
+                  label: Text(
+                    _isSubmitting
+                        ? 'A submeter...'
+                        : 'Enviar avaliação',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  onPressed: _isSubmitting ? null : _handleSubmit,
                 ),
-                onPressed:
-                    _isSubmitting ? null : _handleSubmit,
               ),
             ],
           ),
