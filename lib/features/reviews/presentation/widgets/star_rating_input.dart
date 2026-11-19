@@ -34,81 +34,104 @@ class StarRatingInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLowRating = rating > 0 && rating <= 2;
+    final ratingColor = _getRatingColor(rating);
+
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
         border: Border.all(
-          color: rating > 0 && rating <= 2
-              ? Colors.red.shade300
+          color: isLowRating
+              ? Colors.red.shade200
               : AppColors.borderLight,
-          width: rating > 0 && rating <= 2 ? 1.5 : 1,
+          width: isLowRating ? 1.4 : 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.025),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryDark,
-                  ),
-                ),
-              ),
-              Text(
-                _getRatingText(rating),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: _getRatingColor(rating),
-                ),
-              ),
-            ],
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: AppColors.primaryDark,
+            ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 5),
           Text(
             description,
             style: const TextStyle(
               fontSize: 12,
+              height: 1.4,
               color: AppColors.textSecondaryLight,
             ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              5,
-              (index) {
-                final starValue = index + 1.0;
-                final isSelected = starValue <= rating;
+          const SizedBox(height: 15),
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(
+                5,
+                (index) {
+                  final starValue = index + 1.0;
+                  final isSelected = starValue <= rating;
 
-                return InkWell(
-                  onTap: () => onRatingChanged(starValue),
-                  borderRadius: BorderRadius.circular(24),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6.0,
-                      vertical: 4.0,
+                  return InkWell(
+                    onTap: () => onRatingChanged(starValue),
+                    borderRadius: BorderRadius.circular(30),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 5,
+                      ),
+                      child: Icon(
+                        isSelected
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                        size: 36,
+                        color: isSelected
+                            ? ratingColor
+                            : Colors.grey.shade300,
+                      ),
                     ),
-                    child: Icon(
-                      isSelected
-                          ? Icons.star_rounded
-                          : Icons.star_outline_rounded,
-                      size: 36,
-                      color: isSelected
-                          ? _getRatingColor(rating)
-                          : Colors.grey.shade400,
-                    ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 13,
+                vertical: 7,
+              ),
+              decoration: BoxDecoration(
+                color: rating > 0
+                    ? ratingColor.withValues(alpha: 0.10)
+                    : const Color(0xFFF3F6F4),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                _getRatingText(rating),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: ratingColor,
+                ),
+              ),
             ),
           ),
         ],
