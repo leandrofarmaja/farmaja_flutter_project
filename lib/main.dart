@@ -29,7 +29,7 @@ class FarmaJaApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
-      title: 'FarmaJá Angola 🇦🇴',
+      title: 'FARCLIK Angola 🇦🇴',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
       theme: AppTheme.lightTheme,
