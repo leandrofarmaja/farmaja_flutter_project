@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/constants/app_colors.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -96,7 +97,7 @@ class WelcomeScreen extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-                            const Center(
+              const Center(
                 child: Text(
                   'É necessária uma conta real Supabase para aceder à aplicação.',
                   style: TextStyle(
@@ -104,14 +105,6 @@ class WelcomeScreen extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
-              ),
-                
-                  
-                 
-                    
-                    
-                  
-                
               ),
             ],
           ),
