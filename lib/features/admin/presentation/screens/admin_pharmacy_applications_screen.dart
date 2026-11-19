@@ -185,11 +185,13 @@ class _AdminPharmacyApplicationsScreenState
                     ),
                   ],
                 ),
-                RichAttributionWidget(
+                                const RichAttributionWidget(
                   attributions: [
                     TextSourceAttribution('OpenStreetMap contributors'),
                   ],
                 ),
+                  
+                
               ],
             ),
           ),
