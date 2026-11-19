@@ -1,26 +1,29 @@
 
+import 'dart:async';
+import 'dart:ui' show FontFeature;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
-import '../../domain/medicine_model.dart';
-import '../providers/medicines_provider.dart';
+import '../../../../core/widgets/qr_code_widget.dart';
+import '../../domain/reservation_model.dart';
+import '../../../reviews/presentation/widgets/rate_experience_dialog.dart';
+import '../providers/reservations_provider.dart';
 
-class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+class ReservationsScreen extends ConsumerWidget {
+  const ReservationsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final filterState = ref.watch(medicineFilterProvider);
-    final medicinesAsync = ref.watch(medicinesListProvider);
+    final reservations = ref.watch(reservationsProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7FBF8),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        foregroundColor: const Color(0xFF173B57),
         elevation: 0,
         scrolledUnderElevation: 0,
         toolbarHeight: 76,
@@ -34,392 +37,182 @@ class HomeScreen extends ConsumerWidget {
             return const Text(
               'FARCLIK',
               style: TextStyle(
-                fontSize: 23,
+                color: Color(0xFF173B57),
+                fontSize: 21,
                 fontWeight: FontWeight.w900,
-                color: AppColors.primary,
                 letterSpacing: 0.5,
               ),
             );
           },
         ),
-      ),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'A sua saúde, mais perto.',
-                    style: TextStyle(
-                      fontSize: 25,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF173B57),
-                      height: 1.2,
-                    ),
-                  )
-                      .animate()
-                      .fadeIn(duration: 400.ms)
-                      .slideY(begin: 0.08, end: 0),
-                  const SizedBox(height: 9),
-                  Text(
-                    'Encontre medicamentos e consulte '
-                    'a disponibilidade nas farmácias.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.6,
-                      color: Colors.blueGrey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-
-                  _RegisterPharmacyCard(
-                    onTap: () {
-                      context.push('/pharmacy-application');
-                    },
-                  )
-                      .animate()
-                      .fadeIn(delay: 100.ms, duration: 450.ms)
-                      .slideY(begin: 0.06, end: 0),
-
-                  const SizedBox(height: 28),
-
-                  const Text(
-                    'Encontre o seu medicamento',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF173B57),
-                    ),
-                  ),
-                  const SizedBox(height: 13),
-
-                  SearchBar(
-                    hintText: 'Pesquisar por nome do medicamento...',
-                    hintStyle: WidgetStatePropertyAll(
-                      TextStyle(
-                        fontSize: 12,
-                        color: Colors.blueGrey.shade400,
-                      ),
-                    ),
-                    leading: const Icon(
-                      Icons.search_rounded,
-                      color: AppColors.primary,
-                      size: 24,
-                    ),
-                    onChanged: (value) {
-                      ref
-                          .read(medicineFilterProvider.notifier)
-                          .setQuery(value);
-                    },
-                    elevation: const WidgetStatePropertyAll(0),
-                    backgroundColor: const WidgetStatePropertyAll(
-                      Colors.white,
-                    ),
-                    side: const WidgetStatePropertyAll(
-                      BorderSide(color: AppColors.borderLight),
-                    ),
-                    shape: WidgetStatePropertyAll(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(17),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 13),
-
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F7F2),
-                      borderRadius: BorderRadius.circular(17),
-                      border: Border.all(
-                        color: const Color(0xFFE1EEE4),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight,
-                            borderRadius: BorderRadius.circular(11),
-                          ),
-                          child: const Icon(
-                            Icons.location_on_rounded,
-                            color: AppColors.primary,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 11),
-                        Expanded(
-                          child: Text(
-                            'A pesquisa por farmácias próximas '
-                            'será disponibilizada após a configuração '
-                            'dos respectivos endereços.',
-                            style: TextStyle(
-                              fontSize: 11,
-                              height: 1.55,
-                              color: Colors.blueGrey.shade700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 27),
-
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Medicamentos',
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF173B57),
-                          ),
-                        ),
-                      ),
-                      FilterChip(
-                        avatar: Icon(
-                          Icons.inventory_2_outlined,
-                          size: 16,
-                          color: filterState.onlyInStock
-                              ? Colors.white
-                              : AppColors.primary,
-                        ),
-                        label: const Text(
-                          'Em stock',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        selected: filterState.onlyInStock,
-                        showCheckmark: false,
-                        selectedColor: AppColors.primary,
-                        backgroundColor: const Color(0xFFEAF5ED),
-                        side: BorderSide.none,
-                        labelStyle: TextStyle(
-                          color: filterState.onlyInStock
-                              ? Colors.white
-                              : AppColors.primary,
-                        ),
-                        onSelected: (value) {
-                          ref
-                              .read(medicineFilterProvider.notifier)
-                              .toggleOnlyInStock(value);
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Preços e disponibilidade nas farmácias.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.blueGrey.shade500,
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                ],
-              ),
-            ),
-          ),
-
-          medicinesAsync.when(
-            data: (medicines) {
-              if (medicines.isEmpty) {
-                return const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _EmptyMedicines(),
-                );
-              }
-
-              return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 25),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final medicine = medicines[index];
-                      final available =
-                          medicine.inStock && medicine.stockQuantity > 0;
-
-                      return _MedicineCard(
-                        medicine: medicine,
-                        available: available,
-                        onTap: () {
-                          context.push('/medicine/${medicine.id}');
-                        },
-                      )
-                          .animate(delay: (index * 65).ms)
-                          .fadeIn(duration: 350.ms)
-                          .slideY(begin: 0.05, end: 0);
-                    },
-                    childCount: medicines.length,
-                  ),
-                ),
-              );
+        actions: [
+          IconButton(
+            tooltip: 'Actualizar reservas',
+            onPressed: () {
+              ref.read(reservationsProvider.notifier).fetchReservations();
             },
-            loading: () => const SliverFillRemaining(
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: AppColors.primary,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: reservations.isEmpty
+          ? const _EmptyReservations()
+          : RefreshIndicator(
+              color: AppColors.primary,
+              backgroundColor: Colors.white,
+              onRefresh: () async {
+                await ref
+                    .read(reservationsProvider.notifier)
+                    .fetchReservations();
+              },
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
                 ),
-              ),
-            ),
-            error: (error, stack) => SliverFillRemaining(
-              hasScrollBody: false,
-              child: _MedicineError(
-                error: error,
-                onRetry: () {
-                  ref.invalidate(medicinesListProvider);
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                itemCount: reservations.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return const _ReservationsHeader();
+                  }
+
+                  final reservation = reservations[index - 1];
+
+                  return _ReservationCard(
+                    key: ValueKey(reservation.id),
+                    reservation: reservation,
+                    onRating: () {
+                      _showRatingDialog(context, ref, reservation);
+                    },
+                  )
+                      .animate(delay: ((index - 1) * 70).ms)
+                      .fadeIn(duration: 350.ms)
+                      .slideY(begin: 0.06, end: 0);
                 },
               ),
             ),
-          ),
-        ],
-      ),
+    );
+  }
+
+  void _showRatingDialog(
+    BuildContext context,
+    WidgetRef ref,
+    ReservationModel reservation,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return RateExperienceDialog(
+          reservation: reservation,
+          onSubmitted: () {
+            ref.read(reservationsProvider.notifier).fetchReservations();
+          },
+        );
+      },
     );
   }
 }
 
-class _RegisterPharmacyCard extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _RegisterPharmacyCard({
-    required this.onTap,
-  });
+class _ReservationsHeader extends StatelessWidget {
+  const _ReservationsHeader();
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.primary,
-      borderRadius: BorderRadius.circular(22),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Ink(
-          padding: const EdgeInsets.all(18),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color(0xFF15803D),
-                Color(0xFF16A34A),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'As minhas reservas',
+            style: TextStyle(
+              color: Color(0xFF173B57),
+              fontSize: 25,
+              height: 1.2,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
             ),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.17),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.18),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.add_business_rounded,
-                  color: Colors.white,
-                  size: 26,
-                ),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'É responsável por uma farmácia?',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Registe a sua farmácia na FARCLIK.',
-                      style: TextStyle(
-                        fontSize: 11,
-                        height: 1.4,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 17,
-                color: Colors.white,
-              ),
-            ],
+          const SizedBox(height: 8),
+          const Text(
+            'Acompanhe o estado, o prazo e o levantamento '
+            'dos seus medicamentos.',
+            style: TextStyle(
+              color: AppColors.textSecondaryLight,
+              fontSize: 13,
+              height: 1.55,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-      ),
+          const SizedBox(height: 17),
+          Container(
+            height: 4,
+            width: 42,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ],
+      ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.04, end: 0),
     );
   }
 }
 
-class _EmptyMedicines extends StatelessWidget {
-  const _EmptyMedicines();
+class _EmptyReservations extends StatelessWidget {
+  const _EmptyReservations();
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(30),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: _ReservationsHeader(),
+            ),
+            const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.all(21),
+              width: 112,
+              height: 112,
               decoration: BoxDecoration(
                 color: AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(25),
+                borderRadius: BorderRadius.circular(34),
               ),
               child: const Icon(
-                Icons.medication_rounded,
-                size: 43,
+                Icons.receipt_long_rounded,
+                size: 52,
                 color: AppColors.primary,
               ),
             )
                 .animate()
-                .fadeIn(duration: 450.ms)
+                .fadeIn(duration: 500.ms)
                 .scale(begin: const Offset(0.85, 0.85)),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             const Text(
-              'Nenhum medicamento encontrado',
+              'Ainda não possui reservas',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF173B57),
+                color: AppColors.textPrimaryLight,
               ),
             ),
-            const SizedBox(height: 9),
-            Text(
-              'Ainda não existem medicamentos registados '
-              'para esta pesquisa. Volte a consultar quando '
-              'as farmácias começarem a publicar os seus catálogos.',
+            const SizedBox(height: 10),
+            const Text(
+              'Quando reservar medicamentos numa farmácia, '
+              'poderá acompanhar aqui o estado e o prazo da sua reserva.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 height: 1.6,
-                color: Colors.blueGrey.shade500,
+                color: AppColors.textSecondaryLight,
               ),
             ),
           ],
@@ -429,347 +222,743 @@ class _EmptyMedicines extends StatelessWidget {
   }
 }
 
-class _MedicineCard extends StatelessWidget {
-  final MedicineModel medicine;
-  final bool available;
-  final VoidCallback onTap;
+class _ReservationCard extends ConsumerStatefulWidget {
+  final ReservationModel reservation;
+  final VoidCallback onRating;
 
-  const _MedicineCard({
-    required this.medicine,
-    required this.available,
-    required this.onTap,
+  const _ReservationCard({
+    super.key,
+    required this.reservation,
+    required this.onRating,
   });
 
   @override
-  Widget build(BuildContext context) {
+  ConsumerState<_ReservationCard> createState() =>
+      _ReservationCardState();
+}
+
+class _ReservationCardState extends ConsumerState<_ReservationCard> {
+  Timer? _timer;
+  DateTime _now = DateTime.now();
+
+  ReservationModel get reservation => widget.reservation;
+
+  String get _normalizedStatus =>
+      reservation.status.trim().toLowerCase();
+
+  bool get _isAwaitingPayment =>
+      _normalizedStatus == 'aguardando confirmação' ||
+      _normalizedStatus == 'aguardando confirmacao' ||
+      _normalizedStatus == 'pending';
+
+  bool get _isPaid => _normalizedStatus == 'pago';
+
+  bool get _isExpired =>
+      _normalizedStatus == 'expirada' ||
+      _normalizedStatus == 'expired';
+
+  bool get _isCompleted =>
+      _normalizedStatus == 'levantada' ||
+      _normalizedStatus == 'completed' ||
+      _normalizedStatus == 'entregue' ||
+      _normalizedStatus == 'resgatado';
+
+  bool get _qrWasValidated => reservation.qrValidadoEm != null;
+
+  bool get _canRate => _isCompleted && !reservation.isReviewed;
+
+  DateTime? get _expiryDate {
+    final value = DateTime.tryParse(reservation.expiryDate);
+    return value?.toLocal();
+  }
+
+  Duration? get _remainingTime {
+    final expiry = _expiryDate;
+    if (expiry == null) return null;
+
+    final difference = expiry.difference(_now);
+    return difference.isNegative ? Duration.zero : difference;
+  }
+
+  bool get _deadlineReached {
+    final remaining = _remainingTime;
+    return remaining != null && remaining == Duration.zero;
+  }
+
+  bool get _hasValidExpiry => _expiryDate != null;
+
+  bool get _canShowQr =>
+      reservation.pickupCode.isNotEmpty &&
+      !_isExpired &&
+      !_isCompleted &&
+      !_deadlineReached;
+
+  bool get _canConfirmPurchase =>
+      _isAwaitingPayment &&
+      _qrWasValidated &&
+      !_isExpired &&
+      !_deadlineReached;
+
+  Color get _statusColor {
+    if (_isCompleted || _isPaid) return AppColors.success;
+    if (_isExpired || _deadlineReached) return AppColors.danger;
+    if (_isAwaitingPayment) return AppColors.warning;
+    return AppColors.info;
+  }
+
+  String get _statusText {
+    if (_isCompleted) return 'Levantada';
+    if (_isExpired || _deadlineReached) return 'Expirada';
+    if (_isPaid) return 'Pago';
+    if (_isAwaitingPayment) return 'Aguardando confirmação';
+    return reservation.status;
+  }
+
+  IconData get _statusIcon {
+    if (_isCompleted) return Icons.check_circle_rounded;
+    if (_isExpired || _deadlineReached) {
+      return Icons.timer_off_rounded;
+    }
+    if (_isPaid) return Icons.verified_rounded;
+    if (_isAwaitingPayment) return Icons.schedule_rounded;
+    return Icons.info_outline_rounded;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ReservationCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.reservation.expiryDate !=
+        widget.reservation.expiryDate) {
+      _now = DateTime.now();
+      _startCountdown();
+    }
+  }
+
+  void _startCountdown() {
+    _timer?.cancel();
+
+    if (_expiryDate == null || _isExpired || _isCompleted) {
+      return;
+    }
+
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) {
+        if (!mounted) return;
+
+        setState(() {
+          _now = DateTime.now();
+        });
+
+        if (_deadlineReached) {
+          _timer?.cancel();
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+
+    return '${hours.toString().padLeft(2, '0')}:'
+        '${minutes.toString().padLeft(2, '0')}:'
+        '${seconds.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildCountdown() {
+    if (!_hasValidExpiry || _isExpired || _isCompleted) {
+      return const SizedBox.shrink();
+    }
+
+    if (_deadlineReached) {
+      return _CountdownMessage(
+        color: AppColors.danger,
+        icon: Icons.timer_off_rounded,
+        message: 'O prazo desta reserva terminou. '
+            'O código QR já não pode ser utilizado.',
+      );
+    }
+
+    final remaining = _remainingTime;
+    if (remaining == null) return const SizedBox.shrink();
+
+    final isUrgent = remaining.inMinutes < 15;
+    final color = isUrgent ? AppColors.danger : AppColors.warning;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: color.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              Icons.timer_outlined,
+              color: color,
+              size: 23,
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isUrgent
+                      ? 'A reserva está quase a expirar'
+                      : 'Tempo restante da reserva',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  _formatDuration(remaining),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 23,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [
+                      FontFeature.tabularFigures(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.access_time_filled_rounded,
+            color: color.withValues(alpha: 0.65),
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmPurchase() async {
+    if (!_canConfirmPurchase) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text(
+            'Confirmar compra',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: const Text(
+            'Confirme apenas depois de verificar o medicamento '
+            'e efectuar o pagamento presencialmente na farmácia.\n\n'
+            'Já verificou o medicamento e efectuou o pagamento?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Ainda não'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Confirmar compra'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref
+          .read(reservationsProvider.notifier)
+          .confirmarPagamentoComoCliente(
+            reservationId: reservation.id,
+          );
+
+      await ref
+          .read(reservationsProvider.notifier)
+          .fetchReservations();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pagamento confirmado com sucesso.'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível confirmar a compra: $e'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
+  }
+
+  Widget _buildMedicineImage() {
+    final imageUrl = reservation.medicineImageUrl?.trim();
+
+    return Container(
+      width: 76,
+      height: 76,
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.10),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(17),
+        child: imageUrl == null || imageUrl.isEmpty
+            ? const Icon(
+                Icons.medication_rounded,
+                size: 36,
+                color: AppColors.primary,
+              )
+            : Image.network(
+                imageUrl,
+                width: 76,
+                height: 76,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(
+                    Icons.medication_rounded,
+                    size: 36,
+                    color: AppColors.primary,
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
+  Widget _buildMedicineDetails() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FBF9),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.borderLight,
+        ),
+      ),
+      child: Row(
+        children: [
+          _buildMedicineImage(),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'MEDICAMENTO',
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 1.1,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  reservation.medicineName,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    height: 1.3,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimaryLight,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  '${reservation.totalPriceKz.toStringAsFixed(2)} Kz',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge() {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 155),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 11,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        color: _statusColor.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: _statusColor.withValues(alpha: 0.16),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _statusIcon,
+            size: 15,
+            color: _statusColor,
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              _statusText,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: _statusColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQrSection() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFF0FDF4),
+            Color(0xFFEFF8FF),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.13),
+        ),
+      ),
+      child: Column(
+        children: [
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.qr_code_2_rounded,
+                color: AppColors.primary,
+                size: 21,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Código de levantamento',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimaryLight,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.07),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: QrCodeWidget(
+              data: reservation.pickupCode,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Apresente este código na farmácia para validar '
+            'a sua reserva.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.5,
+              color: AppColors.textSecondaryLight,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInformationMessage({
+    required String message,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                height: 1.45,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canConfirmPurchase = _canConfirmPurchase;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(21),
+        borderRadius: BorderRadius.circular(25),
         border: Border.all(
           color: AppColors.borderLight,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF173B57).withValues(alpha: 0.04),
-            blurRadius: 17,
-            offset: const Offset(0, 6),
+            color: const Color(0xFF173B57).withValues(alpha: 0.045),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(21),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: const EdgeInsets.all(17),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _MedicineImage(
-                      imageUrl: medicine.imageUrl,
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            medicine.name,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              height: 1.35,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF173B57),
-                            ),
-                          ),
-                          if (medicine.activeIngredient.isNotEmpty) ...[
-                            const SizedBox(height: 5),
-                            Text(
-                              medicine.activeIngredient,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.blueGrey.shade600,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 9),
-                          Text(
-                            '${medicine.priceKz.toInt()} Kz',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 14,
-                      color: Color(0xFF9AA9A0),
-                    ),
-                  ],
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  child: Divider(
-                    height: 1,
-                    color: Color(0xFFEDF0EE),
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.secondaryLight,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.local_pharmacy_rounded,
+                    color: AppColors.secondary,
+                    size: 22,
                   ),
                 ),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.storefront_outlined,
-                      size: 16,
-                      color: AppColors.secondary,
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Text(
+                    reservation.pharmacyName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      height: 1.3,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimaryLight,
                     ),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Text(
-                        medicine.pharmacyName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.blueGrey.shade600,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    _StockBadge(
-                      available: available,
-                      quantity: medicine.stockQuantity,
-                    ),
-                  ],
+                  ),
                 ),
-                if (medicine.requiresPrescription) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.receipt_long_outlined,
-                        size: 15,
-                        color: Colors.deepOrange.shade700,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Sujeito a receita médica',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.deepOrange.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                if (medicine.isGeneric) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.secondaryLight,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'Medicamento genérico',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.secondary,
-                      ),
-                    ),
-                  ),
-                ],
+                const SizedBox(width: 8),
+                _buildStatusBadge(),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StockBadge extends StatelessWidget {
-  final bool available;
-  final int quantity;
-
-  const _StockBadge({
-    required this.available,
-    required this.quantity,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = available ? AppColors.success : AppColors.danger;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.09),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        available ? 'Em stock: $quantity' : 'Sem stock',
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
-
-class _MedicineImage extends StatelessWidget {
-  final String? imageUrl;
-
-  const _MedicineImage({
-    required this.imageUrl,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final url = imageUrl?.trim();
-
-    if (url == null || url.isEmpty) {
-      return const _MedicineImageFallback();
-    }
-
-    return Container(
-      width: 78,
-      height: 78,
-      decoration: BoxDecoration(
-        color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Image.network(
-          url,
-          width: 78,
-          height: 78,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-
-            return const Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.primary,
+            const SizedBox(height: 18),
+            _buildMedicineDetails(),
+            _buildCountdown(),
+            if (_canShowQr) _buildQrSection(),
+            if (_isAwaitingPayment &&
+                !_qrWasValidated &&
+                !_deadlineReached &&
+                !_isExpired)
+              _buildInformationMessage(
+                message: 'A confirmação da compra ficará disponível '
+                    'após a leitura válida deste código pela farmácia.',
+                color: AppColors.warning,
+                icon: Icons.qr_code_scanner_rounded,
+              ),
+            if (canConfirmPurchase) ...[
+              const SizedBox(height: 17),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _confirmPurchase,
+                  icon: const Icon(Icons.shopping_bag_outlined),
+                  label: const Text('Confirmar compra'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
                 ),
               ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return const _MedicineImageFallback();
-          },
+            ],
+            if (_isPaid)
+              _buildInformationMessage(
+                message: 'Pagamento confirmado. Aguarde a entrega '
+                    'do medicamento.',
+                color: AppColors.success,
+                icon: Icons.verified_rounded,
+              ),
+            if (_isCompleted)
+              _buildInformationMessage(
+                message: 'Muito obrigado. Volte sempre!',
+                color: AppColors.success,
+                icon: Icons.check_circle_rounded,
+              ),
+            if (_isExpired)
+              _buildInformationMessage(
+                message: 'Esta reserva expirou. O código QR já não '
+                    'pode ser utilizado.',
+                color: AppColors.danger,
+                icon: Icons.timer_off_rounded,
+              ),
+            if (_canRate) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: widget.onRating,
+                  icon: const Icon(Icons.star_rate_rounded),
+                  label: const Text('Avaliar experiência'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(
+                      color: AppColors.primary,
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (reservation.isReviewed)
+              _buildInformationMessage(
+                message: 'Esta reserva já foi avaliada.',
+                color: AppColors.success,
+                icon: Icons.check_circle_outline_rounded,
+              ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _MedicineImageFallback extends StatelessWidget {
-  const _MedicineImageFallback();
+class _CountdownMessage extends StatelessWidget {
+  final Color color;
+  final IconData icon;
+  final String message;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 78,
-      height: 78,
-      decoration: BoxDecoration(
-        color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: const Center(
-        child: Icon(
-          Icons.medication_rounded,
-          color: AppColors.primary,
-          size: 34,
-        ),
-      ),
-    );
-  }
-}
-
-class _MedicineError extends StatelessWidget {
-  final Object error;
-  final VoidCallback onRetry;
-
-  const _MedicineError({
-    required this.error,
-    required this.onRetry,
+  const _CountdownMessage({
+    required this.color,
+    required this.icon,
+    required this.message,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(25),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 76,
-              height: 76,
-              decoration: BoxDecoration(
-                color: AppColors.danger.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(23),
-              ),
-              child: const Icon(
-                Icons.cloud_off_rounded,
-                size: 37,
-                color: AppColors.danger,
-              ),
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              'Não foi possível carregar o catálogo.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
-                color: AppColors.textPrimaryLight,
-              ),
-            ),
-            const SizedBox(height: 9),
-            Text(
-              '$error',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 11,
-                height: 1.5,
-                color: AppColors.textSecondaryLight,
-              ),
-            ),
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Tentar novamente'),
-            ),
-          ],
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withValues(alpha: 0.16),
         ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 21),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                height: 1.45,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
