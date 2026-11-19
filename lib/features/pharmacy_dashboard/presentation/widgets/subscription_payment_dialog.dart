@@ -44,20 +44,24 @@ class _SubscriptionPaymentDialogState
     super.dispose();
   }
 
-  void _submit() async {
+  Future<void> _submit() async {
+    if (_isSubmitting) return;
+
     if (_formKey.currentState!.validate()) {
       setState(() => _isSubmitting = true);
 
-      await widget.onSubmit(
-        paymentMethod: _paymentMethod,
-        referenceNumber: _referenceController.text.trim(),
-        proofUrl: _proofUrlController.text.trim(),
-        notes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
-      );
+      try {
+        await widget.onSubmit(
+          paymentMethod: _paymentMethod,
+          referenceNumber: _referenceController.text.trim(),
+          proofUrl: _proofUrlController.text.trim(),
+          notes: _notesController.text.trim().isEmpty
+              ? null
+              : _notesController.text.trim(),
+        );
 
-      if (mounted) {
+        if (!mounted) return;
+
         Navigator.pop(context);
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -68,237 +72,429 @@ class _SubscriptionPaymentDialogState
             backgroundColor: AppColors.primary,
           ),
         );
+      } catch (e) {
+        if (!mounted) return;
+
+        setState(() => _isSubmitting = false);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Não foi possível submeter o pagamento: $e'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Dialog(
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 24,
+      ),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 480,
-        ),
+        constraints: const BoxConstraints(maxWidth: 480),
         child: Container(
-          padding: const EdgeInsets.all(20),
-          child: SingleChildScrollView(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: SizedBox(
+            height: screenHeight * 0.82,
+            child: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
                             Icons.workspace_premium_rounded,
                             color: AppColors.primary,
-                            size: 28,
+                            size: 26,
                           ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Renovar Subscrição (15.000 Kz)',
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Renovar subscrição',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF173B57),
+                                ),
+                              ),
+                              SizedBox(height: 3),
+                              Text(
+                                'Pagamento mensal da farmácia',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Fechar',
+                          onPressed: _isSubmitting
+                              ? null
+                              : () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.primary.withValues(alpha: 0.10),
+                            const Color(0xFFEFF8F1),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.20),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'VALOR DA MENSALIDADE',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: AppColors.primaryDark,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          const Text(
+                            '15.000 Kz',
+                            style: TextStyle(
+                              fontSize: 27,
                               fontWeight: FontWeight.w900,
+                              color: Color(0xFF173B57),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Subscrição mensal da plataforma FARCLIK',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
                             ),
                           ),
                         ],
                       ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.close_rounded,
-                        ),
-                        onPressed: () =>
-                            Navigator.pop(context),
-                      ),
-                    ],
-                  ),
+                    ),
 
-                  const Divider(),
-                  const SizedBox(height: 8),
+                    const SizedBox(height: 20),
 
-                  // Dados bancários
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius:
-                          BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.blue.shade200,
+                    const Text(
+                      'Dados bancários',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF173B57),
                       ),
                     ),
-                    child: const Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '🇦🇴 Dados Bancários para Pagamento:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: AppColors.primaryDark,
+                    const SizedBox(height: 10),
+
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF4F8FC),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFFDCE8F2),
+                        ),
+                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '🇦🇴 Dados para pagamento',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primaryDark,
+                            ),
+                          ),
+                          SizedBox(height: 12),
+                          _BankDetailRow(
+                            label: 'Banco',
+                            value: 'BFA / BAI / Atlântico',
+                          ),
+                          _BankDetailRow(
+                            label: 'Titular',
+                            value: 'FarmaJá Angola Lda',
+                          ),
+                          _BankDetailRow(
+                            label: 'IBAN',
+                            value: 'AO06 0040 0000 8192 1001 3018 9',
+                          ),
+                          _BankDetailRow(
+                            label: 'Mensalidade',
+                            value: '15.000 Kz / mês',
+                            valueColor: AppColors.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    const Text(
+                      'Informações do pagamento',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF173B57),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    DropdownButtonFormField<String>(
+                      initialValue: _paymentMethod,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Método de pagamento',
+                        prefixIcon: const Icon(Icons.payment_rounded),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
                           ),
                         ),
-                        SizedBox(height: 6),
-                        Text(
-                          '• Banco: BFA / BAI / Atlântico',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        Text(
-                          '• Titular: FarmaJá Angola Lda',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
                           ),
                         ),
-                        Text(
-                          '• IBAN: AO06 0040 0000 8192 1001 3018 9',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'Transferência IBAN',
+                          child: Text('Transferência IBAN (BFA / BAI)'),
                         ),
-                        Text(
-                          '• Mensalidade: 15.000 Kz / mês',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        DropdownMenuItem(
+                          value: 'Multicaixa Express',
+                          child: Text('Multicaixa Express'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'BAI Directo',
+                          child: Text('BAI Directo'),
                         ),
                       ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Método de pagamento
-                  DropdownButtonFormField<String>(
-                    initialValue: _paymentMethod,
-                    decoration: const InputDecoration(
-                      labelText: 'Método de Pagamento',
-                      prefixIcon:
-                          Icon(Icons.payment_rounded),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'Transferência IBAN',
-                        child: Text(
-                          'Transferência IBAN (BFA / BAI)',
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Multicaixa Express',
-                        child: Text(
-                          'Multicaixa Express',
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 'BAI Directo',
-                        child: Text(
-                          'BAI Directo',
-                        ),
-                      ),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          _paymentMethod = val;
-                        });
-                      }
-                    },
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Referência
-                  TextFormField(
-                    controller: _referenceController,
-                    decoration: const InputDecoration(
-                      labelText:
-                          'Nº do Comprovativo / Referência *',
-                      hintText:
-                          'Ex: MCX-882319 ou Ref. Transferência',
-                      prefixIcon:
-                          Icon(Icons.tag_rounded),
-                    ),
-                    validator: (v) =>
-                        v == null || v.isEmpty
-                            ? 'Insira a referência'
-                            : null,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // URL do comprovativo
-                  TextFormField(
-                    controller: _proofUrlController,
-                    decoration: const InputDecoration(
-                      labelText:
-                          'URL da Imagem do Comprovativo (Opcional)',
-                      hintText: 'https://...',
-                      prefixIcon:
-                          Icon(Icons.image_outlined),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Observações
-                  TextFormField(
-                    controller: _notesController,
-                    decoration: const InputDecoration(
-                      labelText:
-                          'Observações / NIF da Farmácia',
-                      hintText:
-                          'Ex: NIF: 5001928312 - Pagamento referente a Agosto',
-                      prefixIcon:
-                          Icon(Icons.notes_rounded),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      icon: _isSubmitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child:
-                                  CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.send_rounded,
-                            ),
-                      label: Text(
-                        _isSubmitting
-                            ? 'A submeter...'
-                            : 'Enviar Comprovativo de 15.000 Kz',
-                      ),
-                      onPressed: _isSubmitting
+                      onChanged: _isSubmitting
                           ? null
-                          : _submit,
+                          : (val) {
+                              if (val != null) {
+                                setState(() => _paymentMethod = val);
+                              }
+                            },
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 14),
+
+                    TextFormField(
+                      controller: _referenceController,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'N.º do comprovativo / referência *',
+                        hintText: 'Ex.: MCX-882319',
+                        prefixIcon: const Icon(Icons.tag_rounded),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                      ),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty
+                              ? 'Insira a referência'
+                              : null,
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    TextFormField(
+                      controller: _proofUrlController,
+                      keyboardType: TextInputType.url,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'URL da imagem do comprovativo',
+                        hintText: 'https://...',
+                        helperText: 'Campo opcional',
+                        prefixIcon: const Icon(Icons.image_outlined),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    TextFormField(
+                      controller: _notesController,
+                      minLines: 2,
+                      maxLines: 3,
+                      textInputAction: TextInputAction.newline,
+                      decoration: InputDecoration(
+                        labelText: 'Observações / NIF da farmácia',
+                        hintText:
+                            'Ex.: NIF: 5001928312 - Pagamento referente a Agosto',
+                        prefixIcon: const Icon(Icons.notes_rounded),
+                        alignLabelWithHint: true,
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor:
+                              AppColors.primary.withValues(alpha: 0.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 0,
+                        ),
+                        icon: _isSubmitting
+                            ? const SizedBox(
+                                width: 19,
+                                height: 19,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.send_rounded),
+                        label: Text(
+                          _isSubmitting
+                              ? 'A submeter...'
+                              : 'Enviar comprovativo de 15.000 Kz',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        onPressed: _isSubmitting ? null : _submit,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _BankDetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  const _BankDetailRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 88,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.black54,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 12,
+                color: valueColor ?? const Color(0xFF173B57),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
