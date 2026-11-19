@@ -17,7 +17,7 @@ async function startServer() {
 
   // API Routes
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', app: 'FarmaJá Angola' });
+    res.json({ status: 'ok', app: 'FARCLIK Angola' });
   });
 
   // ZIP Download Endpoint
@@ -26,7 +26,7 @@ async function startServer() {
     res.download(zipPath, 'farmaja_flutter_project.zip');
   });
 
-  // Gemini AI Assistant Endpoint for FarmaJá Angola
+  // Gemini AI Assistant Endpoint for FARCLIK Angola
   app.post('/api/ai-assistant', async (req, res) => {
     try {
       const { query, context } = req.body;
@@ -39,13 +39,13 @@ async function startServer() {
         const ai = new GoogleGenAI({ apiKey });
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
-          contents: `Você é o assistente virtual de saúde e medicamentos do FarmaJá, a aplicação líder em Angola para localização de medicamentos em farmácias (Luanda, Benguela, Huambo, Lubango, etc.).
+          contents: `Você é o assistente virtual de saúde e medicamentos do FARCLIK, a aplicação líder em Angola para localização de medicamentos em farmácias (Luanda, Benguela, Huambo, Lubango, etc.).
           
 Instruções:
 - Responda de forma clara, empática e profissional em português de Angola.
 - Forneça informações gerais sobre princípios ativos, dosagens típicas, precauções e se o medicamento requer receita médica em Angola.
 - Recomende sempre a consulta com um médico ou farmacêutico.
-- Se o utilizador perguntar sobre disponibilidade de preços em Kwanza (AOA), ajude-o a procurar nas farmácias parceiras da rede FarmaJá.
+- Se o utilizador perguntar sobre disponibilidade de preços em Kwanza (AOA), ajude-o a procurar nas farmácias parceiras da rede FARCLIK.
 - Contexto atual do utilizador: ${context || 'Nenhum contexto fornecido'}.
 
 Pergunta do Utilizador: ${query}`,
@@ -55,7 +55,7 @@ Pergunta do Utilizador: ${query}`,
       } else {
         // Fallback response if GEMINI_API_KEY is not configured
         return res.json({
-          text: `[Assistente FarmaJá - Modo Local]
+          text: `[Assistente FARCLIK - Modo Local]
 Aviso: Para consultas personalizadas via Inteligência Artificial Gemini, configure a chave GEMINI_API_KEY no painel do AI Studio.
 
 Resposta para "${query}":
@@ -87,7 +87,7 @@ Consulte o estoque em tempo real na aba "Home" para ver farmácias com estoque d
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`FarmaJá server running on http://0.0.0.0:${PORT}`);
+    console.log(`FARCLIK server running on http://0.0.0.0:${PORT}`);
   });
 }
 
