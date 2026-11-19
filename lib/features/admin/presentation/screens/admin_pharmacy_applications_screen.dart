@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -185,13 +184,11 @@ class _AdminPharmacyApplicationsScreenState
                     ),
                   ],
                 ),
-                                const RichAttributionWidget(
+                RichAttributionWidget(
                   attributions: [
                     TextSourceAttribution('OpenStreetMap contributors'),
                   ],
                 ),
-                  
-                
               ],
             ),
           ),
@@ -640,15 +637,14 @@ class _AdminPharmacyApplicationsScreenState
                                 children: [
                                   Row(
                                     crossAxisAlignment:
-                                                                              const CircleAvatar(
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      CircleAvatar(
                                         backgroundColor:
                                             AppColors.primaryLight,
                                         child: Icon(
                                           Icons.local_pharmacy_outlined,
                                           color: AppColors.primary,
-                                        ),
-                                      ),
-                          
                                         ),
                                       ),
                                       const SizedBox(width: 12),
