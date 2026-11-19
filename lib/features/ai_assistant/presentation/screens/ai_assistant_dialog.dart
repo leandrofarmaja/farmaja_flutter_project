@@ -16,7 +16,7 @@ class _AiAssistantDialogState extends State<AiAssistantDialog> {
     {
       'sender': 'ai',
       'text':
-          'Olá! Sou o Assistente Farmacêutico FarmaJá Angola 🇦🇴. Como posso ajudar com os seus medicamentos, dosagens ou genéricos hoje?',
+          'Olá! Sou o Assistente Farmacêutico FARCLIK 🇦🇴. Como posso ajudar com os seus medicamentos, dosagens ou genéricos hoje?',
     }
   ];
 
@@ -159,7 +159,7 @@ class _AiAssistantDialogState extends State<AiAssistantDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'FarmaJá AI Assistant',
+                        'FARCLIK Assistente',
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 15,
@@ -268,4 +268,4 @@ class _AiAssistantDialogState extends State<AiAssistantDialog> {
       ),
     );
   }
-}O 
+}
