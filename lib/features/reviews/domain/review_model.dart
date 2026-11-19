@@ -44,7 +44,7 @@ class ReviewModel {
       id: json['id'] ?? '',
       reservationId: json['reservation_id'] ?? json['reservationId'] ?? '',
       userId: json['user_id'] ?? json['userId'] ?? '',
-      userName: json['user_name'] ?? json['userName'] ?? 'Utente FarmaJá',
+      userName: json['user_name'] ?? json['userName'] ?? 'Utente FARCLIK',
       userPhone: json['user_phone'] ?? json['userPhone'] ?? '',
       pharmacyId: json['pharmacy_id'] ?? json['pharmacyId'] ?? 'pharm-1',
       pharmacyName: json['pharmacy_name'] ?? json['pharmacyName'] ?? 'Farmácia',
