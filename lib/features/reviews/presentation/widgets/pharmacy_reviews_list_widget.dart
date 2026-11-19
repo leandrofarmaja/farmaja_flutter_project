@@ -21,8 +21,7 @@ class PharmacyReviewsListWidget extends StatefulWidget {
 
 class _PharmacyReviewsListWidgetState
     extends State<PharmacyReviewsListWidget> {
-  final SupabaseDatabaseService _db =
-      SupabaseDatabaseService();
+  final SupabaseDatabaseService _db = SupabaseDatabaseService();
 
   List<ReviewModel> _reviews = [];
   bool _isLoading = true;
@@ -72,8 +71,8 @@ class _PharmacyReviewsListWidgetState
             starNumber <= rating
                 ? Icons.star_rounded
                 : Icons.star_border_rounded,
-            size: 18,
-            color: Colors.amber,
+            size: 19,
+            color: const Color(0xFFF5A623),
           );
         },
       ),
@@ -86,13 +85,20 @@ class _PharmacyReviewsListWidgetState
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: Colors.grey.shade200,
+          color: const Color(0xFFE8EFEA),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.025),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,7 +107,7 @@ class _PharmacyReviewsListWidgetState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
-                radius: 20,
+                radius: 21,
                 backgroundColor: AppColors.primaryLight,
                 child: Text(
                   review.userName.isNotEmpty
@@ -109,48 +115,114 @@ class _PharmacyReviewsListWidgetState
                       : '?',
                   style: const TextStyle(
                     color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       review.userName,
                       style: const TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF173B57),
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 5),
                     _buildStars(review.pharmacyRating),
                   ],
                 ),
               ),
-              Text(
-                _formatDate(review.createdAt),
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 9,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F8F6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _formatDate(review.createdAt),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF718078),
+                  ),
                 ),
               ),
             ],
           ),
           if (comment.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              comment,
-              style: const TextStyle(
-                fontSize: 13,
-                height: 1.4,
-                color: Colors.black87,
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FBF9),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                comment,
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: Color(0xFF45564D),
+                ),
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: 30,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FBF9),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFE8EFEA),
+        ),
+      ),
+      child: const Column(
+        children: [
+          Icon(
+            Icons.rate_review_outlined,
+            size: 44,
+            color: AppColors.primary,
+          ),
+          SizedBox(height: 12),
+          Text(
+            'Ainda não existem avaliações.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF52645A),
+            ),
+          ),
+          SizedBox(height: 5),
+          Text(
+            'As avaliações dos clientes serão apresentadas aqui.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: Color(0xFF89958E),
+            ),
+          ),
         ],
       ),
     );
@@ -163,69 +235,57 @@ class _PharmacyReviewsListWidgetState
       children: [
         Row(
           children: [
-            const Icon(
-              Icons.rate_review_rounded,
-              color: AppColors.primary,
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.rate_review_rounded,
+                color: AppColors.primary,
+                size: 21,
+              ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 11),
             Expanded(
               child: Text(
                 'Avaliações da ${widget.pharmacyName}',
                 style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF173B57),
                 ),
               ),
             ),
             IconButton(
               onPressed: _loadReviews,
-              icon: const Icon(
-                Icons.refresh_rounded,
-              ),
               tooltip: 'Atualizar',
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFFF0F7F2),
+                foregroundColor: AppColors.primary,
+              ),
+              icon: const Icon(Icons.refresh_rounded),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         if (_isLoading)
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 30),
+            padding: EdgeInsets.symmetric(vertical: 32),
             child: Center(
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(
+                color: AppColors.primary,
+                strokeWidth: 2.5,
+              ),
             ),
           )
         else if (_reviews.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Column(
-              children: [
-                Icon(
-                  Icons.rate_review_outlined,
-                  size: 42,
-                  color: Colors.grey,
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Ainda não existem avaliações.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          )
+          _buildEmptyState()
         else
           Column(
-            children: _reviews
-                .map(_buildReviewCard)
-                .toList(),
+            children: _reviews.map(_buildReviewCard).toList(),
           ),
       ],
     );
