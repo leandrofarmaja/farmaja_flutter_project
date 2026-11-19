@@ -9,10 +9,12 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
-  static const Color _background = Color(0xFFF8FAF9);
-  static const Color _text = Color(0xFF17212B);
-  static const Color _muted = Color(0xFF748091);
-  static const Color _border = Color(0xFFE7ECE9);
+  static const Color _background = Color(0xFFF8FBF9);
+  static const Color _text = Color(0xFF17324D);
+  static const Color _muted = Color(0xFF64748B);
+  static const Color _green = Color(0xFF16A34A);
+  static const Color _darkGreen = Color(0xFF15803D);
+  static const Color _border = Color(0xFFDDF1E6);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,6 +27,8 @@ class ProfileScreen extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('O meu perfil'),
           backgroundColor: Colors.white,
+          foregroundColor: _text,
+          elevation: 0,
         ),
         body: Center(
           child: Padding(
@@ -91,6 +95,11 @@ class ProfileScreen extends ConsumerWidget {
             ? 'Conta de Administrador'
             : 'Conta de Cliente';
 
+    final String location = [
+      user.province.trim(),
+      user.district.trim(),
+    ].where((part) => part.isNotEmpty).join(', ');
+
     return Scaffold(
       backgroundColor: _background,
       appBar: AppBar(
@@ -99,64 +108,119 @@ class ProfileScreen extends ConsumerWidget {
         elevation: 0,
         title: const Text(
           'O meu perfil',
-          style: TextStyle(color: _text, fontWeight: FontWeight.w700, fontSize: 21),
+          style: TextStyle(
+            color: _text,
+            fontWeight: FontWeight.w800,
+            fontSize: 21,
+          ),
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Cartão de identificação do utilizador.
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 26),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(color: _border),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF174B35).withOpacity(0.045),
+                    blurRadius: 18,
+                    offset: const Offset(0, 7),
+                  ),
+                ],
               ),
-              child: Column(
+              child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 42,
-                    backgroundColor: roleBackground,
+                    radius: 38,
+                    backgroundColor: const Color(0xFFDDF8E8),
                     child: Text(
                       initials.isEmpty ? 'F' : initials,
-                      style: TextStyle(color: roleColor, fontSize: 25, fontWeight: FontWeight.w800),
+                      style: const TextStyle(
+                        color: _darkGreen,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    fullName,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _text),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    user.email,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 14, color: _muted),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                    decoration: BoxDecoration(color: roleBackground, borderRadius: BorderRadius.circular(30)),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          isPharmacy
-                              ? Icons.storefront_rounded
-                              : isAdmin
-                                  ? Icons.shield_rounded
-                                  : Icons.person_rounded,
-                          size: 17,
-                          color: roleColor,
+                        Text(
+                          fullName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            height: 1.2,
+                            fontWeight: FontWeight.w800,
+                            color: _text,
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            roleLabel,
-                            style: TextStyle(color: roleColor, fontSize: 13, fontWeight: FontWeight.w700),
+                        const SizedBox(height: 7),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.mail_outline_rounded,
+                              size: 16,
+                              color: _muted,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                user.email,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: _muted,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: roleBackground,
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isPharmacy
+                                    ? Icons.storefront_rounded
+                                    : isAdmin
+                                        ? Icons.shield_rounded
+                                        : Icons.person_rounded,
+                                size: 16,
+                                color: roleColor,
+                              ),
+                              const SizedBox(width: 7),
+                              Flexible(
+                                child: Text(
+                                  roleLabel,
+                                  style: TextStyle(
+                                    color: roleColor,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -165,64 +229,76 @@ class ProfileScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+
+            const SizedBox(height: 25),
+
             const Text(
               'Os meus dados',
-              style: TextStyle(color: _text, fontSize: 17, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _border),
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: _text,
               ),
-              child: Column(
-                children: [
-                  _ProfileInfoTile(icon: Icons.email_outlined, title: 'E-mail', value: user.email),
-                  const Divider(height: 1, indent: 60),
-                  _ProfileInfoTile(
+            ),
+
+            const SizedBox(height: 12),
+
+            // Dados pessoais em cartões compactos.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _ProfileDataCard(
+                    icon: Icons.mail_outline_rounded,
+                    title: 'E-mail',
+                    value: user.email,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: _ProfileDataCard(
                     icon: Icons.phone_outlined,
                     title: 'Telefone',
                     value: user.phone.trim().isNotEmpty ? user.phone : 'Não indicado',
                   ),
-                  const Divider(height: 1, indent: 60),
-                  _ProfileInfoTile(
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: _ProfileDataCard(
                     icon: Icons.location_on_outlined,
                     title: 'Localização',
-                    value: [
-                      user.province.trim(),
-                      user.district.trim(),
-                    ].where((part) => part.isNotEmpty).join(', ').isNotEmpty
-                        ? [
-                            user.province.trim(),
-                            user.district.trim(),
-                          ].where((part) => part.isNotEmpty).join(', ')
+                    value: location.isNotEmpty
+                        ? location
                         : 'Não indicada',
                   ),
-                  if (isCustomer &&
-                      user.insuranceProvider != null &&
-                      user.insuranceProvider!.trim().isNotEmpty) ...[
-                    const Divider(height: 1, indent: 60),
-                    _ProfileInfoTile(
-                      icon: Icons.health_and_safety_outlined,
-                      title: 'Seguro de saúde',
-                      value: user.insuranceProvider!,
-                    ),
-                  ],
-                  if (isPharmacy && (user.pharmacyName?.trim().isNotEmpty ?? false)) ...[
-                    const Divider(height: 1, indent: 60),
-                    _ProfileInfoTile(
-                      icon: Icons.storefront_outlined,
-                      title: 'Farmácia',
-                      value: user.pharmacyName!,
-                    ),
-                  ],
-                ],
-              ),
+                ),
+              ],
             ),
+
+            if (isCustomer &&
+                user.insuranceProvider != null &&
+                user.insuranceProvider!.trim().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _ProfileInfoTile(
+                icon: Icons.health_and_safety_outlined,
+                title: 'Seguro de saúde',
+                value: user.insuranceProvider!,
+              ),
+            ],
+
+            if (isPharmacy &&
+                (user.pharmacyName?.trim().isNotEmpty ?? false)) ...[
+              const SizedBox(height: 12),
+              _ProfileInfoTile(
+                icon: Icons.storefront_outlined,
+                title: 'Farmácia',
+                value: user.pharmacyName!,
+              ),
+            ],
+
+            // Acesso exclusivo da farmácia.
             if (isPharmacy) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: 22),
               _AccessCard(
                 icon: Icons.storefront_rounded,
                 title: 'Painel da minha farmácia',
@@ -232,8 +308,10 @@ class ProfileScreen extends ConsumerWidget {
                 onTap: () => context.push('/pharmacy-dashboard'),
               ),
             ],
+
+            // Acesso exclusivo do administrador.
             if (isAdmin) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: 22),
               _AccessCard(
                 icon: Icons.admin_panel_settings_rounded,
                 title: 'Gestão de subscrições',
@@ -243,17 +321,30 @@ class ProfileScreen extends ConsumerWidget {
                 onTap: () => context.push('/admin/subscriptions'),
               ),
             ],
-            const SizedBox(height: 28),
+
+            const SizedBox(height: 26),
+
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFFDC2626),
-                side: const BorderSide(color: Color(0xFFF2CACA)),
+                side: const BorderSide(
+                  color: Color(0xFFF2CACA),
+                  width: 1.2,
+                ),
                 backgroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(52),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                minimumSize: const Size.fromHeight(54),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(17),
+                ),
               ),
               icon: const Icon(Icons.logout_rounded),
-              label: const Text('Terminar sessão', style: TextStyle(fontWeight: FontWeight.w700)),
+              label: const Text(
+                'Terminar sessão',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
               onPressed: () async {
                 try {
                   await ref.read(authProvider.notifier).logout();
@@ -271,7 +362,9 @@ class ProfileScreen extends ConsumerWidget {
                 }
               },
             ),
-            const SizedBox(height: 16),
+
+            const SizedBox(height: 14),
+
             const Center(
               child: Text(
                 'FARCLIK • A sua saúde a um clik',
@@ -280,6 +373,65 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ProfileDataCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+
+  const _ProfileDataCard({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 132),
+      padding: const EdgeInsets.fromLTRB(8, 13, 8, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FAF4),
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+          color: const Color(0xFFD7F0E2),
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: const Color(0xFF159451),
+            size: 25,
+          ),
+          const SizedBox(height: 9),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.2,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF17324D),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -298,21 +450,58 @@ class _ProfileInfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(color: const Color(0xFFE8F7ED), borderRadius: BorderRadius.circular(12)),
-        child: Icon(icon, color: const Color(0xFF15803D), size: 21),
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 15,
+        vertical: 13,
       ),
-      title: Text(title, style: const TextStyle(fontSize: 13, color: Color(0xFF748091))),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 3),
-        child: Text(
-          value,
-          style: const TextStyle(fontSize: 15, color: Color(0xFF17212B), fontWeight: FontWeight.w600),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+          color: const Color(0xFFE2EEE7),
         ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F7ED),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: const Color(0xFF15803D),
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF748091),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF17212B),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -363,7 +552,10 @@ class _AccessCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.chevron_right_rounded, color: color),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: color,
+              ),
             ],
           ),
         ),
