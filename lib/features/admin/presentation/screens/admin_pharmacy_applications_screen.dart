@@ -640,14 +640,15 @@ class _AdminPharmacyApplicationsScreenState
                                 children: [
                                   Row(
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      CircleAvatar(
+                                                                              const CircleAvatar(
                                         backgroundColor:
                                             AppColors.primaryLight,
                                         child: Icon(
                                           Icons.local_pharmacy_outlined,
                                           color: AppColors.primary,
+                                        ),
+                                      ),
+                          
                                         ),
                                       ),
                                       const SizedBox(width: 12),
