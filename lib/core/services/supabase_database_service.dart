@@ -150,8 +150,9 @@ try {
 
   if (uri == null) return;  
 
-  final marker =  
-      '/storage/v1/object/public/$_medicineImagesBucket/';  
+    const marker =
+      '/storage/v1/object/public/$_medicineImagesBucket/';
+     
 
   final pathIndex = uri.path.indexOf(marker);  
 
@@ -1141,48 +1142,87 @@ try {
 
 }
 
+
 // ============================================================
-// FARMÁCIA DO PROPRIETÁRIO AUTENTICADO
+// FARMÁCIAS E FARMÁCIA DO PROPRIETÁRIO AUTENTICADO
 // ============================================================
+
+Future<List<PharmacyModel>> getPharmacies({
+  String? province,
+  bool? only24h,
+}) async {
+  if (only24h == true) {
+    throw UnsupportedError(
+      'O filtro de farmácias abertas 24 horas ainda não está '
+      'suportado pela estrutura actual da tabela.',
+    );
+  }
+
+  try {
+    var request = _client.from('farmacias').select(
+      'id, nome, provincia, municipio, bairro, endereco, '
+      'telefone, aberta_agora, avaliacao, foto_url, '
+      'latitude, longitude',
+    );
+
+    if (province != null && province.trim().isNotEmpty) {
+      request = request.eq('provincia', province.trim());
+    }
+
+    final response = await request.order('nome');
+
+    return List<Map<String, dynamic>>.from(response)
+        .map(PharmacyModel.fromJson)
+        .toList();
+  } on PostgrestException catch (e) {
+    throw Exception(
+      'Não foi possível carregar as farmácias: ${e.message}',
+    );
+  } catch (e) {
+    throw Exception(
+      'Falha ao consultar as farmácias: $e',
+    );
+  }
+}
 
 Future<PharmacyModel?> getOwnedPharmacy() async {
-final currentUser = _client.auth.currentUser;
+  final currentUser = _client.auth.currentUser;
 
-if (currentUser == null) {  
-  throw Exception(  
-    'Inicia sessão com a conta da farmácia.',  
-  );  
-}  
+  if (currentUser == null) {
+    throw Exception(
+      'Inicia sessão com a conta da farmácia.',
+    );
+  }
 
-try {  
-  final response = await _client  
-      .from('farmacias')  
-      .select(  
-        'id, nome, provincia, municipio, bairro, endereco, '  
-        'telefone, aberta_agora, avaliacao, foto_url, '  
-        'latitude, longitude, subscription_status, '  
-        'trial_ends_at, payment_due_date, monthly_fee, '  
-        'last_payment_at',  
-      )  
-      .eq('owner_user_id', currentUser.id)  
-      .maybeSingle();  
+  try {
+    final response = await _client
+        .from('farmacias')
+        .select(
+          'id, nome, provincia, municipio, bairro, endereco, '
+          'telefone, aberta_agora, avaliacao, foto_url, '
+          'latitude, longitude, subscription_status, '
+          'trial_ends_at, payment_due_date, monthly_fee, '
+          'last_payment_at',
+        )
+        .eq('owner_user_id', currentUser.id)
+        .maybeSingle();
 
-  if (response == null) return null;  
+    if (response == null) return null;
 
-  return PharmacyModel.fromJson(  
-    Map<String, dynamic>.from(response),  
-  );  
-} on PostgrestException catch (e) {  
-  throw Exception(  
-    'Não foi possível consultar a farmácia associada: ${e.message}',  
-  );  
-} catch (e) {  
-  throw Exception(  
-    'Falha ao consultar a farmácia: $e',  
-  );  
+    return PharmacyModel.fromJson(
+      Map<String, dynamic>.from(response),
+    );
+  } on PostgrestException catch (e) {
+    throw Exception(
+      'Não foi possível consultar a farmácia associada: ${e.message}',
+    );
+  } catch (e) {
+    throw Exception(
+      'Falha ao consultar a farmácia: $e',
+    );
+  }
 }
-
-}
+        
 
 // ============================================================
 // GESTÃO DE MEDICAMENTOS — RPCs SUPABASE
@@ -1692,7 +1732,7 @@ try {
 }
 
 }
-
+// ignore: unused_element
 Future<void> _updatePharmacyAverageRating(
 String pharmacyId,
 ) async {

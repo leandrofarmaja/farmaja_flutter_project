@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -127,7 +126,7 @@ class _AdminSubscriptionsScreenState
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: selectedStatus,
+                                        initialValue: selectedStatus,
                     items: const [
                       DropdownMenuItem(
                         value: 'trial',
@@ -164,7 +163,7 @@ class _AdminSubscriptionsScreenState
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     DropdownButtonFormField<int>(
-                      value: extendMonths,
+                                            initialValue: extendMonths,
                       items: const [
                         DropdownMenuItem(
                           value: 1,
@@ -243,7 +242,7 @@ class _AdminSubscriptionsScreenState
                                   customDueDate: newDueDate,
                                 );
 
-                            if (!mounted) return;
+                                                        if (!mounted || !dialogContext.mounted) return;
 
                             final currentState =
                                 ref.read(adminSubscriptionProvider);
@@ -683,10 +682,10 @@ class _AdminSubscriptionsScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.22)),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.035),
+            color: Colors.black.withValues(alpha: 0.035),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -698,7 +697,7 @@ class _AdminSubscriptionsScreenState
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(11),
             ),
             child: Icon(icon, color: color, size: 21),
@@ -884,7 +883,7 @@ class _AdminSubscriptionsScreenState
                 leading: CircleAvatar(
                   backgroundColor: _getStatusColor(
                     pharm.subscriptionStatus,
-                  ).withOpacity(0.15),
+                  ).withValues(alpha: 0.15),
                   child: Icon(
                     _getStatusIcon(pharm.subscriptionStatus),
                     color: _getStatusColor(pharm.subscriptionStatus),
@@ -941,7 +940,7 @@ class _AdminSubscriptionsScreenState
                       decoration: BoxDecoration(
                         color: _getStatusColor(
                           pharm.subscriptionStatus,
-                        ).withOpacity(0.15),
+                        ).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -1082,9 +1081,9 @@ class _AdminSubscriptionsScreenState
           horizontal: 4,
         ),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           children: [
@@ -1103,7 +1102,7 @@ class _AdminSubscriptionsScreenState
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.bold,
-                color: color.withOpacity(0.8),
+                color: color.withValues(alpha: 0.8),
               ),
             ),
           ],

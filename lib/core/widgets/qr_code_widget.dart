@@ -34,7 +34,7 @@ class QrCodeWidget extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.08),
+            color: AppColors.primary.withValues(alpha: 0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -52,7 +52,8 @@ class QrCodeWidget extends StatelessWidget {
               version: QrVersions.auto,
               size: size - 24,
               backgroundColor: backgroundColor,
-              foregroundColor: color,
+                            eyeStyle: QrEyeStyle(color: color),
+              dataModuleStyle: QrDataModuleStyle(color: color),
               errorCorrectionLevel: QrErrorCorrectLevel.H,
               gapless: true,
             ),

@@ -36,19 +36,11 @@ class ProfileScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.account_circle_outlined,
-                  size: 76,
-                  color: _muted,
-                ),
+                const Icon(Icons.account_circle_outlined, size: 76, color: _muted),
                 const SizedBox(height: 16),
                 const Text(
                   'Sessão não iniciada',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: _text,
-                  ),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: _text),
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -267,9 +259,7 @@ class ProfileScreen extends ConsumerWidget {
                   child: _ProfileDataCard(
                     icon: Icons.phone_outlined,
                     title: 'Telefone',
-                    value: user.phone.trim().isNotEmpty
-                        ? user.phone
-                        : 'Não indicado',
+                    value: user.phone.trim().isNotEmpty ? user.phone : 'Não indicado',
                   ),
                 ),
                 const SizedBox(width: 9),
@@ -312,8 +302,7 @@ class ProfileScreen extends ConsumerWidget {
               _AccessCard(
                 icon: Icons.storefront_rounded,
                 title: 'Painel da minha farmácia',
-                description:
-                    'Gerir medicamentos, preços, stock e reservas autorizadas.',
+                description: 'Gerir medicamentos, preços, stock e reservas autorizadas.',
                 color: const Color(0xFF0F766E),
                 background: const Color(0xFFE6F5F2),
                 onTap: () => context.push('/pharmacy-dashboard'),
@@ -326,8 +315,7 @@ class ProfileScreen extends ConsumerWidget {
               _AccessCard(
                 icon: Icons.admin_panel_settings_rounded,
                 title: 'Gestão de subscrições',
-                description:
-                    'Aceder às ferramentas administrativas autorizadas.',
+                description: 'Aceder às ferramentas administrativas autorizadas.',
                 color: const Color(0xFF1D4ED8),
                 background: const Color(0xFFEFF6FF),
                 onTap: () => context.push('/admin/subscriptions'),
@@ -360,7 +348,6 @@ class ProfileScreen extends ConsumerWidget {
               onPressed: () async {
                 try {
                   await ref.read(authProvider.notifier).logout();
-
                   if (context.mounted) {
                     context.go('/login');
                   }
@@ -368,9 +355,7 @@ class ProfileScreen extends ConsumerWidget {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text(
-                          'Não foi possível terminar a sessão. Tente novamente.',
-                        ),
+                        content: Text('Não foi possível terminar a sessão. Tente novamente.'),
                       ),
                     );
                   }
@@ -383,11 +368,7 @@ class ProfileScreen extends ConsumerWidget {
             const Center(
               child: Text(
                 'FARCLIK • A sua saúde a um clik',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _muted,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: 12, color: _muted, fontWeight: FontWeight.w500),
               ),
             ),
           ],
@@ -561,22 +542,11 @@ class _AccessCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: color,
-                      ),
-                    ),
+                    Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
                     const SizedBox(height: 5),
                     Text(
                       description,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        color: Color(0xFF465467),
-                      ),
+                      style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF465467)),
                     ),
                   ],
                 ),

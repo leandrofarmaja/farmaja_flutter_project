@@ -13,7 +13,7 @@ class ReservationsNotifier extends StateNotifier<List<ReservationModel>> {
     this._dbService,
     this._userId,
   ) : super([]) {
-    if (_userId != null && _userId!.isNotEmpty) {
+    if (_userId != null && _userId.isNotEmpty) {
       unawaited(fetchReservations());
       _configureRealtimeSubscription();
     }

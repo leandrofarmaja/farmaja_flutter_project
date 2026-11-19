@@ -15,51 +15,31 @@ class HomeScreen extends ConsumerWidget {
     final medicinesAsync = ref.watch(medicinesListProvider);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFAFCFA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
-        toolbarHeight: 72,
+        toolbarHeight: 76,
         titleSpacing: 20,
         title: Row(
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: const Icon(
-                Icons.local_pharmacy_rounded,
-                color: Colors.white,
-                size: 25,
-              ),
-            ),
-            const SizedBox(width: 11),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
+            Image.asset(
+              'FARCLIK_logo.png',
+              width: 148,
+              height: 52,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Text(
                   'FARCLIK',
                   style: TextStyle(
-                    fontSize: 21,
+                    fontSize: 23,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
                     color: AppColors.primary,
+                    letterSpacing: 0.5,
                   ),
-                ),
-                Text(
-                  'A SUA SAÚDE A UM CLIK',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1,
-                    color: Colors.blueGrey.shade400,
-                  ),
-                ),
-              ],
+                );
+              },
             ),
           ],
         ),
@@ -69,12 +49,12 @@ class HomeScreen extends ConsumerWidget {
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Cuide da sua saúde.',
+                    'A sua saúde, mais perto.',
                     style: TextStyle(
                       fontSize: 25,
                       fontWeight: FontWeight.w900,
@@ -82,114 +62,49 @@ class HomeScreen extends ConsumerWidget {
                       height: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  const SizedBox(height: 8),
                   Text(
-                    'Encontre medicamentos e farmácias '
-                    'de forma simples e rápida.',
+                    'Encontre medicamentos e consulte '
+                    'a disponibilidade nas farmácias.',
                     style: TextStyle(
                       fontSize: 13,
                       height: 1.5,
                       color: Colors.blueGrey.shade600,
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  Material(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () {
-                        context.push('/pharmacy-application');
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.2),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.035),
-                              blurRadius: 14,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 52,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryLight,
-                                borderRadius: BorderRadius.circular(15),
-                              ),
-                              child: const Icon(
-                                Icons.add_business_rounded,
-                                color: AppColors.primary,
-                                size: 27,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Registar a minha farmácia',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFF173B57),
-                                    ),
-                                  ),
-                                  SizedBox(height: 5),
-                                  Text(
-                                    'Submeta os dados e a licença '
-                                    'para análise da equipa FARCLIK.',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      height: 1.4,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              size: 16,
-                              color: AppColors.primary,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+
+                  const SizedBox(height: 22),
+
+                  _RegisterPharmacyCard(
+                    onTap: () {
+                      context.push('/pharmacy-application');
+                    },
                   ),
-                  const SizedBox(height: 25),
+
+                  const SizedBox(height: 27),
+
                   const Text(
-                    'O que procura hoje?',
+                    'Encontre o seu medicamento',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 17,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFF173B57),
                     ),
                   ),
-                  const SizedBox(height: 11),
+                  const SizedBox(height: 12),
+
                   SearchBar(
-                    hintText: 'Nome do medicamento...',
+                    hintText: 'Pesquisar por nome do medicamento...',
                     hintStyle: WidgetStatePropertyAll(
                       TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: Colors.blueGrey.shade400,
                       ),
                     ),
                     leading: const Icon(
                       Icons.search_rounded,
                       color: AppColors.primary,
-                      size: 23,
+                      size: 24,
                     ),
                     onChanged: (value) {
                       ref
@@ -198,25 +113,31 @@ class HomeScreen extends ConsumerWidget {
                     },
                     elevation: const WidgetStatePropertyAll(0),
                     backgroundColor: const WidgetStatePropertyAll(
-                      Color(0xFFF7FAF8),
+                      Colors.white,
                     ),
                     side: const WidgetStatePropertyAll(
-                      BorderSide(color: Color(0xFFE6ECE8)),
+                      BorderSide(color: Color(0xFFE4EBE6)),
                     ),
                     shape: WidgetStatePropertyAll(
                       RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 13),
+
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(13),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F8F4),
-                      borderRadius: BorderRadius.circular(13),
+                      color: const Color(0xFFF0F7F2),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFFE1EEE4),
+                      ),
                     ),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(
                           Icons.location_on_outlined,
@@ -231,7 +152,7 @@ class HomeScreen extends ConsumerWidget {
                             'dos respectivos endereços.',
                             style: TextStyle(
                               fontSize: 11,
-                              height: 1.4,
+                              height: 1.45,
                               color: Colors.blueGrey.shade700,
                             ),
                           ),
@@ -239,14 +160,16 @@ class HomeScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 23),
+
+                  const SizedBox(height: 26),
+
                   Row(
                     children: [
                       const Expanded(
                         child: Text(
-                          'Medicamentos disponíveis',
+                          'Medicamentos',
                           style: TextStyle(
-                            fontSize: 17,
+                            fontSize: 19,
                             fontWeight: FontWeight.w900,
                             color: Color(0xFF173B57),
                           ),
@@ -270,7 +193,7 @@ class HomeScreen extends ConsumerWidget {
                         selected: filterState.onlyInStock,
                         showCheckmark: false,
                         selectedColor: AppColors.primary,
-                        backgroundColor: const Color(0xFFF1F8F4),
+                        backgroundColor: const Color(0xFFEAF5ED),
                         side: BorderSide.none,
                         labelStyle: TextStyle(
                           color: filterState.onlyInStock
@@ -285,9 +208,9 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 4),
                   Text(
-                    'Consulte os preços e a disponibilidade.',
+                    'Preços e disponibilidade nas farmácias.',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.blueGrey.shade500,
@@ -298,6 +221,7 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
           ),
+
           medicinesAsync.when(
             data: (medicines) {
               if (medicines.isEmpty) {
@@ -311,13 +235,13 @@ class HomeScreen extends ConsumerWidget {
                         children: [
                           Container(
                             padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               color: AppColors.primaryLight,
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
                               Icons.medication_outlined,
-                              size: 38,
+                              size: 40,
                               color: AppColors.primary,
                             ),
                           ),
@@ -352,7 +276,7 @@ class HomeScreen extends ConsumerWidget {
               }
 
               return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 25),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -360,159 +284,12 @@ class HomeScreen extends ConsumerWidget {
                       final available =
                           med.inStock && med.stockQuantity > 0;
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 13),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(17),
-                          border: Border.all(
-                            color: const Color(0xFFEDF0EE),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.025),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(17),
-                          onTap: () {
-                            context.push('/medicine/${med.id}');
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(15),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    _MedicineImage(
-                                      imageUrl: med.imageUrl,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            med.name,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w800,
-                                              color: Color(0xFF173B57),
-                                            ),
-                                          ),
-                                          if (med.activeIngredient
-                                              .isNotEmpty) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              med.activeIngredient,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color:
-                                                    Colors.blueGrey.shade600,
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${med.priceKz.toInt()} Kz',
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w900,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  child: Divider(
-                                    height: 1,
-                                    color: Color(0xFFEDF0EE),
-                                  ),
-                                ),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.storefront_outlined,
-                                      size: 15,
-                                      color: Colors.blueGrey,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        med.pharmacyName.isNotEmpty
-                                            ? med.pharmacyName
-                                            : 'Farmácia por identificar',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.blueGrey.shade600,
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 9,
-                                        vertical: 5,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: available
-                                            ? const Color(0xFFE9F7EF)
-                                            : const Color(0xFFFFEEEE),
-                                        borderRadius:
-                                            BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        available
-                                            ? 'Em stock: ${med.stockQuantity}'
-                                            : 'Sem stock',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w800,
-                                          color: available
-                                              ? AppColors.primary
-                                              : Colors.red.shade700,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (med.requiresPrescription) ...[
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.receipt_long_outlined,
-                                        size: 14,
-                                        color: Colors.deepOrange.shade700,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Sujeito a receita médica',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.deepOrange.shade700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
+                      return _MedicineCard(
+                        medicine: med,
+                        available: available,
+                        onTap: () {
+                          context.push('/medicine/${med.id}');
+                        },
                       );
                     },
                     childCount: medicines.length,
@@ -567,6 +344,256 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
+class _RegisterPharmacyCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _RegisterPharmacyCard({
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primary,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(17),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF15803D),
+                Color(0xFF16A34A),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 49,
+                height: 49,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(
+                  Icons.add_business_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 13),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'É responsável por uma farmácia?',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 5),
+                    Text(
+                      'Registe a sua farmácia na FARCLIK.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.4,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 17,
+                color: Colors.white,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MedicineCard extends StatelessWidget {
+  final dynamic medicine;
+  final bool available;
+  final VoidCallback onTap;
+
+  const _MedicineCard({
+    required this.medicine,
+    required this.available,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFE9EFEB),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF173B57).withValues(alpha: 0.035),
+            blurRadius: 13,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _MedicineImage(
+                    imageUrl: medicine.imageUrl,
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          medicine.name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF173B57),
+                          ),
+                        ),
+                        if (medicine.activeIngredient.isNotEmpty) ...[
+                          const SizedBox(height: 5),
+                          Text(
+                            medicine.activeIngredient,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.blueGrey.shade600,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 9),
+                        Text(
+                          '${medicine.priceKz.toInt()} Kz',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                    color: Color(0xFF9AA9A0),
+                  ),
+                ],
+              ),
+
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 13),
+                child: Divider(
+                  height: 1,
+                  color: Color(0xFFEDF0EE),
+                ),
+              ),
+
+              Row(
+                children: [
+                  const Icon(
+                    Icons.storefront_outlined,
+                    size: 16,
+                    color: Colors.blueGrey,
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      medicine.pharmacyName.isNotEmpty
+                          ? medicine.pharmacyName
+                          : 'Farmácia por identificar',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.blueGrey.shade600,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: available
+                          ? const Color(0xFFE9F7EF)
+                          : const Color(0xFFFFEEEE),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      available
+                          ? 'Em stock: ${medicine.stockQuantity}'
+                          : 'Sem stock',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: available
+                            ? AppColors.primary
+                            : Colors.red.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              if (medicine.requiresPrescription) ...[
+                const SizedBox(height: 11),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.receipt_long_outlined,
+                      size: 15,
+                      color: Colors.deepOrange.shade700,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Sujeito a receita médica',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.deepOrange.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MedicineImage extends StatelessWidget {
   final String? imageUrl;
 
@@ -579,34 +606,30 @@ class _MedicineImage extends StatelessWidget {
     final url = imageUrl?.trim();
 
     if (url == null || url.isEmpty) {
-      debugPrint('[FARCLIK IMAGEM] URL vazio ou nulo.');
-
       return const _MedicineImageFallback();
     }
 
-    debugPrint('[FARCLIK IMAGEM] A tentar carregar: $url');
-
     return Container(
-      width: 70,
-      height: 70,
+      width: 76,
+      height: 76,
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(14),
         child: Image.network(
           url,
-          width: 70,
-          height: 70,
+          width: 76,
+          height: 76,
           fit: BoxFit.cover,
           loadingBuilder: (context, child, progress) {
             if (progress == null) return child;
 
             return const Center(
               child: SizedBox(
-                width: 20,
-                height: 20,
+                width: 21,
+                height: 21,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   color: AppColors.primary,
@@ -615,35 +638,7 @@ class _MedicineImage extends StatelessWidget {
             );
           },
           errorBuilder: (context, error, stackTrace) {
-            debugPrint(
-              '[FARCLIK IMAGEM] ERRO ao carregar $url: $error',
-            );
-
-            return Container(
-              color: const Color(0xFFFFEEEE),
-              padding: const EdgeInsets.all(4),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.broken_image_outlined,
-                    color: Colors.red,
-                    size: 22,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    error.toString(),
-                    textAlign: TextAlign.center,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 7,
-                      color: Colors.red,
-                    ),
-                  ),
-                ],
-              ),
-            );
+            return const _MedicineImageFallback();
           },
         ),
       ),
@@ -657,17 +652,17 @@ class _MedicineImageFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 70,
-      height: 70,
+      width: 76,
+      height: 76,
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: const Center(
         child: Icon(
           Icons.medication_rounded,
           color: AppColors.primary,
-          size: 30,
+          size: 32,
         ),
       ),
     );

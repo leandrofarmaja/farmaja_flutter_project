@@ -1,3 +1,4 @@
+
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,6 +9,7 @@ class PrescriptionRepository {
 
   final SupabaseClient _client;
 
+  // ignore: unused_field
   static const String _bucket = 'receitas-medicas';
 
   /// O envio de receitas está temporariamente indisponível.
@@ -73,6 +75,7 @@ class PrescriptionRepository {
     );
   }
 
+  // ignore: unused_element
   String _extension(String fileName) {
     final name = fileName.trim().split('/').last;
     final dot = name.lastIndexOf('.');
@@ -84,6 +87,7 @@ class PrescriptionRepository {
     return name.substring(dot + 1).toLowerCase();
   }
 
+  // ignore: unused_element
   String _contentType(String extension) {
     switch (extension) {
       case 'png':

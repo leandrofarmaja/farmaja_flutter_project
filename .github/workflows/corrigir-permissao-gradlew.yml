@@ -1,0 +1,32 @@
+
+name: Corrigir permissao Gradle Wrapper
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  corrigir-permissao:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Obter repositorio
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Corrigir permissao de execucao
+        run: chmod +x android/gradlew
+
+      - name: Confirmar permissao
+        run: git diff --summary
+
+      - name: Criar commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/gradlew
+          git commit -m "Fix Gradle wrapper executable permission"
+          git push origin master
