@@ -1,9 +1,11 @@
-
 import 'dart:ui' show FontFeature;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -13,6 +15,25 @@ import '../providers/pharmacies_provider.dart';
 
 class PharmaciesScreen extends ConsumerWidget {
   const PharmaciesScreen({super.key});
+
+  static const Color _navy = Color(0xFF173B57);
+  static const Color _green = Color(0xFF16A34A);
+  static const Color _muted = Color(0xFF64748B);
+  static const Color _border = Color(0xFFE5EEE8);
+
+  TextStyle _textStyle({
+    double size = 13,
+    FontWeight weight = FontWeight.w500,
+    Color color = _navy,
+    double height = 1.4,
+  }) {
+    return GoogleFonts.plusJakartaSans(
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+      height: height,
+    );
+  }
 
   void _showPharmacyReviewsModal(
     BuildContext context,
@@ -43,7 +64,7 @@ class PharmaciesScreen extends ConsumerWidget {
                   height: 5,
                   margin: const EdgeInsets.only(bottom: 22),
                   decoration: BoxDecoration(
-                    color: AppColors.borderLight,
+                    color: const Color(0xFFE2E8F0),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -55,10 +76,9 @@ class PharmaciesScreen extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       pharmacy.name,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimaryLight,
+                      style: _textStyle(
+                        size: 17,
+                        weight: FontWeight.w800,
                       ),
                     ),
                   ),
@@ -68,10 +88,9 @@ class PharmaciesScreen extends ConsumerWidget {
                 const SizedBox(height: 10),
                 Text(
                   pharmacy.address,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.5,
-                    color: AppColors.textSecondaryLight,
+                  style: _textStyle(
+                    size: 12,
+                    color: _muted,
                   ),
                 ),
               ],
@@ -103,7 +122,7 @@ class PharmaciesScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
@@ -111,25 +130,22 @@ class PharmaciesScreen extends ConsumerWidget {
         scrolledUnderElevation: 0,
         centerTitle: false,
         titleSpacing: 20,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Farmácias',
-              style: TextStyle(
-                color: AppColors.textPrimaryLight,
-                fontSize: 21,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
+              style: _textStyle(
+                size: 21,
+                weight: FontWeight.w800,
               ),
             ),
-            SizedBox(height: 2),
+            const SizedBox(height: 2),
             Text(
               'Encontre os seus pontos de saúde',
-              style: TextStyle(
-                color: AppColors.textSecondaryLight,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+              style: _textStyle(
+                size: 11,
+                color: _muted,
               ),
             ),
           ],
@@ -152,7 +168,7 @@ class PharmaciesScreen extends ConsumerWidget {
               data: (pharmacies) {
                 if (pharmacies.isEmpty) {
                   return RefreshIndicator(
-                    color: AppColors.primary,
+                    color: _green,
                     onRefresh: refreshPharmacies,
                     child: _EmptyPharmacies(
                       hasSearch: searchQuery.trim().isNotEmpty,
@@ -166,11 +182,11 @@ class PharmaciesScreen extends ConsumerWidget {
                 }
 
                 return RefreshIndicator(
-                  color: AppColors.primary,
+                  color: _green,
                   onRefresh: refreshPharmacies,
                   child: ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
                     itemCount: pharmacies.length,
                     itemBuilder: (context, index) {
                       final pharmacy = pharmacies[index];
@@ -189,9 +205,7 @@ class PharmaciesScreen extends ConsumerWidget {
                               milliseconds: index < 6 ? index * 65 : 0,
                             ),
                           )
-                          .fadeIn(
-                            duration: 350.ms,
-                          )
+                          .fadeIn(duration: 350.ms)
                           .slideY(
                             begin: 0.06,
                             end: 0,
@@ -204,7 +218,7 @@ class PharmaciesScreen extends ConsumerWidget {
               },
               loading: () => const Center(
                 child: CircularProgressIndicator(
-                  color: AppColors.primary,
+                  color: _green,
                   strokeWidth: 2.5,
                 ),
               ),
@@ -239,36 +253,41 @@ class _SearchHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Encontre uma farmácia',
-            style: TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 15,
               fontWeight: FontWeight.w800,
-              color: AppColors.textPrimaryLight,
+              color: const Color(0xFF173B57),
             ),
           ),
           const SizedBox(height: 5),
-          const Text(
+          Text(
             'Pesquise por nome, município ou bairro.',
-            style: TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 12,
-              color: AppColors.textSecondaryLight,
+              color: const Color(0xFF64748B),
             ),
           ),
           const SizedBox(height: 14),
           TextField(
             onChanged: onSearchChanged,
             textInputAction: TextInputAction.search,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              color: const Color(0xFF173B57),
+              fontWeight: FontWeight.w600,
+            ),
             decoration: InputDecoration(
               hintText: 'Pesquisar farmácia...',
-              hintStyle: const TextStyle(
-                color: AppColors.textSecondaryLight,
+              hintStyle: GoogleFonts.plusJakartaSans(
+                color: const Color(0xFF94A3B8),
                 fontSize: 13,
               ),
               prefixIcon: const Icon(
-                Icons.search_rounded,
-                color: AppColors.primary,
-                size: 21,
+                LucideIcons.search,
+                color: Color(0xFF16A34A),
+                size: 20,
               ),
               suffixIcon: searchQuery.isEmpty
                   ? null
@@ -277,29 +296,31 @@ class _SearchHeader extends StatelessWidget {
                       onPressed: onClear,
                       icon: const Icon(
                         Icons.close_rounded,
-                        color: AppColors.textSecondaryLight,
+                        color: Color(0xFF64748B),
                       ),
                     ),
               filled: true,
-              fillColor: const Color(0xFFF7FAF8),
+              fillColor: const Color(0xFFF8FBF9),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
-                vertical: 15,
+                vertical: 16,
               ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
+                borderRadius: BorderRadius.circular(17),
+                borderSide: const BorderSide(
+                  color: Color(0xFFE5EEE8),
+                ),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(17),
                 borderSide: const BorderSide(
-                  color: AppColors.borderLight,
+                  color: Color(0xFFE5EEE8),
                 ),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(17),
                 borderSide: const BorderSide(
-                  color: AppColors.primary,
+                  color: Color(0xFF16A34A),
                   width: 1.4,
                 ),
               ),
@@ -340,24 +361,24 @@ class _PharmacyCard extends StatelessWidget {
     ];
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 15),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(23),
         border: Border.all(
-          color: AppColors.borderLight,
-          width: 0.8,
+          color: const Color(0xFFE5EEE8),
+          width: 0.9,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF173B57).withValues(alpha: 0.045),
-            blurRadius: 20,
-            offset: const Offset(0, 7),
+            color: const Color(0xFF173B57).withValues(alpha: 0.055),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(15),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -374,31 +395,31 @@ class _PharmacyCard extends StatelessWidget {
                         pharmacy.name,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 15,
-                          height: 1.3,
+                          height: 1.35,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimaryLight,
+                          color: const Color(0xFF173B57),
                         ),
                       ),
                       if (locationParts.isNotEmpty) ...[
-                        const SizedBox(height: 7),
+                        const SizedBox(height: 8),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Icon(
-                              Icons.location_on_outlined,
+                              Iconsax.location_bold,
                               size: 15,
-                              color: AppColors.primary,
+                              color: Color(0xFF16A34A),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 5),
                             Expanded(
                               child: Text(
                                 locationParts.join(', '),
-                                style: const TextStyle(
+                                style: GoogleFonts.plusJakartaSans(
                                   fontSize: 11,
-                                  height: 1.4,
-                                  color: AppColors.textSecondaryLight,
+                                  height: 1.45,
+                                  color: const Color(0xFF64748B),
                                 ),
                               ),
                             ),
@@ -411,35 +432,34 @@ class _PharmacyCard extends StatelessWidget {
                           onTap: onReviewsTap,
                           borderRadius: BorderRadius.circular(8),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 2,
-                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 2),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(
-                                  Icons.star_rounded,
-                                  color: Color(0xFFF5B400),
-                                  size: 18,
+                                  Iconsax.star_1_bold,
+                                  color: Color(0xFFF59E0B),
+                                  size: 16,
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: 5),
                                 Text(
                                   pharmacy.rating.toStringAsFixed(1),
-                                  style: const TextStyle(
+                                  style: GoogleFonts.plusJakartaSans(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
-                                    color: AppColors.textPrimaryLight,
-                                    fontFeatures: [
+                                    color: const Color(0xFF173B57),
+                                    fontFeatures: const [
                                       FontFeature.tabularFigures(),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                const Text(
+                                const SizedBox(width: 7),
+                                Text(
                                   'Ver avaliações',
-                                  style: TextStyle(
+                                  style: GoogleFonts.plusJakartaSans(
                                     fontSize: 11,
-                                    color: AppColors.textSecondaryLight,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF64748B),
                                   ),
                                 ),
                               ],
@@ -453,66 +473,71 @@ class _PharmacyCard extends StatelessWidget {
               ],
             ),
             if (hasAddress || hasPhone) ...[
-              const SizedBox(height: 15),
+              const SizedBox(height: 16),
               const Divider(
                 height: 1,
-                color: AppColors.borderLight,
+                color: Color(0xFFE5EEE8),
               ),
-              const SizedBox(height: 13),
+              const SizedBox(height: 14),
             ],
             if (hasAddress)
               _InfoRow(
-                icon: Icons.place_outlined,
+                icon: Iconsax.location_bold,
                 text: pharmacy.address,
               ),
             if (hasPhone) ...[
-              if (hasAddress) const SizedBox(height: 9),
+              if (hasAddress) const SizedBox(height: 10),
               _InfoRow(
-                icon: Icons.phone_outlined,
+                icon: Iconsax.call_bold,
                 text: pharmacy.phone,
               ),
             ],
             if (hasHours || pharmacy.isOpen24h) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: 15),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
                   if (hasHours)
                     _InfoBadge(
-                      icon: Icons.access_time_rounded,
+                      icon: Iconsax.clock_bold,
                       label: openingHours,
                       green: openingHours.toLowerCase() == 'aberta',
                       red: openingHours.toLowerCase() == 'fechada',
                     ),
                   if (pharmacy.isOpen24h)
                     const _InfoBadge(
-                      icon: Icons.check_circle_outline_rounded,
+                      icon: Iconsax.tick_circle_bold,
                       label: '24 horas',
                       green: true,
                     ),
                 ],
               ),
             ],
-            const SizedBox(height: 12),
+            const SizedBox(height: 13),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
                 onPressed: onReviewsTap,
                 icon: const Icon(
-                  Icons.reviews_outlined,
-                  size: 17,
+                  Iconsax.message_text_1_bold,
+                  size: 16,
                 ),
-                label: const Text('Avaliações'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
-                  ),
-                  textStyle: const TextStyle(
+                label: Text(
+                  'Avaliações',
+                  style: GoogleFonts.plusJakartaSans(
                     fontWeight: FontWeight.w700,
                     fontSize: 12,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF16A34A),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
@@ -541,16 +566,17 @@ class _InfoRow extends StatelessWidget {
         Icon(
           icon,
           size: 16,
-          color: AppColors.primary,
+          color: const Color(0xFF16A34A),
         ),
         const SizedBox(width: 9),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 12,
-              height: 1.45,
-              color: AppColors.textSecondaryLight,
+              height: 1.5,
+              color: const Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -575,25 +601,28 @@ class _InfoBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foreground = green
-        ? AppColors.primaryDark
+        ? const Color(0xFF15803D)
         : red
-            ? AppColors.danger
+            ? const Color(0xFFDC2626)
             : const Color(0xFF526477);
 
     final background = green
-        ? AppColors.primaryLight
+        ? const Color(0xFFDCFCE7)
         : red
             ? const Color(0xFFFEE2E2)
-            : const Color(0xFFF2F6F4);
+            : const Color(0xFFF2F7F4);
 
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 11,
-        vertical: 7,
+        vertical: 8,
       ),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: foreground.withValues(alpha: 0.10),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -603,10 +632,10 @@ class _InfoBadge extends StatelessWidget {
             size: 14,
             color: foreground,
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 6),
           Text(
             label,
-            style: TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: foreground,
@@ -631,57 +660,74 @@ class _EmptyPharmacies extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(26),
       children: [
-        const SizedBox(height: 65),
+        const SizedBox(height: 35),
         Center(
           child: Container(
-            width: 88,
-            height: 88,
+            width: 190,
+            height: 155,
             decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              borderRadius: BorderRadius.circular(27),
+              color: const Color(0xFFF3FAF5),
+              borderRadius: BorderRadius.circular(28),
             ),
-            child: const Icon(
-              Icons.local_pharmacy_rounded,
-              size: 43,
-              color: AppColors.primary,
+            padding: const EdgeInsets.all(12),
+            child: Image.asset(
+              'assets/images/Ilustração_3d_saude.jpg',
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(
+                  Iconsax.shop_bold,
+                  size: 54,
+                  color: Color(0xFF16A34A),
+                );
+              },
             ),
           ),
         )
             .animate()
-            .fadeIn(duration: 400.ms)
-            .scale(begin: const Offset(0.9, 0.9)),
-        const SizedBox(height: 22),
+            .fadeIn(duration: 450.ms)
+            .scale(
+              begin: const Offset(0.92, 0.92),
+              duration: 450.ms,
+              curve: Curves.easeOutBack,
+            ),
+        const SizedBox(height: 25),
         Text(
           hasSearch
               ? 'Nenhuma farmácia encontrada.'
               : 'Ainda não existem farmácias registadas.',
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: GoogleFonts.plusJakartaSans(
             fontSize: 17,
             fontWeight: FontWeight.w800,
-            color: AppColors.textPrimaryLight,
+            color: const Color(0xFF173B57),
           ),
         ),
-        const SizedBox(height: 9),
+        const SizedBox(height: 10),
         Text(
           hasSearch
               ? 'Experimente outro nome, município ou bairro.'
               : 'A lista será actualizada quando as farmácias parceiras forem registadas e os seus dados estiverem disponíveis.',
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 13,
-            height: 1.55,
-            color: AppColors.textSecondaryLight,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 12,
+            height: 1.6,
+            color: const Color(0xFF64748B),
           ),
         ),
         if (hasSearch) ...[
-          const SizedBox(height: 17),
+          const SizedBox(height: 18),
           Center(
             child: TextButton(
               onPressed: onClearSearch,
-              child: const Text('Limpar pesquisa'),
+              child: Text(
+                'Limpar pesquisa',
+                style: GoogleFonts.plusJakartaSans(
+                  color: const Color(0xFF16A34A),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
         ],
@@ -706,49 +752,55 @@ class _PharmaciesError extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 76,
-              height: 76,
+              width: 78,
+              height: 78,
               decoration: BoxDecoration(
                 color: const Color(0xFFFFF1F2),
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(25),
               ),
               child: const Icon(
                 Icons.cloud_off_outlined,
                 size: 36,
-                color: AppColors.danger,
+                color: Color(0xFFDC2626),
               ),
             ),
-            const SizedBox(height: 18),
-            const Text(
+            const SizedBox(height: 19),
+            Text(
               'Não foi possível carregar as farmácias.',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
-                color: AppColors.textPrimaryLight,
+                color: const Color(0xFF173B57),
               ),
             ),
-            const SizedBox(height: 7),
-            const Text(
+            const SizedBox(height: 8),
+            Text(
               'Verifique a ligação à Internet e tente novamente.',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 12,
-                height: 1.5,
-                color: AppColors.textSecondaryLight,
+                height: 1.55,
+                color: const Color(0xFF64748B),
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 19),
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Tentar novamente'),
+              label: Text(
+                'Tentar novamente',
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: const Color(0xFF16A34A),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
+                  horizontal: 21,
+                  vertical: 13,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -816,13 +868,13 @@ class _PharmacyImageState extends State<_PharmacyImage> {
       width: widget.size,
       height: widget.size,
       decoration: BoxDecoration(
-        color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFDCFCE7),
+        borderRadius: BorderRadius.circular(17),
       ),
       child: const Icon(
-        Icons.local_pharmacy_rounded,
-        color: AppColors.primary,
-        size: 34,
+        Iconsax.shop_bold,
+        color: Color(0xFF16A34A),
+        size: 32,
       ),
     );
   }
@@ -839,14 +891,14 @@ class _PharmacyImageState extends State<_PharmacyImage> {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: const Color(0xFFF2F8F4),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(17),
             ),
             child: const SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: AppColors.primary,
+                color: Color(0xFF16A34A),
               ),
             ),
           );
@@ -859,7 +911,7 @@ class _PharmacyImageState extends State<_PharmacyImage> {
         }
 
         return ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(17),
           child: Image.network(
             url,
             width: widget.size,
