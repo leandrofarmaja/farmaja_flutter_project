@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:icons_plus/icons_plus.dart' show Iconsax;
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -160,7 +160,7 @@ class HomeScreen extends ConsumerWidget {
                       'Preços e disponibilidade nas farmácias.',
                       trailing: FilterChip(
                         avatar: Icon(
-                          Iconsax.box,
+                          Iconsax.box_outline,
                           size: 16,
                           color: filterState.onlyInStock
                               ? Colors.white
@@ -758,6 +758,8 @@ class _MedicineCard extends StatelessWidget {
 }
 
 class _MedicineImage extends StatelessWidget {
+  static const Color _green = Color(0xFF16A34A);
+
   final String? imageUrl;
 
   const _MedicineImage({
