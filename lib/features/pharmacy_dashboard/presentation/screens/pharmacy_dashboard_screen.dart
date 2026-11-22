@@ -5,7 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:icons_plus/icons_plus.dart' show Iconsax;
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -440,7 +440,7 @@ class _PharmacyDashboardScreenState
   Widget _buildReservationsTabIcon(int unreadCount) {
     return _countBadge(
       unreadCount,
-      child: const Icon(Iconsax.calendar_tick_bold),
+      child: const Icon(Iconsax.calendar_tick),
     );
   }
 
@@ -541,7 +541,7 @@ class _PharmacyDashboardScreenState
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
-                          Iconsax.shop_bold,
+                          Iconsax.shop,
                           color: _kGreen,
                           size: 20,
                         ),
@@ -683,11 +683,11 @@ class _PharmacyDashboardScreenState
                 text: 'Reservas',
               ),
               const Tab(
-                icon: Icon(Iconsax.document_text_bold),
+                icon: Icon(Iconsax.document_text),
                 text: 'Receitas',
               ),
               const Tab(
-                icon: Icon(Iconsax.shop_bold),
+                icon: Icon(Iconsax.shop),
                 text: 'Perfil',
               ),
             ],
@@ -804,7 +804,7 @@ class _PharmacyDashboardScreenState
         color: Colors.blue.shade50,
         child: Row(
           children: [
-            const Icon(Iconsax.clock_bold, color: _kOrange),
+            const Icon(Iconsax.clock, color: _kOrange),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -1069,7 +1069,7 @@ class _PharmacyDashboardScreenState
               _buildStatCard(
                 title: 'Reservas concluídas',
                 value: '${completedReservationsInPeriod.length}',
-                icon: Iconsax.calendar_tick_bold,
+                icon: Iconsax.calendar_tick,
                 color: _kGreen,
                 bgColor: Colors.green.shade50,
               ).cascade(4),
@@ -1176,7 +1176,7 @@ class _PharmacyDashboardScreenState
                               ? Icons.payments
                               : expired
                                   ? Icons.timer_off
-                                  : Iconsax.calendar_tick_bold,
+                                  : Iconsax.calendar_tick,
                       color: color,
                     ),
                   ),
@@ -1632,7 +1632,7 @@ class _PharmacyDashboardScreenState
                             const Row(
                               children: [
                                 Icon(
-                                  Iconsax.clock_bold,
+                                  Iconsax.clock,
                                   size: 16,
                                   color: _kOrange,
                                 ),
@@ -1753,7 +1753,7 @@ class _PharmacyDashboardScreenState
                 Row(
                   children: [
                     const Icon(
-                      Iconsax.document_text_bold,
+                      Iconsax.document_text,
                       color: _kGreen,
                       size: 22,
                     ),
