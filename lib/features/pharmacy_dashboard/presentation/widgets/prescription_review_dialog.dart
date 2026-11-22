@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../prescriptions/domain/prescription_model.dart';
@@ -145,7 +147,7 @@ class _PrescriptionReviewDialogState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(
-                Icons.medication_outlined,
+                LucideIcons.pill,
                 color: AppColors.primary,
                 size: 20,
               ),
@@ -202,7 +204,7 @@ class _PrescriptionReviewDialogState
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.description_outlined,
+                  Iconsax.document_text_bold,
                   size: 46,
                   color: Colors.grey.shade500,
                 ),
@@ -299,7 +301,7 @@ class _PrescriptionReviewDialogState
 
               _buildSectionTitle(
                 'Receita médica',
-                Icons.description_outlined,
+                Iconsax.document_text_bold,
               ),
               const SizedBox(height: 12),
 
