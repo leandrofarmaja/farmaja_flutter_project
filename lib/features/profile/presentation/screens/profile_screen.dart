@@ -427,6 +427,8 @@ class _SectionHeading extends StatelessWidget {
 }
 
 class _InfoCard extends StatelessWidget {
+  static const Color _line = Color(0xFFE8F0EB);
+
   final List<Widget> children;
 
   const _InfoCard({required this.children});
@@ -452,6 +454,8 @@ class _InfoCard extends StatelessWidget {
 }
 
 class _InfoDivider extends StatelessWidget {
+  static const Color _line = Color(0xFFE8F0EB);
+
   const _InfoDivider();
 
   @override
@@ -467,6 +471,8 @@ class _InfoDivider extends StatelessWidget {
 }
 
 class _ProfileInfoTile extends StatelessWidget {
+  static const Color _muted = Color(0xFF64748B);
+
   final IconData icon;
   final String title;
   final String value;
