@@ -5,7 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:icons_plus/icons_plus.dart' show Iconsax;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
