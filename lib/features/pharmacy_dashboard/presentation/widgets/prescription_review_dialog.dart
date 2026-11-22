@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:icons_plus/icons_plus.dart' show Iconsax;
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../prescriptions/domain/prescription_model.dart';
