@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
-import 'package:icons_plus/icons_plus.dart' show Iconsax;
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../prescriptions/domain/prescription_model.dart';
@@ -204,7 +204,7 @@ class _PrescriptionReviewDialogState
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Iconsax.document_text_bold,
+                  Iconsax.document_text,
                   size: 46,
                   color: Colors.grey.shade500,
                 ),
@@ -301,7 +301,7 @@ class _PrescriptionReviewDialogState
 
               _buildSectionTitle(
                 'Receita médica',
-                Iconsax.document_text_bold,
+                Iconsax.document_text,
               ),
               const SizedBox(height: 12),
 
