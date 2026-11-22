@@ -192,10 +192,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     try {
       final success = await ref.read(authProvider.notifier).register(
-            _fullNameController.text.trim(),
-            _emailController.text.trim(),
-            _passwordController.text,
-            _phoneController.text.trim(),
+            fullName: _fullNameController.text.trim(),
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+            phone: _phoneController.text.trim(),
             province: '',
             district: '',
             role: 'customer',
