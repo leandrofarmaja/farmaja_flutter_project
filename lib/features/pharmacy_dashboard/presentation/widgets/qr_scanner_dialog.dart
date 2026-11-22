@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:icons_plus/icons_plus.dart' show Iconsax;
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../../core/constants/app_colors.dart';
