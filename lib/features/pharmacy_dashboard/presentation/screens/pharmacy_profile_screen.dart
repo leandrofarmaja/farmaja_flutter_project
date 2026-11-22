@@ -1,5 +1,7 @@
 
 import 'package:flutter/material.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -250,7 +252,7 @@ class _PharmacyProfileScreenState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
-                      Icons.store_outlined,
+                      Iconsax.shop_bold,
                       size: 48,
                       color: Colors.grey,
                     ),
@@ -291,7 +293,18 @@ class _PharmacyProfileScreenState
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Container(
+              Animate(
+                delay: 0.ms,
+                effects: [
+                  FadeEffect(duration: 380.ms, curve: Curves.easeOut),
+                  SlideEffect(
+                    begin: const Offset(0, 0.08),
+                    end: Offset.zero,
+                    duration: 380.ms,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ],
+                child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -304,7 +317,7 @@ class _PharmacyProfileScreenState
                     const Row(
                       children: [
                         Icon(
-                          Icons.storefront_outlined,
+                          Iconsax.shop_bold,
                           color: AppColors.primary,
                           size: 25,
                         ),
@@ -334,7 +347,7 @@ class _PharmacyProfileScreenState
                       label: 'Nome da farmácia',
                       hint: 'Nome da farmácia',
                       controller: _nameController,
-                      icon: Icons.local_pharmacy_outlined,
+                      icon: Iconsax.shop_bold,
                     ),
                     _buildField(
                       label: 'Telefone',
@@ -353,13 +366,13 @@ class _PharmacyProfileScreenState
                       label: 'Município',
                       hint: 'Município',
                       controller: _municipalityController,
-                      icon: Icons.location_city_outlined,
+                      icon: Iconsax.location_bold,
                     ),
                     _buildField(
                       label: 'Bairro',
                       hint: 'Bairro',
                       controller: _neighborhoodController,
-                      icon: Icons.place_outlined,
+                      icon: Iconsax.location_bold,
                     ),
                     _buildField(
                       label: 'Endereço',
@@ -406,8 +419,20 @@ class _PharmacyProfileScreenState
                   ],
                 ),
               ),
+              ),
               const SizedBox(height: 20),
-              const Padding(
+              Animate(
+                delay: 60.ms,
+                effects: [
+                  FadeEffect(duration: 380.ms, curve: Curves.easeOut),
+                  SlideEffect(
+                    begin: const Offset(0, 0.08),
+                    end: Offset.zero,
+                    duration: 380.ms,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ],
+                child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
                   'A fotografia da farmácia e a localização GPS serão '
@@ -418,6 +443,7 @@ class _PharmacyProfileScreenState
                     height: 1.5,
                   ),
                 ),
+              ),
               ),
             ],
           ),
