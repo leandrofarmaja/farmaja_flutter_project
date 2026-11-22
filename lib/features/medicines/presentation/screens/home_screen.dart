@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:icons_plus/icons_plus.dart' show Iconsax;
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -160,7 +160,7 @@ class HomeScreen extends ConsumerWidget {
                       'Preços e disponibilidade nas farmácias.',
                       trailing: FilterChip(
                         avatar: Icon(
-                          Iconsax.box_outline,
+                          Iconsax.box,
                           size: 16,
                           color: filterState.onlyInStock
                               ? Colors.white
@@ -419,7 +419,7 @@ class HomeScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
-                  Iconsax.shop_bold,
+                  Iconsax.shop,
                   color: Colors.white,
                   size: 25,
                 ),
@@ -474,7 +474,7 @@ class HomeScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(
-            Iconsax.location_bold,
+            Iconsax.location,
             color: _green,
             size: 20,
           ),
@@ -686,7 +686,7 @@ class _MedicineCard extends StatelessWidget {
               Row(
                 children: [
                   const Icon(
-                    Iconsax.shop_bold,
+                    Iconsax.shop,
                     size: 15,
                     color: _green,
                   ),
@@ -733,7 +733,7 @@ class _MedicineCard extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      Iconsax.document_text_bold,
+                      Iconsax.document_text,
                       size: 15,
                       color: Colors.deepOrange.shade700,
                     ),
