@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -593,7 +595,7 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
           _buildReservationDetail(
             'Medicamento',
             reservation.medicineName,
-            Icons.medication_outlined,
+            LucideIcons.pill,
           ),
           const SizedBox(height: 10),
           _buildReservationDetail(
@@ -612,7 +614,7 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
 
           Chip(
             avatar: const Icon(
-              Icons.schedule_rounded,
+              Iconsax.clock_bold,
               color: Colors.white,
               size: 18,
             ),
