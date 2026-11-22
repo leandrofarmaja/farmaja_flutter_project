@@ -5,7 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:icons_plus/icons_plus.dart' show Iconsax;
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -408,7 +408,7 @@ class _PharmacyCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Icon(
-                              Iconsax.location_bold,
+                              Iconsax.location,
                               size: 15,
                               color: Color(0xFF16A34A),
                             ),
@@ -437,7 +437,7 @@ class _PharmacyCard extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(
-                                  Iconsax.star_1_bold,
+                                  Iconsax.star_1,
                                   color: Color(0xFFF59E0B),
                                   size: 16,
                                 ),
@@ -482,13 +482,13 @@ class _PharmacyCard extends StatelessWidget {
             ],
             if (hasAddress)
               _InfoRow(
-                icon: Iconsax.location_bold,
+                icon: Iconsax.location,
                 text: pharmacy.address,
               ),
             if (hasPhone) ...[
               if (hasAddress) const SizedBox(height: 10),
               _InfoRow(
-                icon: Iconsax.call_bold,
+                icon: Iconsax.call,
                 text: pharmacy.phone,
               ),
             ],
@@ -500,14 +500,14 @@ class _PharmacyCard extends StatelessWidget {
                 children: [
                   if (hasHours)
                     _InfoBadge(
-                      icon: Iconsax.clock_bold,
+                      icon: Iconsax.clock,
                       label: openingHours,
                       green: openingHours.toLowerCase() == 'aberta',
                       red: openingHours.toLowerCase() == 'fechada',
                     ),
                   if (pharmacy.isOpen24h)
                     const _InfoBadge(
-                      icon: Iconsax.tick_circle_bold,
+                      icon: Iconsax.tick_circle,
                       label: '24 horas',
                       green: true,
                     ),
@@ -520,7 +520,7 @@ class _PharmacyCard extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: onReviewsTap,
                 icon: const Icon(
-                  Iconsax.message_text_1_bold,
+                  Iconsax.message_text_1,
                   size: 16,
                 ),
                 label: Text(
@@ -677,7 +677,7 @@ class _EmptyPharmacies extends StatelessWidget {
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
                 return const Icon(
-                  Iconsax.shop_bold,
+                  Iconsax.shop,
                   size: 54,
                   color: Color(0xFF16A34A),
                 );
@@ -872,7 +872,7 @@ class _PharmacyImageState extends State<_PharmacyImage> {
         borderRadius: BorderRadius.circular(17),
       ),
       child: const Icon(
-        Iconsax.shop_bold,
+        Iconsax.shop,
         color: Color(0xFF16A34A),
         size: 32,
       ),
