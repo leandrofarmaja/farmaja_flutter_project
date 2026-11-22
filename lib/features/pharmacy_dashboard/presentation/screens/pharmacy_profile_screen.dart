@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import 'package:icons_plus/icons_plus.dart' show Iconsax;
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -252,7 +252,7 @@ class _PharmacyProfileScreenState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
-                      Iconsax.shop_bold,
+                      Iconsax.shop,
                       size: 48,
                       color: Colors.grey,
                     ),
@@ -317,7 +317,7 @@ class _PharmacyProfileScreenState
                     const Row(
                       children: [
                         Icon(
-                          Iconsax.shop_bold,
+                          Iconsax.shop,
                           color: AppColors.primary,
                           size: 25,
                         ),
@@ -347,7 +347,7 @@ class _PharmacyProfileScreenState
                       label: 'Nome da farmácia',
                       hint: 'Nome da farmácia',
                       controller: _nameController,
-                      icon: Iconsax.shop_bold,
+                      icon: Iconsax.shop,
                     ),
                     _buildField(
                       label: 'Telefone',
@@ -366,13 +366,13 @@ class _PharmacyProfileScreenState
                       label: 'Município',
                       hint: 'Município',
                       controller: _municipalityController,
-                      icon: Iconsax.location_bold,
+                      icon: Iconsax.location,
                     ),
                     _buildField(
                       label: 'Bairro',
                       hint: 'Bairro',
                       controller: _neighborhoodController,
-                      icon: Iconsax.location_bold,
+                      icon: Iconsax.location,
                     ),
                     _buildField(
                       label: 'Endereço',
