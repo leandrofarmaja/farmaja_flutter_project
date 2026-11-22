@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
-import 'package:icons_plus/icons_plus.dart' show Iconsax;
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -614,7 +614,7 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
 
           Chip(
             avatar: const Icon(
-              Iconsax.clock_bold,
+              Iconsax.clock,
               color: Colors.white,
               size: 18,
             ),
