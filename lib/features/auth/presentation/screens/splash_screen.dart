@@ -4,7 +4,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:icons_plus/icons_plus.dart' show Iconsax;
 
 import '../../../../core/constants/app_colors.dart';
 import '../providers/auth_provider.dart';
