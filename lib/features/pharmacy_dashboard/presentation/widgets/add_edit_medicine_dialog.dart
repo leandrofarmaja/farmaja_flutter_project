@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -432,7 +433,7 @@ class _AddEditMedicineDialogState
                       child: Icon(
                         isEditing
                             ? Icons.edit_note_rounded
-                            : Icons.medication_rounded,
+                            : LucideIcons.pill,
                         color: AppColors.primary,
                         size: 24,
                       ),
@@ -560,7 +561,7 @@ class _AddEditMedicineDialogState
                   maxLength: 150,
                   decoration: _inputDecoration(
                     label: 'Nome do medicamento *',
-                    icon: Icons.medication_rounded,
+                    icon: LucideIcons.pill,
                   ).copyWith(counterText: ''),
                   validator: _validateName,
                 ),
@@ -595,7 +596,7 @@ class _AddEditMedicineDialogState
                         textInputAction: TextInputAction.done,
                         decoration: _inputDecoration(
                           label: 'Quantidade em stock *',
-                          icon: Icons.inventory_2_rounded,
+                          icon: LucideIcons.pill,
                         ),
                         validator: _validateStock,
                         onFieldSubmitted: (_) {
