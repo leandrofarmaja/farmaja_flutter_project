@@ -283,14 +283,14 @@ class HomeScreen extends ConsumerWidget {
           borderRadius: BorderRadius.circular(19),
           child: SizedBox(
             width: double.infinity,
-            height: 145,
+            height: 215,
             child: Stack(
               fit: StackFit.expand,
               children: [
                 Image.asset(
                   _pharmacistImage,
                   fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
+                  alignment: const Alignment(0, -0.45),
                   errorBuilder: (_, __, ___) {
                     return Container(
                       color: const Color(0xFFEAF5ED),
@@ -307,13 +307,13 @@ class HomeScreen extends ConsumerWidget {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.white.withValues(alpha: 0.96),
-                        Colors.white.withValues(alpha: 0.65),
+                        Colors.white.withValues(alpha: 0.88),
+                        Colors.white.withValues(alpha: 0.30),
                         Colors.transparent,
                       ],
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
-                      stops: const [0, 0.58, 1],
+                      stops: const [0, 0.40, 0.70],
                     ),
                   ),
                 ),
@@ -408,6 +408,12 @@ class HomeScreen extends ConsumerWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
+            image: DecorationImage(
+              image: const AssetImage(_pharmacyImage),
+              fit: BoxFit.cover,
+              opacity: 0.22,
+              onError: (_, __) {},
+            ),
           ),
           child: Row(
             children: [
@@ -487,6 +493,17 @@ class HomeScreen extends ConsumerWidget {
                 size: 10,
                 color: _muted,
               ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              _healthImage,
+              width: 58,
+              height: 58,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
             ),
           ),
         ],
