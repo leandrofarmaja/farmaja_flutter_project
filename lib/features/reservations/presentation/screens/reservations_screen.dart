@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:ui' show FontFeature;
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,17 +14,17 @@ import '../../../reviews/presentation/widgets/rate_experience_dialog.dart';
 import '../providers/reservations_provider.dart';
 
 class ReservationsScreen extends ConsumerWidget {
-  const ReservationsScreen({super.key});
+  ReservationsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reservations = ref.watch(reservationsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FBF8),
+      backgroundColor: Color(0xFFF7FBF8),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF173B57),
+        foregroundColor: Color(0xFF173B57),
         elevation: 0,
         scrolledUnderElevation: 0,
         toolbarHeight: 76,
@@ -34,9 +35,9 @@ class ReservationsScreen extends ConsumerWidget {
           height: 52,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
-            return const Text(
+            return Text(
               'FARCLIK',
-              style: TextStyle(
+              style: GoogleFonts.plusJakartaSans(
                 color: Color(0xFF173B57),
                 fontSize: 21,
                 fontWeight: FontWeight.w900,
@@ -51,9 +52,9 @@ class ReservationsScreen extends ConsumerWidget {
             onPressed: () {
               ref.read(reservationsProvider.notifier).fetchReservations();
             },
-            icon: const Icon(Icons.refresh_rounded),
+            icon: Icon(Icons.refresh_rounded),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
         ],
       ),
       body: reservations.isEmpty
@@ -67,10 +68,10 @@ class ReservationsScreen extends ConsumerWidget {
                     .fetchReservations();
               },
               child: ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(
+                physics: AlwaysScrollableScrollPhysics(
                   parent: BouncingScrollPhysics(),
                 ),
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                padding: EdgeInsets.fromLTRB(20, 20, 20, 32),
                 itemCount: reservations.length + 1,
                 itemBuilder: (context, index) {
                   if (index == 0) {
@@ -121,13 +122,13 @@ class _ReservationsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 22),
+      padding: EdgeInsets.only(bottom: 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'As minhas reservas',
-            style: TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               color: Color(0xFF173B57),
               fontSize: 25,
               height: 1.2,
@@ -135,18 +136,18 @@ class _ReservationsHeader extends StatelessWidget {
               letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: 8),
+          Text(
             'Acompanhe o estado, o prazo e o levantamento '
             'dos seus medicamentos.',
-            style: TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               color: AppColors.textSecondaryLight,
               fontSize: 13,
               height: 1.55,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 17),
+          SizedBox(height: 17),
           Container(
             height: 4,
             width: 42,
@@ -168,16 +169,16 @@ class _EmptyReservations extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(28),
+        physics: AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
               child: _ReservationsHeader(),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Container(
               width: 112,
               height: 112,
@@ -185,7 +186,7 @@ class _EmptyReservations extends StatelessWidget {
                 color: AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(34),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.receipt_long_rounded,
                 size: 52,
                 color: AppColors.primary,
@@ -193,23 +194,23 @@ class _EmptyReservations extends StatelessWidget {
             )
                 .animate()
                 .fadeIn(duration: 500.ms)
-                .scale(begin: const Offset(0.85, 0.85)),
-            const SizedBox(height: 24),
-            const Text(
+                .scale(begin: Offset(0.85, 0.85)),
+            SizedBox(height: 24),
+            Text(
               'Ainda não possui reservas',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimaryLight,
               ),
             ),
-            const SizedBox(height: 10),
-            const Text(
+            SizedBox(height: 10),
+            Text(
               'Quando reservar medicamentos numa farmácia, '
               'poderá acompanhar aqui o estado e o prazo da sua reserva.',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 height: 1.6,
                 color: AppColors.textSecondaryLight,
@@ -349,7 +350,7 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
     }
 
     _timer = Timer.periodic(
-      const Duration(seconds: 1),
+      Duration(seconds: 1),
       (_) {
         if (!mounted) return;
 
@@ -382,7 +383,7 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
 
   Widget _buildCountdown() {
     if (!_hasValidExpiry || _isExpired || _isCompleted) {
-      return const SizedBox.shrink();
+      return SizedBox.shrink();
     }
 
     if (_deadlineReached) {
@@ -395,15 +396,15 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
     }
 
     final remaining = _remainingTime;
-    if (remaining == null) return const SizedBox.shrink();
+    if (remaining == null) return SizedBox.shrink();
 
     final isUrgent = remaining.inMinutes < 15;
     final color = isUrgent ? AppColors.danger : AppColors.warning;
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 18),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.only(top: 18),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(18),
@@ -426,7 +427,7 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
               size: 23,
             ),
           ),
-          const SizedBox(width: 13),
+          SizedBox(width: 13),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,20 +436,20 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
                   isUrgent
                       ? 'A reserva está quase a expirar'
                       : 'Tempo restante da reserva',
-                  style: TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     color: color,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 5),
+                SizedBox(height: 5),
                 Text(
                   _formatDuration(remaining),
-                  style: TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     color: color,
                     fontSize: 23,
                     fontWeight: FontWeight.w800,
-                    fontFeatures: const [
+                    fontFeatures: [
                       FontFeature.tabularFigures(),
                     ],
                   ),
@@ -476,11 +477,11 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: const Text(
+          title: Text(
             'Confirmar compra',
-            style: TextStyle(fontWeight: FontWeight.w800),
+            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
           ),
-          content: const Text(
+          content: Text(
             'Confirme apenas depois de verificar o medicamento '
             'e efectuar o pagamento presencialmente na farmácia.\n\n'
             'Já verificou o medicamento e efectuou o pagamento?',
@@ -490,13 +491,13 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
               onPressed: () {
                 Navigator.pop(dialogContext, false);
               },
-              child: const Text('Ainda não'),
+              child: Text('Ainda não'),
             ),
             FilledButton(
               onPressed: () {
                 Navigator.pop(dialogContext, true);
               },
-              child: const Text('Confirmar compra'),
+              child: Text('Confirmar compra'),
             ),
           ],
         );
@@ -519,7 +520,7 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Pagamento confirmado com sucesso.'),
           backgroundColor: AppColors.success,
         ),
@@ -552,7 +553,7 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(17),
         child: imageUrl == null || imageUrl.isEmpty
-            ? const Icon(
+            ? Icon(
                 Icons.medication_rounded,
                 size: 36,
                 color: AppColors.primary,
@@ -563,7 +564,7 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
                 height: 76,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
-                  return const Icon(
+                  return Icon(
                     Icons.medication_rounded,
                     size: 36,
                     color: AppColors.primary,
@@ -576,9 +577,9 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
 
   Widget _buildMedicineDetails() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FBF9),
+        color: Color(0xFFF8FBF9),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: AppColors.borderLight,
@@ -587,34 +588,34 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
       child: Row(
         children: [
           _buildMedicineImage(),
-          const SizedBox(width: 14),
+          SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'MEDICAMENTO',
-                  style: TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 10,
                     letterSpacing: 1.1,
                     fontWeight: FontWeight.w800,
                     color: AppColors.textSecondaryLight,
                   ),
                 ),
-                const SizedBox(height: 5),
+                SizedBox(height: 5),
                 Text(
                   reservation.medicineName,
-                  style: const TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 15,
                     height: 1.3,
                     fontWeight: FontWeight.w800,
                     color: AppColors.textPrimaryLight,
                   ),
                 ),
-                const SizedBox(height: 7),
+                SizedBox(height: 7),
                 Text(
                   '${reservation.totalPriceKz.toStringAsFixed(2)} Kz',
-                  style: const TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
                     color: AppColors.primary,
@@ -630,8 +631,8 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
 
   Widget _buildStatusBadge() {
     return Container(
-      constraints: const BoxConstraints(maxWidth: 155),
-      padding: const EdgeInsets.symmetric(
+      constraints: BoxConstraints(maxWidth: 155),
+      padding: EdgeInsets.symmetric(
         horizontal: 11,
         vertical: 8,
       ),
@@ -650,12 +651,12 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
             size: 15,
             color: _statusColor,
           ),
-          const SizedBox(width: 5),
+          SizedBox(width: 5),
           Flexible(
             child: Text(
               _statusText,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: GoogleFonts.plusJakartaSans(
                 color: _statusColor,
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
@@ -670,10 +671,10 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
   Widget _buildQrSection() {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 18),
-      padding: const EdgeInsets.all(18),
+      margin: EdgeInsets.only(top: 18),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [
             Color(0xFFF0FDF4),
             Color(0xFFEFF8FF),
@@ -688,7 +689,7 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
       ),
       child: Column(
         children: [
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
@@ -699,7 +700,7 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
               SizedBox(width: 8),
               Text(
                 'Código de levantamento',
-                style: TextStyle(
+                style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textPrimaryLight,
@@ -707,9 +708,9 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
@@ -717,7 +718,7 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
                 BoxShadow(
                   color: AppColors.primary.withValues(alpha: 0.07),
                   blurRadius: 18,
-                  offset: const Offset(0, 6),
+                  offset: Offset(0, 6),
                 ),
               ],
             ),
@@ -725,12 +726,12 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
               data: reservation.pickupCode,
             ),
           ),
-          const SizedBox(height: 12),
-          const Text(
+          SizedBox(height: 12),
+          Text(
             'Apresente este código na farmácia para validar '
             'a sua reserva.',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 12,
               height: 1.5,
               color: AppColors.textSecondaryLight,
@@ -748,8 +749,8 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
   }) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 14),
-      padding: const EdgeInsets.all(13),
+      margin: EdgeInsets.only(top: 14),
+      padding: EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(16),
@@ -757,11 +758,11 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
       child: Row(
         children: [
           Icon(icon, color: color, size: 20),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: TextStyle(
+              style: GoogleFonts.plusJakartaSans(
                 color: color,
                 fontSize: 12,
                 height: 1.45,
@@ -779,7 +780,7 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
     final canConfirmPurchase = _canConfirmPurchase;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 18),
+      margin: EdgeInsets.only(bottom: 18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
@@ -788,14 +789,14 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF173B57).withValues(alpha: 0.045),
+            color: Color(0xFF173B57).withValues(alpha: 0.045),
             blurRadius: 22,
-            offset: const Offset(0, 8),
+            offset: Offset(0, 8),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(17),
+        padding: EdgeInsets.all(17),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -808,19 +809,19 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
                     color: AppColors.secondaryLight,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.local_pharmacy_rounded,
                     color: AppColors.secondary,
                     size: 22,
                   ),
                 ),
-                const SizedBox(width: 11),
+                SizedBox(width: 11),
                 Expanded(
                   child: Text(
                     reservation.pharmacyName,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
                       height: 1.3,
                       fontWeight: FontWeight.w800,
@@ -828,11 +829,11 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 _buildStatusBadge(),
               ],
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             _buildMedicineDetails(),
             _buildCountdown(),
             if (_canShowQr) _buildQrSection(),
@@ -847,17 +848,17 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
                 icon: Icons.qr_code_scanner_rounded,
               ),
             if (canConfirmPurchase) ...[
-              const SizedBox(height: 17),
+              SizedBox(height: 17),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: _confirmPurchase,
-                  icon: const Icon(Icons.shopping_bag_outlined),
-                  label: const Text('Confirmar compra'),
+                  icon: Icon(Icons.shopping_bag_outlined),
+                  label: Text('Confirmar compra'),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -886,19 +887,19 @@ class _ReservationCardState extends ConsumerState<_ReservationCard> {
                 icon: Icons.timer_off_rounded,
               ),
             if (_canRate) ...[
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: widget.onRating,
-                  icon: const Icon(Icons.star_rate_rounded),
-                  label: const Text('Avaliar experiência'),
+                  icon: Icon(Icons.star_rate_rounded),
+                  label: Text('Avaliar experiência'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
-                    side: const BorderSide(
+                    side: BorderSide(
                       color: AppColors.primary,
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    padding: EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -934,8 +935,8 @@ class _CountdownMessage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 18),
-      padding: const EdgeInsets.all(14),
+      margin: EdgeInsets.only(top: 18),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(16),
@@ -946,11 +947,11 @@ class _CountdownMessage extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, color: color, size: 21),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: TextStyle(
+              style: GoogleFonts.plusJakartaSans(
                 color: color,
                 fontSize: 12,
                 height: 1.45,
