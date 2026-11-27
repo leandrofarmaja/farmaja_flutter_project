@@ -189,7 +189,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/reservations',
             builder: (context, state) =>
-                const ReservationsScreen(),
+                ReservationsScreen(),
           ),
           GoRoute(
             path: '/profile',
@@ -207,7 +207,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/pharmacy-dashboard',
         builder: (context, state) =>
-            const PharmacyDashboardScreen(),
+            PharmacyDashboardScreen(),
       ),
       GoRoute(
         path: '/admin/subscriptions',
