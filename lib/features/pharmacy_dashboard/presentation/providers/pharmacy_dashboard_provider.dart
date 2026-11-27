@@ -133,10 +133,28 @@ class PharmacyDashboardNotifier
     loadDashboardData();
   }
 
-  Future<void> loadDashboardData() async {
+  bool _loadingDashboard = false;
+
+  /// Carrega o painel. Ignora pedidos se já houver um carregamento em curso.
+  /// Com [silent] = true mantém o conteúdo visível (sem ecrã de carregamento).
+  Future<void> loadDashboardData({bool silent = false}) async {
+    if (!mounted || _loadingDashboard) return;
+
+    _loadingDashboard = true;
+
+    try {
+      await _loadDashboardDataInternal(silent: silent);
+    } finally {
+      _loadingDashboard = false;
+    }
+  }
+
+  Future<void> _loadDashboardDataInternal({bool silent = false}) async {
     if (!mounted) return;
 
-    state = state.copyWith(isLoading: true, error: null);
+    state = silent
+        ? state.copyWith(error: null)
+        : state.copyWith(isLoading: true, error: null);
 
     try {
       final pharmacy = await _dbService.getOwnedPharmacy();
@@ -197,10 +215,11 @@ class PharmacyDashboardNotifier
         payments = await _dbService.getAllPharmacyPayments();
       } on UnsupportedError {
         payments = [];
-      } catch (e) {
-        loadingError =
-            '${loadingError == null ? '' : '$loadingError\n'}'
-            'Não foi possível carregar os pagamentos: $e';
+      } catch (_) {
+        // A listagem global de pagamentos é reservada a administradores.
+        // Numa conta de farmácia isto não é uma falha do painel: a lista
+        // fica vazia e as restantes secções continuam disponíveis.
+        payments = [];
       }
 
       if (!mounted) return;
