@@ -656,7 +656,7 @@ class _PharmacyDashboardScreenState
               onPressed: () {
                 ref
                     .read(pharmacyDashboardProvider.notifier)
-                    .loadDashboardData();
+                    .loadDashboardData(silent: true);
               },
             ),
           ],
@@ -693,10 +693,19 @@ class _PharmacyDashboardScreenState
             ],
           ),
         ),
-        body: state.isLoading
+        // Só mostra o ecrã de carregamento total na primeira abertura.
+        // Em actualizações (refresh, validar QR, stock, notificações) o
+        // conteúdo mantém-se visível e aparece apenas uma barra de progresso.
+        body: (state.isLoading && state.pharmacyDetails == null)
             ? const Center(child: CircularProgressIndicator())
-            : _buildDashboardBody(state),
-        floatingActionButton: state.isLoading || state.isBlockedOrExpired
+            : Column(
+                children: [
+                  if (state.isLoading) const LinearProgressIndicator(minHeight: 3),
+                  Expanded(child: _buildDashboardBody(state)),
+                ],
+              ),
+        floatingActionButton: (state.isLoading && state.pharmacyDetails == null) ||
+                state.isBlockedOrExpired
             ? null
             : FloatingActionButton.extended(
                 onPressed: () => _showAddEditMedicineModal(),
