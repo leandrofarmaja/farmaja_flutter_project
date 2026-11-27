@@ -9,6 +9,7 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/farclik_type.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../medicines/domain/medicine_model.dart';
 import '../../../reservations/domain/reservation_model.dart';
@@ -46,7 +47,7 @@ extension _Cascade on Widget {
       effects: [
         FadeEffect(duration: 380.ms, curve: Curves.easeOut),
         SlideEffect(
-          begin: const Offset(0, 0.08),
+          begin: Offset(0, 0.08),
           end: Offset.zero,
           duration: 380.ms,
           curve: Curves.easeOutCubic,
@@ -58,7 +59,7 @@ extension _Cascade on Widget {
 }
 
 class PharmacyDashboardScreen extends ConsumerStatefulWidget {
-  const PharmacyDashboardScreen({super.key});
+  PharmacyDashboardScreen({super.key});
 
   @override
   ConsumerState<PharmacyDashboardScreen> createState() =>
@@ -132,20 +133,20 @@ class _PharmacyDashboardScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.logout_rounded),
-        title: const Text('Terminar sessão?'),
-        content: const Text(
+        icon: Icon(Icons.logout_rounded),
+        title: Text('Terminar sessão?'),
+        content: Text(
           'Queres sair da conta desta farmácia neste dispositivo?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+            child: Text('Cancelar'),
           ),
           FilledButton.icon(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            icon: const Icon(Icons.logout_rounded),
-            label: const Text('Terminar sessão'),
+            icon: Icon(Icons.logout_rounded),
+            label: Text('Terminar sessão'),
           ),
         ],
       ),
@@ -305,27 +306,27 @@ class _PharmacyDashboardScreenState
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        icon: const Icon(
+        icon: Icon(
           Icons.lock_rounded,
           size: 48,
           color: Colors.red,
         ),
-        title: const Text(
+        title: Text(
           'Acesso bloqueado',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold),
         ),
-        content: const Text(
+        content: Text(
           'A subscrição desta farmácia está expirada ou bloqueada. '
           'Consulta o estado da conta antes de efectuar um pagamento.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Fechar'),
+            child: Text('Fechar'),
           ),
           FilledButton.icon(
-            icon: const Icon(Icons.upload_file_rounded),
-            label: const Text('Enviar comprovativo'),
+            icon: Icon(Icons.upload_file_rounded),
+            label: Text('Enviar comprovativo'),
             onPressed: () {
               Navigator.of(dialogContext).pop();
               _showPaymentModal();
@@ -344,24 +345,24 @@ class _PharmacyDashboardScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        icon: const Icon(
+        icon: Icon(
           Icons.inventory_2_rounded,
           color: AppColors.primary,
           size: 40,
         ),
-        title: const Text('Confirmar entrega'),
-        content: const Text(
+        title: Text('Confirmar entrega'),
+        content: Text(
           'Confirma apenas se o medicamento já foi entregue fisicamente '
           'ao cliente. Esta operação concluirá a reserva.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+            child: Text('Cancelar'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Confirmar entrega'),
+            child: Text('Confirmar entrega'),
           ),
         ],
       ),
@@ -409,11 +410,11 @@ class _PharmacyDashboardScreenState
             right: -11,
             top: -7,
             child: Container(
-              constraints: const BoxConstraints(
+              constraints: BoxConstraints(
                 minWidth: 18,
                 minHeight: 18,
               ),
-              padding: const EdgeInsets.symmetric(
+              padding: EdgeInsets.symmetric(
                 horizontal: 4,
                 vertical: 2,
               ),
@@ -425,7 +426,7 @@ class _PharmacyDashboardScreenState
               alignment: Alignment.center,
               child: Text(
                 count > 99 ? '99+' : '$count',
-                style: const TextStyle(
+                style: GoogleFonts.plusJakartaSans(
                   color: Colors.white,
                   fontSize: 10,
                   fontWeight: FontWeight.w900,
@@ -440,7 +441,7 @@ class _PharmacyDashboardScreenState
   Widget _buildReservationsTabIcon(int unreadCount) {
     return _countBadge(
       unreadCount,
-      child: const Icon(Iconsax.calendar_tick),
+      child: Icon(Iconsax.calendar_tick),
     );
   }
 
@@ -448,7 +449,7 @@ class _PharmacyDashboardScreenState
   Widget _buildEmptyState(String message) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -456,13 +457,13 @@ class _PharmacyDashboardScreenState
               _kHealthIllustration,
               height: 150,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              errorBuilder: (_, __, ___) => SizedBox.shrink(),
             ).cascade(0),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
             ).cascade(1),
           ],
         ),
@@ -482,7 +483,7 @@ class _PharmacyDashboardScreenState
             Image.asset(
               _kHeroPhoto,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const DecoratedBox(
+              errorBuilder: (_, __, ___) => DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [AppColors.primaryDark, AppColors.primary],
@@ -510,7 +511,7 @@ class _PharmacyDashboardScreenState
               // para se fundir com o cabeçalho.
               child: ShaderMask(
                 blendMode: BlendMode.dstIn,
-                shaderCallback: (rect) => const LinearGradient(
+                shaderCallback: (rect) => LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [Colors.transparent, Colors.black],
@@ -520,12 +521,12 @@ class _PharmacyDashboardScreenState
                   _kProfessional,
                   fit: BoxFit.contain,
                   alignment: Alignment.bottomRight,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  errorBuilder: (_, __, ___) => SizedBox.shrink(),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(18),
+              padding: EdgeInsets.all(18),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: FractionallySizedBox(
@@ -535,33 +536,33 @@ class _PharmacyDashboardScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Iconsax.shop,
                           color: _kGreen,
                           size: 20,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       Text(
                         state.activePharmacyName ?? 'Painel da Farmácia',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: GoogleFonts.plusJakartaSans(
                           color: Colors.white,
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                           height: 1.15,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
                         'Subscrição: ${_getSubscriptionStatusBadge(state)}',
-                        style: const TextStyle(
+                        style: GoogleFonts.plusJakartaSans(
                           color: Colors.white70,
                           fontSize: 12,
                         ),
@@ -604,18 +605,15 @@ class _PharmacyDashboardScreenState
             children: [
               Text(
                 state.activePharmacyName ?? 'Painel da Farmácia',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: FarclikType.title.copyWith(fontSize: 16),
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
                 'Subscrição: ${_getSubscriptionStatusBadge(state)}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textSecondaryLight,
-                ),
+                style: FarclikType.caption.copyWith(fontSize: 11.5),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -624,18 +622,18 @@ class _PharmacyDashboardScreenState
               tooltip: 'Notificações de reservas',
               icon: _countBadge(
                 state.unreadReservationsCount,
-                child: const Icon(LucideIcons.bell),
+                child: Icon(LucideIcons.bell),
               ),
               onPressed: () => _tabController.animateTo(2),
             ),
             IconButton(
               icon: _isSigningOut
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(
+                  : Icon(
                       Icons.logout_rounded,
                       color: AppColors.primary,
                     ),
@@ -643,7 +641,7 @@ class _PharmacyDashboardScreenState
               onPressed: _isSigningOut ? null : _confirmAndSignOut,
             ),
             IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.qr_code_scanner_rounded,
                 color: AppColors.primary,
               ),
@@ -651,7 +649,7 @@ class _PharmacyDashboardScreenState
               onPressed: _showQrScannerModal,
             ),
             IconButton(
-              icon: const Icon(Icons.refresh_rounded),
+              icon: Icon(Icons.refresh_rounded),
               tooltip: 'Actualizar dados',
               onPressed: () {
                 ref
@@ -666,13 +664,22 @@ class _PharmacyDashboardScreenState
             labelColor: AppColors.primary,
             unselectedLabelColor: Colors.grey,
             indicatorColor: AppColors.primary,
-            labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+            labelStyle: GoogleFonts.plusJakartaSans(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.1,
+            ),
+            unselectedLabelStyle: GoogleFonts.plusJakartaSans(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
+            ),
             tabs: [
-              const Tab(
+              Tab(
                 icon: Icon(LucideIcons.activity),
                 text: 'Estatísticas',
               ),
-              const Tab(
+              Tab(
                 icon: Icon(LucideIcons.pill),
                 text: 'Medicamentos',
               ),
@@ -682,11 +689,11 @@ class _PharmacyDashboardScreenState
                 ),
                 text: 'Reservas',
               ),
-              const Tab(
+              Tab(
                 icon: Icon(Iconsax.document_text),
                 text: 'Receitas',
               ),
-              const Tab(
+              Tab(
                 icon: Icon(Iconsax.shop),
                 text: 'Perfil',
               ),
@@ -697,10 +704,10 @@ class _PharmacyDashboardScreenState
         // Em actualizações (refresh, validar QR, stock, notificações) o
         // conteúdo mantém-se visível e aparece apenas uma barra de progresso.
         body: (state.isLoading && state.pharmacyDetails == null)
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator())
             : Column(
                 children: [
-                  if (state.isLoading) const LinearProgressIndicator(minHeight: 3),
+                  if (state.isLoading) LinearProgressIndicator(minHeight: 3),
                   Expanded(child: _buildDashboardBody(state)),
                 ],
               ),
@@ -710,19 +717,19 @@ class _PharmacyDashboardScreenState
             : FloatingActionButton.extended(
                 onPressed: () => _showAddEditMedicineModal(),
                 backgroundColor: AppColors.primary,
-                icon: const Icon(
+                icon: Icon(
                   Icons.add_rounded,
                   color: Colors.white,
                 ),
-                label: const Text(
+                label: Text(
                   'Novo Medicamento',
-                  style: TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ).animate().fadeIn(delay: 500.ms).scale(
-                    begin: const Offset(0.85, 0.85),
+                    begin: Offset(0.85, 0.85),
                     curve: Curves.easeOutBack,
                   ),
       ),
@@ -733,35 +740,35 @@ class _PharmacyDashboardScreenState
     if (state.error != null && state.error!.trim().isNotEmpty) {
       return Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.error_outline_rounded,
                 size: 56,
                 color: Colors.red,
               ).cascade(0),
-              const SizedBox(height: 12),
-              const Text(
+              SizedBox(height: 12),
+              Text(
                 'Não foi possível carregar o painel',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: GoogleFonts.plusJakartaSans(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ).cascade(1),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(state.error!, textAlign: TextAlign.center).cascade(2),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: () {
                   ref
                       .read(pharmacyDashboardProvider.notifier)
                       .loadDashboardData();
                 },
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Tentar novamente'),
+                icon: Icon(Icons.refresh_rounded),
+                label: Text('Tentar novamente'),
               ).cascade(3),
             ],
           ),
@@ -792,7 +799,7 @@ class _PharmacyDashboardScreenState
                 _buildBlockedOverlay()
               else
                 _buildPrescriptionsTab(state),
-              const PharmacyProfileScreen(),
+              PharmacyProfileScreen(),
             ],
           ),
         ),
@@ -806,37 +813,43 @@ class _PharmacyDashboardScreenState
     if (status == 'trial') {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(
+        padding: EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 10,
         ),
         color: Colors.blue.shade50,
         child: Row(
           children: [
-            const Icon(Iconsax.clock, color: _kOrange),
-            const SizedBox(width: 10),
+            Icon(Iconsax.clock, color: _kOrange),
+            SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Período experimental: ${state.daysLeftInTrial} dias restantes',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
+                      letterSpacing: -0.1,
                       color: AppColors.primaryDark,
                     ),
                   ),
-                  const Text(
+                  Text(
                     'Confirma as condições da subscrição antes de efectuar pagamentos.',
-                    style: TextStyle(fontSize: 11),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11.5,
+                      height: 1.35,
+                      fontWeight: FontWeight.w500,
+                      color: FarclikType.muted,
+                    ),
                   ),
                 ],
               ),
             ),
             TextButton(
               onPressed: _showPaymentModal,
-              child: const Text('Renovar'),
+              child: Text('Renovar'),
             ),
           ],
         ),
@@ -846,20 +859,20 @@ class _PharmacyDashboardScreenState
     if (status == 'active') {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(
+        padding: EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 8,
         ),
         color: Colors.green.shade50,
         child: Row(
           children: [
-            const Icon(Icons.verified_rounded, color: Colors.green),
-            const SizedBox(width: 8),
+            Icon(Icons.verified_rounded, color: Colors.green),
+            SizedBox(width: 8),
             Expanded(
               child: Text(
                 'Subscrição activa • Próximo pagamento em '
                 '${state.daysUntilPaymentDue} dias',
-                style: const TextStyle(
+                style: GoogleFonts.plusJakartaSans(
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                   color: Colors.green,
@@ -868,51 +881,51 @@ class _PharmacyDashboardScreenState
             ),
             OutlinedButton(
               onPressed: _showPaymentModal,
-              child: const Text('Renovar'),
+              child: Text('Renovar'),
             ),
           ],
         ),
       ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.3, end: 0);
     }
 
-    return const SizedBox.shrink();
+    return SizedBox.shrink();
   }
 
   Widget _buildBlockedOverlay() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24),
       color: Colors.red.shade50.withValues(alpha: 0.5),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.lock_clock_rounded,
               size: 64,
               color: Colors.red,
             ).cascade(0),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: 16),
+            Text(
               'Acesso ao painel suspenso',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 color: Colors.red,
               ),
             ).cascade(1),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: 8),
+            Text(
               'O acesso à gestão está bloqueado. '
               'Contacta o administrador para confirmar o estado da conta.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.black87),
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: Colors.black87),
             ).cascade(2),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             FilledButton.icon(
-              icon: const Icon(Icons.upload_file_rounded),
-              label: const Text('Enviar comprovativo'),
+              icon: Icon(Icons.upload_file_rounded),
+              label: Text('Enviar comprovativo'),
               onPressed: _showPaymentModal,
             ).cascade(3),
           ],
@@ -997,12 +1010,12 @@ class _PharmacyDashboardScreenState
   DateTime _getStatsPeriodEnd(DateTime start) {
     switch (_selectedStatsPeriod) {
       case 'Semana':
-        return start.add(const Duration(days: 7));
+        return start.add(Duration(days: 7));
       case 'Mês':
         return DateTime(start.year, start.month + 1, 1);
       case 'Dia':
       default:
-        return start.add(const Duration(days: 1));
+        return start.add(Duration(days: 1));
     }
   }
 
@@ -1034,22 +1047,19 @@ class _PharmacyDashboardScreenState
     );
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHero(state).cascade(0),
-          const SizedBox(height: 20),
-          const Text(
+          SizedBox(height: 20),
+          Text(
             'Visão geral do desempenho',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
+            style: FarclikType.h2,
           ).cascade(1),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           SegmentedButton<String>(
-            segments: const [
+            segments: [
               ButtonSegment(value: 'Dia', label: Text('Dia')),
               ButtonSegment(value: 'Semana', label: Text('Semana')),
               ButtonSegment(value: 'Mês', label: Text('Mês')),
@@ -1059,14 +1069,14 @@ class _PharmacyDashboardScreenState
               setState(() => _selectedStatsPeriod = selection.first);
             },
           ).cascade(2),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           GridView.count(
             crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             childAspectRatio: 1.4,
             shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+            physics: NeverScrollableScrollPhysics(),
             children: [
               _buildStatCard(
                 title: 'Faturação confirmada',
@@ -1091,11 +1101,11 @@ class _PharmacyDashboardScreenState
               ).cascade(5),
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [
                   AppColors.primaryDark,
                   AppColors.primary,
@@ -1105,19 +1115,19 @@ class _PharmacyDashboardScreenState
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.qr_code_2_rounded,
                   color: Colors.white,
                   size: 40,
                 ),
-                const SizedBox(width: 12),
-                const Expanded(
+                SizedBox(width: 12),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Validar código de levantamento',
-                        style: TextStyle(
+                        style: GoogleFonts.plusJakartaSans(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
@@ -1125,7 +1135,7 @@ class _PharmacyDashboardScreenState
                       ),
                       Text(
                         'Confirma o código da reserva no levantamento.',
-                        style: TextStyle(
+                        style: GoogleFonts.plusJakartaSans(
                           color: Colors.white70,
                           fontSize: 12,
                         ),
@@ -1139,20 +1149,17 @@ class _PharmacyDashboardScreenState
                     backgroundColor: Colors.white,
                     foregroundColor: AppColors.primaryDark,
                   ),
-                  child: const Text('Validar'),
+                  child: Text('Validar'),
                 ),
               ],
             ),
           ).cascade(6),
-          const SizedBox(height: 24),
-          const Text(
+          SizedBox(height: 24),
+          Text(
             'Actividade recente',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: FarclikType.h2,
           ).cascade(7),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           if (state.reservations.isEmpty)
             SizedBox(
               width: double.infinity,
@@ -1191,7 +1198,7 @@ class _PharmacyDashboardScreenState
                   ),
                   title: Text(
                     reservation.medicineName,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold),
                   ),
                   subtitle: Text(
                     'Código: ${reservation.pickupCode} • '
@@ -1199,7 +1206,7 @@ class _PharmacyDashboardScreenState
                   ),
                   trailing: Text(
                     label,
-                    style: TextStyle(
+                    style: GoogleFonts.plusJakartaSans(
                       fontWeight: FontWeight.bold,
                       color: color,
                     ),
@@ -1220,7 +1227,7 @@ class _PharmacyDashboardScreenState
     required Color bgColor,
   }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(20),
@@ -1230,10 +1237,10 @@ class _PharmacyDashboardScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: color, size: 22),
-          const Spacer(),
+          Spacer(),
           Text(
             value,
-            style: TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 18,
               fontWeight: FontWeight.w800,
               color: color,
@@ -1241,7 +1248,7 @@ class _PharmacyDashboardScreenState
           ),
           Text(
             title,
-            style: TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 11,
               color: color.withValues(alpha: 0.8),
               fontWeight: FontWeight.w600,
@@ -1269,14 +1276,14 @@ class _PharmacyDashboardScreenState
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: TextField(
             decoration: InputDecoration(
               hintText: 'Pesquisar medicamentos no stock...',
-              prefixIcon: const Icon(LucideIcons.search),
+              prefixIcon: Icon(LucideIcons.search),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear),
+                      icon: Icon(Icons.clear),
                       onPressed: () => setState(() => _searchQuery = ''),
                     )
                   : null,
@@ -1290,22 +1297,22 @@ class _PharmacyDashboardScreenState
           child: filtered.isEmpty
               ? _buildEmptyState('Não existem medicamentos para apresentar.')
               : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 96),
                   itemCount: filtered.length,
                   itemBuilder: (context, index) {
                     final medicine = filtered[index];
 
                     return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
+                      margin: EdgeInsets.only(bottom: 12),
                       child: Padding(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(12),
                         child: Column(
                           children: [
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(10),
+                                  padding: EdgeInsets.all(10),
                                   decoration: BoxDecoration(
                                     color: Colors.blue.shade50,
                                     borderRadius: BorderRadius.circular(12),
@@ -1316,7 +1323,7 @@ class _PharmacyDashboardScreenState
                                     size: 20,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -1324,20 +1331,14 @@ class _PharmacyDashboardScreenState
                                     children: [
                                       Text(
                                         medicine.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
+                                        style: FarclikType.title,
                                       ),
+                                      SizedBox(height: 2),
                                       Text(
                                         medicine.activeIngredient,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color:
-                                              AppColors.textSecondaryLight,
-                                        ),
+                                        style: FarclikType.caption,
                                       ),
-                                      const SizedBox(height: 4),
+                                      SizedBox(height: 4),
                                       Wrap(
                                         spacing: 6,
                                         runSpacing: 4,
@@ -1359,24 +1360,23 @@ class _PharmacyDashboardScreenState
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8),
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Text(
                                       '${medicine.priceKz.toInt()} Kz',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
+                                      style: FarclikType.number.copyWith(
                                         color: AppColors.primaryDark,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
+                                    SizedBox(height: 4),
                                     Text(
                                       'Stock: ${medicine.stockQuantity}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.1,
                                         color: medicine.inStock
                                             ? AppColors.primary
                                             : Colors.red,
@@ -1386,11 +1386,11 @@ class _PharmacyDashboardScreenState
                                 ),
                               ],
                             ),
-                            const Divider(height: 20),
+                            Divider(height: 20),
                             Row(
                               children: [
                                 IconButton.outlined(
-                                  icon: const Icon(Icons.remove, size: 16),
+                                  icon: Icon(Icons.remove, size: 16),
                                   tooltip: 'Reduzir stock',
                                   onPressed: medicine.stockQuantity > 0
                                       ? () {
@@ -1413,18 +1413,18 @@ class _PharmacyDashboardScreenState
                                       : null,
                                 ),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(
+                                  padding: EdgeInsets.symmetric(
                                     horizontal: 8,
                                   ),
                                   child: Text(
                                     '${medicine.stockQuantity}',
-                                    style: const TextStyle(
+                                    style: GoogleFonts.plusJakartaSans(
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ),
                                 IconButton.outlined(
-                                  icon: const Icon(Icons.add, size: 16),
+                                  icon: Icon(Icons.add, size: 16),
                                   tooltip: 'Aumentar stock',
                                   onPressed: () {
                                     _runOperation(
@@ -1443,9 +1443,9 @@ class _PharmacyDashboardScreenState
                                     );
                                   },
                                 ),
-                                const Spacer(),
+                                Spacer(),
                                 IconButton(
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.edit_outlined,
                                     color: AppColors.primary,
                                   ),
@@ -1454,7 +1454,7 @@ class _PharmacyDashboardScreenState
                                       _showAddEditMedicineModal(medicine),
                                 ),
                                 IconButton(
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.delete_outline,
                                     color: Colors.red,
                                   ),
@@ -1481,7 +1481,7 @@ class _PharmacyDashboardScreenState
     Color foreground,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(
+      padding: EdgeInsets.symmetric(
         horizontal: 6,
         vertical: 2,
       ),
@@ -1491,7 +1491,7 @@ class _PharmacyDashboardScreenState
       ),
       child: Text(
         label,
-        style: TextStyle(
+        style: GoogleFonts.plusJakartaSans(
           fontSize: 10,
           color: foreground,
           fontWeight: FontWeight.bold,
@@ -1506,21 +1506,21 @@ class _PharmacyDashboardScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Eliminar medicamento?'),
+        title: Text('Eliminar medicamento?'),
         content: Text(
           'Confirma a eliminação de "${medicine.name}" do stock.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+            child: Text('Cancelar'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red,
             ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Eliminar'),
+            child: Text('Eliminar'),
           ),
         ],
       ),
@@ -1545,12 +1545,12 @@ class _PharmacyDashboardScreenState
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Validar código de levantamento'),
+              icon: Icon(Icons.qr_code_scanner),
+              label: Text('Validar código de levantamento'),
               onPressed: _showQrScannerModal,
             ),
           ).cascade(0),
@@ -1559,7 +1559,7 @@ class _PharmacyDashboardScreenState
           child: state.reservations.isEmpty
               ? _buildEmptyState('Ainda não existem reservas.')
               : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 96),
                   itemCount: state.reservations.length,
                   itemBuilder: (context, index) {
                     final reservation = state.reservations[index];
@@ -1593,9 +1593,9 @@ class _PharmacyDashboardScreenState
                             : Colors.amber.shade800;
 
                     return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
+                      margin: EdgeInsets.only(bottom: 12),
                       child: Padding(
-                        padding: const EdgeInsets.all(14),
+                        padding: EdgeInsets.all(14),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1604,14 +1604,14 @@ class _PharmacyDashboardScreenState
                                 Expanded(
                                   child: Text(
                                     reservation.medicineName,
-                                    style: const TextStyle(
+                                    style: GoogleFonts.plusJakartaSans(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
                                     ),
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
+                                  padding: EdgeInsets.symmetric(
                                     horizontal: 10,
                                     vertical: 5,
                                   ),
@@ -1623,7 +1623,7 @@ class _PharmacyDashboardScreenState
                                   ),
                                   child: Text(
                                     label,
-                                    style: TextStyle(
+                                    style: GoogleFonts.plusJakartaSans(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                       color: statusColor,
@@ -1632,13 +1632,13 @@ class _PharmacyDashboardScreenState
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: 8),
                             Text('Código: ${reservation.pickupCode}'),
                             Text(
                               'Preço: ${reservation.totalPriceKz.toInt()} Kz',
                             ),
-                            const SizedBox(height: 2),
-                            const Row(
+                            SizedBox(height: 2),
+                            Row(
                               children: [
                                 Icon(
                                   Iconsax.clock,
@@ -1650,18 +1650,18 @@ class _PharmacyDashboardScreenState
                               ],
                             ),
                             if (!expired) ...[
-                              const Divider(height: 20),
+                              Divider(height: 20),
                               Text(
                                 'Confirmação do cliente: '
                                 '${clientConfirmed ? "Confirmada" : "Pendente"}',
-                                style: TextStyle(
+                                style: GoogleFonts.plusJakartaSans(
                                   color: clientConfirmed
                                       ? Colors.green.shade700
                                       : Colors.orange.shade800,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              SizedBox(height: 4),
                               Row(
                                 children: [
                                   Icon(
@@ -1673,11 +1673,11 @@ class _PharmacyDashboardScreenState
                                         ? Colors.green.shade700
                                         : Colors.orange.shade800,
                                   ),
-                                  const SizedBox(width: 6),
+                                  SizedBox(width: 6),
                                   Text(
                                     'QR Code: '
                                     '${qrValidated ? "Validado" : "Pendente"}',
-                                    style: TextStyle(
+                                    style: GoogleFonts.plusJakartaSans(
                                       color: qrValidated
                                           ? Colors.green.shade700
                                           : Colors.orange.shade800,
@@ -1688,14 +1688,14 @@ class _PharmacyDashboardScreenState
                               ),
                             ],
                             if (isProcessing) ...[
-                              const SizedBox(height: 12),
-                              const LinearProgressIndicator(),
+                              SizedBox(height: 12),
+                              LinearProgressIndicator(),
                             ] else if (!completed && !expired && paid) ...[
-                              const SizedBox(height: 12),
+                              SizedBox(height: 12),
                               SizedBox(
                                 width: double.infinity,
                                 child: FilledButton.icon(
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.inventory_2_rounded,
                                   ),
                                   label: Text(
@@ -1711,12 +1711,12 @@ class _PharmacyDashboardScreenState
                                 ),
                               ),
                               if (!canConfirmDelivery) ...[
-                                const SizedBox(height: 6),
-                                const Text(
+                                SizedBox(height: 6),
+                                Text(
                                   'A entrega só pode ser confirmada depois '
                                   'da validação do QR Code e da confirmação '
                                   'do pagamento pelo cliente.',
-                                  style: TextStyle(
+                                  style: GoogleFonts.plusJakartaSans(
                                     fontSize: 11,
                                     color: Colors.grey,
                                   ),
@@ -1744,7 +1744,7 @@ class _PharmacyDashboardScreenState
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 96),
       itemCount: state.prescriptions.length,
       itemBuilder: (context, index) {
         final prescription = state.prescriptions[index];
@@ -1753,31 +1753,31 @@ class _PharmacyDashboardScreenState
         final isRejected = prescription.status == 'rejected';
 
         return Card(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: EdgeInsets.only(bottom: 12),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Iconsax.document_text,
                       color: _kGreen,
                       size: 22,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Paciente: ${prescription.userName}',
-                        style: const TextStyle(
+                        style: GoogleFonts.plusJakartaSans(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 2,
                       ),
@@ -1795,7 +1795,7 @@ class _PharmacyDashboardScreenState
                             : isRejected
                                 ? 'Rejeitada'
                                 : 'Pendente',
-                        style: TextStyle(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: isVerified
@@ -1808,29 +1808,29 @@ class _PharmacyDashboardScreenState
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text('Medicamento: ${prescription.medicineName}'),
                 Text(
                   'Data do pedido: ${prescription.createdAt}',
-                  style: const TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 11,
                     color: Colors.grey,
                   ),
                 ),
                 if (prescription.notes != null &&
                     prescription.notes!.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Text('Observações: ${prescription.notes}'),
                 ],
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerRight,
                   child: OutlinedButton.icon(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.remove_red_eye_rounded,
                       size: 16,
                     ),
-                    label: const Text('Analisar receita'),
+                    label: Text('Analisar receita'),
                     onPressed: () {
                       showDialog<void>(
                         context: context,
